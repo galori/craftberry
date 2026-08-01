@@ -1,0 +1,103 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
+		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
+		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
+		A10000000000000000000004 /* SwordSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* SwordSpec.swift */; };
+		A10000000000000000000005 /* SwordGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* SwordGeneration.swift */; };
+		A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* OpenAIResponsesClient.swift */; };
+		A10000000000000000000007 /* BinaryEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* BinaryEncoding.swift */; };
+		A10000000000000000000008 /* PNG.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* PNG.swift */; };
+		A10000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* ZipArchive.swift */; };
+		A10000000000000000000010 /* BedrockAddOnCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* BedrockAddOnCompiler.swift */; };
+		A10000000000000000000011 /* SwordSpecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* SwordSpecTests.swift */; };
+		A10000000000000000000012 /* BedrockCompilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BedrockCompilerTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* SwordSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwordSpec.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* SwordGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwordGeneration.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* OpenAIResponsesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClient.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* BinaryEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryEncoding.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* PNG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNG.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* BedrockAddOnCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockAddOnCompiler.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* SwordSpecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwordSpecTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* BedrockCompilerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockCompilerTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000000000000000000014 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		A20000000000000000000015 /* Craftberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Craftberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000016 /* CraftberryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = CraftberryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A30000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A30000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A40000000000000000000001 = {isa = PBXGroup; children = (A40000000000000000000002 /* Craftberry */, A40000000000000000000006 /* CraftberryTests */, A40000000000000000000007 /* Config */, A40000000000000000000008 /* Products */); sourceTree = "<group>"; };
+		A40000000000000000000002 /* Craftberry */ = {isa = PBXGroup; children = (A40000000000000000000003 /* App */, A40000000000000000000004 /* Domain */, A40000000000000000000005 /* Services */); path = Craftberry; sourceTree = "<group>"; };
+		A40000000000000000000003 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001, A20000000000000000000002, A20000000000000000000003, A20000000000000000000013); path = App; sourceTree = "<group>"; };
+		A40000000000000000000004 /* Domain */ = {isa = PBXGroup; children = (A20000000000000000000004); path = Core/Domain; sourceTree = "<group>"; };
+		A40000000000000000000005 /* Services */ = {isa = PBXGroup; children = (A40000000000000000000009 /* AI */, A40000000000000000000010 /* Bedrock */); path = Core/Services; sourceTree = "<group>"; };
+		A40000000000000000000006 /* CraftberryTests */ = {isa = PBXGroup; children = (A20000000000000000000011, A20000000000000000000012); path = CraftberryTests; sourceTree = "<group>"; };
+		A40000000000000000000007 /* Config */ = {isa = PBXGroup; children = (A20000000000000000000014); path = Config; sourceTree = "<group>"; };
+		A40000000000000000000008 /* Products */ = {isa = PBXGroup; children = (A20000000000000000000015, A20000000000000000000016); name = Products; sourceTree = "<group>"; };
+		A40000000000000000000009 /* AI */ = {isa = PBXGroup; children = (A20000000000000000000005, A20000000000000000000006); path = AI; sourceTree = "<group>"; };
+		A40000000000000000000010 /* Bedrock */ = {isa = PBXGroup; children = (A20000000000000000000007, A20000000000000000000008, A20000000000000000000009, A20000000000000000000010); path = Bedrock; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A50000000000000000000001 /* Craftberry */ = {isa = PBXNativeTarget; buildConfigurationList = A60000000000000000000001; buildPhases = (A30000000000000000000001, A70000000000000000000001 /* Sources */, A80000000000000000000001 /* Resources */); buildRules = (); dependencies = (); name = Craftberry; productName = Craftberry; productReference = A20000000000000000000015; productType = "com.apple.product-type.application"; };
+		A50000000000000000000002 /* CraftberryTests */ = {isa = PBXNativeTarget; buildConfigurationList = A60000000000000000000002; buildPhases = (A30000000000000000000002, A70000000000000000000002 /* Sources */, A80000000000000000000002 /* Resources */); buildRules = (); dependencies = (A90000000000000000000001); name = CraftberryTests; productName = CraftberryTests; productReference = A20000000000000000000016; productType = "com.apple.product-type.bundle.unit-test"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000001 /* Project object */ = {isa = PBXProject; attributes = { LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = { A50000000000000000000001 = { CreatedOnToolsVersion = 16.0; }; A50000000000000000000002 = { CreatedOnToolsVersion = 16.0; TestTargetID = A50000000000000000000001; }; }; }; buildConfigurationList = A60000000000000000000003; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A40000000000000000000001; productRefGroup = A40000000000000000000008; projectDirPath = ""; projectRoot = ""; targets = (A50000000000000000000001, A50000000000000000000002); };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A80000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A80000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A70000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A10000000000000000000010); runOnlyForDeploymentPostprocessing = 0; };
+		A70000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000011, A10000000000000000000012); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A90000000000000000000001 = {isa = PBXTargetDependency; target = A50000000000000000000001; targetProxy = A90000000000000000000002; };
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		A90000000000000000000002 = {isa = PBXContainerItemProxy; containerPortal = A00000000000000000000001; proxyType = 1; remoteGlobalIDString = A50000000000000000000001; remoteInfo = Craftberry; };
+/* End PBXContainerItemProxy section */
+
+/* Begin XCBuildConfiguration section */
+		A60000000000000000000004 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = A20000000000000000000014; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Debug; };
+		A60000000000000000000005 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Release; };
+		A60000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = A20000000000000000000014; buildSettings = { CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Craftberry/App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		A60000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Craftberry/App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		A60000000000000000000008 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app.tests; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Craftberry.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Craftberry"; }; name = Debug; };
+		A60000000000000000000009 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app.tests; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Craftberry.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Craftberry"; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A60000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (A60000000000000000000006, A60000000000000000000007); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A60000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (A60000000000000000000008, A60000000000000000000009); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A60000000000000000000003 = {isa = XCConfigurationList; buildConfigurations = (A60000000000000000000004, A60000000000000000000005); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}
