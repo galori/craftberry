@@ -2,18 +2,18 @@
 
 ## Summary
 
-Build a native SwiftUI iPhone app that turns one prompt into one playable Bedrock custom sword. V1 supports only: name, one of 16 sword colors, attack bonus, durability, and a standard sword recipe using one supported vanilla ingredient.
+Build a native SwiftUI iPhone app that turns one prompt into a valid Bedrock custom-sword `.mcaddon` build artifact. V1 supports only: name, one of 16 sword colors, attack bonus, durability, and a standard sword recipe using one supported vanilla ingredient.
 
 ```text
 Prompt → structured SwordSpec → local validation → local pixel-art renderer
-→ Behavior Pack + Resource Pack → two .mcpack files → .mcaddon → iOS share sheet
+→ Behavior Pack + Resource Pack → two .mcpack files → .mcaddon → durable build output → iOS export sheet
 ```
 
 The model never writes Bedrock JSON. The app’s deterministic compiler owns every Bedrock file, identifier, UUID, texture, manifest, recipe, and archive.
 
 ## Architecture and interfaces
 
-- Target iOS 17+ using SwiftUI, Observation, `URLSession`, CoreGraphics/ImageIO, XCTest, and ZIPFoundation. Avoid additional architecture frameworks and persistence for v1.
+- Target iOS 17+ using SwiftUI, Observation, `URLSession`, CoreGraphics/ImageIO, XCTest, and the small in-project ZIP writer. Avoid additional architecture frameworks and persistence for v1.
 - Organize the app into `Domain` (IR and validation), `Services/AI` (provider protocol and OpenAI client), `Services/Bedrock` (texture renderer, compiler, packager), and the Create/Result/Export feature UI.
 - Use OpenAI’s Responses API with structured JSON output, `gpt-5.6-terra`, and low reasoning effort. Keep the client behind an `LLMClient` protocol so a future backend proxy changes only that adapter. OpenAI currently positions Terra as the intelligence/cost balance. [OpenAI model guidance](https://developers.openai.com/api/docs/models)
 - Define the strict LLM contract as:
@@ -40,20 +40,20 @@ The model never writes Bedrock JSON. The app’s deterministic compiler owns eve
 ## MVP experience
 
 - Present a single polished creation screen: prompt field, example chips, Generate button, loading/error state, and a result card showing the rendered sword, color, attack bonus, durability, and recipe.
-- The result card offers Regenerate and Create Add-On. After packaging, offer “Open in Minecraft” using a `UIActivityViewController`, plus a save-to-Files fallback and clear import instructions. Apple’s share sheet is the supported system handoff for sharing file copies to another app. [Apple sharing documentation](https://developer.apple.com/documentation/uikit/collaborating-and-sharing-copies-of-your-data)
-- After import, explain that the player must enable the behavior pack in a world; Bedrock activates its linked resource pack, then the sword can be crafted or obtained with the displayed `/give` command. Bedrock’s own item guidance follows this pack-and-world activation flow. [Minecraft Item Wizard guide](https://learn.microsoft.com/en-us/minecraft/creator/documents/minecraftitemwizard?view=minecraft-bedrock-stable)
+- The result card offers Regenerate and Build .mcaddon. Completed builds are retained in the app's Documents directory, then Export .mcaddon opens a generic `UIActivityViewController` with a save-to-Files fallback. Apple’s share sheet is the supported system handoff for sharing file copies to another app. [Apple sharing documentation](https://developer.apple.com/documentation/uikit/collaborating-and-sharing-copies-of-your-data)
+- Artifact export ends the MVP's responsibility. Users can later transfer an artifact to a physical iPhone for separate Minecraft validation; the app does not require Minecraft to be installed or guide world activation.
 - Do not include a world template, accounts, history/gallery, arbitrary recipes, image generation, custom models, scripts, or Minecraft assets/logos in v1.
 
 ## Phased delivery
 
-1. Prove the device integration: scaffold the app, compile a fixed “Azure Sword,” render its texture, package it, and import it into Minecraft on a physical iPhone.
+1. Prove artifact generation: scaffold the app, compile a fixed “Azure Sword,” render its texture, package it, retain it in Documents, and export it from the simulator.
 2. Add the structured LLM request, schema decoding, validation, unsupported-request handling, and the prompt-to-preview UI.
-3. Add the export guide, graceful network/key/archive errors, accessible polish, automated tests, and real-device regression coverage.
+3. Add generic artifact export, graceful network/key/archive errors, accessible polish, automated tests, and simulator regression coverage.
 
 ## Test plan and assumptions
 
 - Unit-test IR decoding/defaults, identifier sanitization, validation rejection, pixel PNG dimensions, emitted JSON, unique UUID/dependency wiring, expected ZIP entries, and nested `.mcpack`/`.mcaddon` structure.
-- Add UI smoke tests for ready, unsupported, network-error, and packaging-error states. Maintain prompt fixtures for the supplied blue-diamond-sword example and ambiguous/unsupported requests.
-- Manually verify on a physical iPhone running the target Minecraft release: import succeeds, the pack appears in world settings, enabling the behavior pack activates resources, the sword appears or can be given, crafts from two selected ingredients plus a stick, displays its texture, damages entities, and loses durability in Survival.
+- Add UI smoke tests for ready, unsupported, network-error, and build-error states. Maintain prompt fixtures for the supplied blue-diamond-sword example and ambiguous/unsupported requests.
+- Separately verify selected artifacts on a physical iPhone running the target Minecraft release: import succeeds, the pack appears in world settings, the sword can be crafted, displays its texture, damages entities, and loses durability in Survival. This validates compiler compatibility, not an in-app handoff flow.
 - Per your choice, the first build embeds a development-only API key through an ignored Debug Xcode configuration and is for your personal device only. It must never be archived, TestFlighted, or distributed; OpenAI explicitly advises against shipping a key in a mobile client. Replace this adapter with a server-side proxy before any sharing or release. [OpenAI API key safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety)
-- iOS cannot write inside Minecraft’s sandbox or auto-enable packs in a world; sharing/importing the add-on and guiding the final in-game activation is the reliable MVP path. [Minecraft iOS installation guidance](https://learn.microsoft.com/en-us/minecraft/creator/documents/gettingstarted?view=minecraft-bedrock-stable)
+- iOS cannot write inside Minecraft’s sandbox or auto-enable packs in a world. The MVP deliberately ends with a valid, exported `.mcaddon`; Minecraft transfer and activation remain external validation steps.

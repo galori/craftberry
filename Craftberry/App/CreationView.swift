@@ -13,9 +13,9 @@ struct CreationView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Make a Minecraft sword")
+                    Text("Build a Bedrock sword")
                         .font(.largeTitle.bold())
-                    Text("Describe one colorful sword. Craftberry turns it into a Bedrock add-on you can open on this iPhone.")
+                    Text("Describe one colorful sword. Craftberry compiles it into a Bedrock .mcaddon file.")
                         .foregroundStyle(.secondary)
 
                     TextEditor(text: $viewModel.prompt)
@@ -55,14 +55,14 @@ struct CreationView: View {
         case .generating:
             ProgressView("Understanding your sword…")
                 .frame(maxWidth: .infinity, alignment: .leading)
-        case .packaging:
-            ProgressView("Packaging your add-on…")
+        case .building:
+            ProgressView("Building your .mcaddon…")
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .unsupported(let message), .failed(let message):
             messageCard(message, color: .orange)
         case .ready(let sword):
             swordCard(sword, artifact: nil)
-        case .packaged(let sword, let artifact):
+        case .built(let sword, let artifact):
             swordCard(sword, artifact: artifact)
         }
     }
@@ -92,16 +92,16 @@ struct CreationView: View {
                 Button {
                     shareItem = ShareItem(url: artifact.url)
                 } label: {
-                    Label("Open in Minecraft", systemImage: "square.and.arrow.up")
+                    Label("Export .mcaddon", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                Text("Choose Minecraft in the share sheet. Then enable the behavior pack in a world and use \(artifact.giveCommand) if needed.")
+                Text("\(artifact.fileName) is ready. Save or share this build artifact, then transfer it to a physical iPhone for Minecraft validation when you are ready.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             } else {
-                Button("Create Add-On") { viewModel.package(sword) }
+                Button("Build .mcaddon") { viewModel.buildArtifact(sword) }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
             }

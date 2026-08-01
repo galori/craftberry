@@ -11,8 +11,8 @@ final class CreationViewModel: ObservableObject {
         case generating
         case unsupported(String)
         case ready(SwordSpec)
-        case packaging(SwordSpec)
-        case packaged(SwordSpec, BedrockAddOnArtifact)
+        case building(SwordSpec)
+        case built(SwordSpec, BedrockAddOnArtifact)
         case failed(String)
     }
 
@@ -21,7 +21,7 @@ final class CreationViewModel: ObservableObject {
 
     var isBusy: Bool {
         switch state {
-        case .generating, .packaging: true
+        case .generating, .building: true
         default: false
         }
     }
@@ -59,12 +59,12 @@ final class CreationViewModel: ObservableObject {
         }
     }
 
-    func package(_ sword: SwordSpec) {
-        state = .packaging(sword)
+    func buildArtifact(_ sword: SwordSpec) {
+        state = .building(sword)
         do {
-            let directory = FileManager.default.temporaryDirectory.appending(path: "Craftberry", directoryHint: .isDirectory)
+            let directory = try artifactDirectory()
             let artifact = try compiler.compile(sword, outputDirectory: directory)
-            state = .packaged(sword, artifact)
+            state = .built(sword, artifact)
         } catch {
             state = .failed(error.localizedDescription)
         }
@@ -72,6 +72,16 @@ final class CreationViewModel: ObservableObject {
 
     func reset() {
         state = .editing
+    }
+
+    private func artifactDirectory() throws -> URL {
+        let documentsDirectory = try FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        return documentsDirectory.appending(path: "Craftberry Builds", directoryHint: .isDirectory)
     }
 }
 #endif

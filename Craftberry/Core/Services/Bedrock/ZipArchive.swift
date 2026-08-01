@@ -42,7 +42,7 @@ public enum ZipArchiveWriter {
             let localOffset = UInt32(output.count)
             let size = UInt32(entry.data.count)
 
-            output.appendLittleEndian(0x0403_4B50)
+            output.appendLittleEndian(UInt32(0x0403_4B50))
             output.appendLittleEndian(UInt16(20))
             output.appendLittleEndian(UInt16(0))
             output.appendLittleEndian(UInt16(0))
@@ -56,7 +56,7 @@ public enum ZipArchiveWriter {
             output.append(pathData)
             output.append(entry.data)
 
-            centralDirectory.appendLittleEndian(0x0201_4B50)
+            centralDirectory.appendLittleEndian(UInt32(0x0201_4B50))
             centralDirectory.appendLittleEndian(UInt16(20))
             centralDirectory.appendLittleEndian(UInt16(20))
             centralDirectory.appendLittleEndian(UInt16(0))
@@ -81,7 +81,7 @@ public enum ZipArchiveWriter {
         }
         let centralOffset = UInt32(output.count)
         output.append(centralDirectory)
-        output.appendLittleEndian(0x0605_4B50)
+        output.appendLittleEndian(UInt32(0x0605_4B50))
         output.appendLittleEndian(UInt16(0))
         output.appendLittleEndian(UInt16(0))
         output.appendLittleEndian(UInt16(entries.count))

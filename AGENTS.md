@@ -31,7 +31,7 @@ Update this section when the actual Xcode project layout is introduced or materi
 - **The LLM produces intent, not game files.** Treat the structured intermediate representation as the sole AI boundary; Swift code owns validation and every Bedrock JSON, PNG, UUID, and archive entry.
 - **Keep the Bedrock content profile explicit.** Isolate version-specific paths and schemas in the compiler, generate fresh pack identifiers, and test generated archives against the selected Minecraft release on a physical device.
 - **Packaging must be deterministic.** Archive contents, manifest dependencies, and generated identifiers should be inspectable and covered by tests. Never silently emit an invalid or partial add-on.
-- **Keep iOS handoff honest.** The app can share an `.mcaddon` to Minecraft but cannot write into Minecraft's sandbox or activate a pack in a world. Preserve clear user-facing import guidance and a Files fallback.
+- **Treat the add-on as the product.** The app builds and exports a valid `.mcaddon`; it does not write into Minecraft's sandbox, activate a pack in a world, or depend on Minecraft being installed. Keep device-transfer validation separate from artifact generation.
 - **No distributable client secrets.** A direct API key is allowed only in an ignored Debug-only local configuration for this personal POC. Replace it with a backend before TestFlight, sharing, or release.
 - **Prefer native, small dependencies.** Use SwiftUI and Apple frameworks first. Add a package only when it removes meaningful complexity and has a focused responsibility.
 - **Accessibility is a feature.** Maintain Dynamic Type, VoiceOver labels, sufficient contrast, and useful loading/error states in every user flow.
@@ -42,7 +42,7 @@ Update this section when the actual Xcode project layout is introduced or materi
 - Use XCTest as the default test framework; run focused tests while iterating and the full test target before handoff.
 - Unit-test all IR validation and defaults, identifier sanitization, manifest dependency wiring, generated JSON, texture dimensions, and both `.mcpack` and `.mcaddon` archive entries.
 - Use fixtures and fake `LLMClient` implementations for deterministic app and UI tests. Keep live API tests opt-in and never require a real key for the normal suite.
-- Test iOS share behavior on a physical device when changing export code. Test Minecraft import and in-world activation on a physical iPhone whenever the Bedrock compiler or packaging layout changes.
+- Test generic iOS share behavior on a physical device when changing export code. When the Bedrock compiler or packaging layout changes, separately validate an exported artifact in Minecraft on a physical iPhone; this is compatibility coverage, not an app handoff flow.
 - Keep generated test archives in temporary directories and clean them up after each test.
 
 ## Local Commands

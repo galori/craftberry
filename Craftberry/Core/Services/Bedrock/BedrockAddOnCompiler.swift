@@ -7,7 +7,7 @@ public struct BedrockAddOnArchive: Sendable {
 public struct BedrockAddOnArtifact: Sendable {
     public let url: URL
     public let identifier: BedrockIdentifier
-    public let giveCommand: String
+    public let fileName: String
 }
 
 public final class BedrockAddOnCompiler: Sendable {
@@ -29,11 +29,7 @@ public final class BedrockAddOnCompiler: Sendable {
         let outputURL = outputDirectory.appending(path: "\(identifier.pathComponent).mcaddon")
         let archiveData = try ZipArchiveWriter.archive(entries: archive.entries)
         try archiveData.write(to: outputURL, options: .atomic)
-        return BedrockAddOnArtifact(
-            url: outputURL,
-            identifier: identifier,
-            giveCommand: "/give @s \(identifier.rawValue)"
-        )
+        return BedrockAddOnArtifact(url: outputURL, identifier: identifier, fileName: outputURL.lastPathComponent)
     }
 
     public func buildArchive(_ specification: SwordSpec) throws -> BedrockAddOnArchive {

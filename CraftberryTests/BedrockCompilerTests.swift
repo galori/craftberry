@@ -27,7 +27,9 @@ final class BedrockCompilerTests: XCTestCase {
         let archive = try ZipArchiveReader.readEntries(at: artifact.url)
 
         XCTAssertEqual(artifact.identifier.rawValue, "craftberry:azure_sword_a1b2c3")
-        XCTAssertEqual(artifact.giveCommand, "/give @s craftberry:azure_sword_a1b2c3")
+        XCTAssertEqual(artifact.url.pathExtension, "mcaddon")
+        XCTAssertEqual(artifact.fileName, "azure_sword_a1b2c3.mcaddon")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: artifact.url.path))
         XCTAssertEqual(Set(archive.map(\.path)), Set(["azure_sword_a1b2c3_behavior.mcpack", "azure_sword_a1b2c3_resources.mcpack"]))
         XCTAssertTrue(archive.allSatisfy { $0.data.starts(with: [0x50, 0x4B, 0x03, 0x04]) })
     }
