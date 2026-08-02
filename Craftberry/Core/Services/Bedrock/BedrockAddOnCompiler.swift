@@ -98,7 +98,7 @@ public final class BedrockAddOnCompiler: Sendable {
             "minecraft:item": [
                 "description": [
                     "identifier": identifier.rawValue,
-                    "menu_category": ["category": "equipment", "group": "itemGroup.name.sword"]
+                    "menu_category": ["category": "equipment", "group": "minecraft:itemGroup.name.sword"]
                 ],
                 "components": [
                     "minecraft:display_name": ["value": localizationKey],
@@ -123,7 +123,8 @@ public final class BedrockAddOnCompiler: Sendable {
                     "M": ["item": specification.craftingIngredient.bedrockIdentifier],
                     "S": ["item": "minecraft:stick"]
                 ],
-                "result": ["item": identifier.rawValue, "count": 1]
+                "result": ["item": identifier.rawValue, "count": 1],
+                "unlock": [["item": specification.craftingIngredient.bedrockIdentifier]]
             ]
         ]
         return [

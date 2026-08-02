@@ -59,6 +59,8 @@ final class BedrockCompilerTests: XCTestCase {
         )
         let shapedRecipe = try XCTUnwrap(recipeJSON["minecraft:recipe_shaped"] as? [String: Any])
         XCTAssertEqual(shapedRecipe["pattern"] as? [String], [" M ", " M ", " S "])
+        let unlock = try XCTUnwrap(shapedRecipe["unlock"] as? [[String: String]])
+        XCTAssertEqual(unlock, [["item": "minecraft:diamond"]])
 
         let texture = try XCTUnwrap(resourcePack.first(where: { $0.path == "textures/items/azure_sword_a1b2c3.png" }))
         XCTAssertEqual(Array(texture.data.prefix(8)), [137, 80, 78, 71, 13, 10, 26, 10])
@@ -68,6 +70,7 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(itemJSON.contains("\"textures\" : {"))
         XCTAssertTrue(itemJSON.contains("\"default\" : \"azure_sword_a1b2c3\""))
         XCTAssertTrue(itemJSON.contains("\"value\" : \"item.craftberry:azure_sword_a1b2c3.name\""))
+        XCTAssertTrue(itemJSON.contains("\"group\" : \"minecraft:itemGroup.name.sword\""))
 
         let textureMap = try XCTUnwrap(resourcePack.first(where: { $0.path == "textures/item_texture.json" }))
         let textureMapJSON = try XCTUnwrap(
