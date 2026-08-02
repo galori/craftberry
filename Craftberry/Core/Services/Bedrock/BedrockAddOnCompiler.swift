@@ -166,6 +166,7 @@ public final class BedrockAddOnCompiler: Sendable {
             ZipArchiveEntry(path: "manifest.json", data: try json(manifest)),
             ZipArchiveEntry(path: "textures/item_texture.json", data: try json(textureMap)),
             ZipArchiveEntry(path: "textures/items/\(identifier.pathComponent).png", data: SwordTextureRenderer.render(specification)),
+            ZipArchiveEntry(path: "texts/languages.json", data: try json(["en_US"])),
             ZipArchiveEntry(
                 path: "texts/en_US.lang",
                 data: Data("item.\(identifier.rawValue).name=\(specification.displayName)\n".utf8)

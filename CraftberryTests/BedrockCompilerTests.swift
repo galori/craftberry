@@ -85,5 +85,9 @@ final class BedrockCompilerTests: XCTestCase {
             String(decoding: localization.data, as: UTF8.self),
             "item.craftberry:azure_sword_a1b2c3.name=Azure Sword\n"
         )
+
+        let languages = try XCTUnwrap(resourcePack.first(where: { $0.path == "texts/languages.json" }))
+        let languagesJSON = try XCTUnwrap(try JSONSerialization.jsonObject(with: languages.data) as? [String])
+        XCTAssertEqual(languagesJSON, ["en_US"])
     }
 }
