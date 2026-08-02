@@ -1,0 +1,4 @@
+// Real key lives in the untracked Config/Secrets.xcconfig (see Secrets.example.xcconfig).
+// No fallback assignment here: a later plain assignment in this file would override
+// the included value, so the key is simply unset when Secrets.xcconfig is absent.
+#include? "Secrets.xcconfig"

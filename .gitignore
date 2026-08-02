@@ -8,4 +8,3 @@ xcuserdata/
 Config/Secrets.xcconfig
 *.mcaddon
 *.mcpack
-Config/Debug.xcconfig
