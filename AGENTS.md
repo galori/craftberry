@@ -9,6 +9,7 @@
 - Keep ordinary validation local and side-effect-free. Builds and tests may write ignored derived data or temporary files, but must not modify Minecraft, iOS device data, Xcode user settings, or external services unless the task explicitly requires it.
 - Preserve unrelated or pre-existing worktree changes.
 - For this temporary POC workflow, commit and push each cohesive change directly to `main` after its full validation suite passes. Replace this rule with the branch-and-PR flow before the project is shared beyond this local development workflow.
+- In the final handoff for every completed increment, give three concrete prompt examples that exercise newly added capabilities, so the user knows what to test manually. State any required local setup (such as a Debug API key) and clearly separate device acceptance that remains pending.
 
 ### Pull request flow
 
