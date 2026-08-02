@@ -215,7 +215,11 @@ struct CreationView: View {
                     StatTile(value: "\(summary.durability)", label: "Durability", color: .craftberryGold)
                 }
 
-                CraftingRecipePreview(ingredient: summary.ingredient)
+                if summary.isMaterialSet {
+                    MaterialSetRecipePreview(ingredient: summary.ingredient, sourceCount: summary.sourceCount, ingotName: summary.ingotName, swordName: summary.swordName)
+                } else {
+                    CraftingRecipePreview(ingredient: summary.ingredient)
+                }
 
                 if let result {
                     Button {
@@ -359,22 +363,51 @@ private struct ProjectSummary {
     let durability: Int
     let ingredient: IngredientSummary
     let collectionDescription: String
+    let isMaterialSet: Bool
+    let sourceCount: Int
+    let ingotName: String
+    let swordName: String
 
     init?(project: AddOnProject) {
-        guard let item = project.items.first,
+        guard let item = project.items.first(where: { $0.traits.combat != nil }),
               let visualResource = project.visualResources.first(where: { $0.id == item.visualResourceID }),
               let attackBonus = item.traits.combat?.attackBonus,
-              let durability = item.traits.durability?.maximum,
-              let ingredientReference = project.recipes.first?.ingredients["M"] else {
+              let durability = item.traits.durability?.maximum else {
             return nil
         }
         self.visualResource = visualResource
         self.attackBonus = attackBonus
         self.durability = durability
-        ingredient = IngredientSummary(reference: ingredientReference)
+        let materialRecipe = project.shapelessRecipes.first
+        ingredient = IngredientSummary(reference: materialRecipe?.ingredients.first ?? project.recipes.first?.ingredients["M"] ?? .vanilla("minecraft:diamond"))
         let itemLabel = project.items.count == 1 ? "item" : "items"
         let recipeLabel = project.recipes.count == 1 ? "recipe" : "recipes"
         collectionDescription = "\(project.items.count) \(itemLabel) · \(project.recipes.count) \(recipeLabel)"
+        isMaterialSet = materialRecipe != nil
+        sourceCount = materialRecipe?.ingredients.count ?? 2
+        ingotName = project.items.first(where: { $0.id != item.id })?.displayName ?? "Material"
+        swordName = item.displayName
+    }
+}
+
+private struct MaterialSetRecipePreview: View {
+    let ingredient: IngredientSummary
+    let sourceCount: Int
+    let ingotName: String
+    let swordName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Crafting recipes").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+            Label("\(sourceCount) \(ingredient.displayName) → \(ingotName) (crafting table)", systemImage: "square.grid.2x2")
+            Label("2 \(ingotName) + 1 Stick → \(swordName)", systemImage: "hammer.fill")
+        }
+        .font(.footnote)
+        .foregroundStyle(Color.craftberryMuted)
+        .padding(14)
+        .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Material collection recipes: \(sourceCount) \(ingredient.displayName) craft one \(ingotName), then two \(ingotName) and one stick craft \(swordName)")
     }
 }
 

@@ -62,20 +62,18 @@ public struct OpenAIResponsesClient: LLMClient {
 
         switch intent.outcome {
         case .unsupported:
-            guard intent.sword == nil else { throw LLMClientError.invalidResponse }
+            guard intent.sword == nil, intent.materialSwordSet == nil else { throw LLMClientError.invalidResponse }
             return ProjectGeneration(outcome: .unsupported, message: intent.message, project: nil)
         case .ready:
-            guard let sword = intent.sword else { throw LLMClientError.invalidResponse }
-            let project = try AddOnProject.sword(
-                displayName: sword.displayName,
-                color: sword.color,
-                attackBonus: sword.attackBonus,
-                durability: sword.durability,
-                craftingIngredient: sword.craftingIngredient.bedrockIdentifier,
-                originalPrompt: prompt,
-                identity: identityGenerator(),
-                profile: .current
-            )
+            let identity = identityGenerator()
+            let project: AddOnProject
+            switch (intent.sword, intent.materialSwordSet) {
+            case let (.some(sword), nil):
+                project = try AddOnProject.sword(displayName: sword.displayName, color: sword.color, attackBonus: sword.attackBonus, durability: sword.durability, craftingIngredient: sword.craftingIngredient.bedrockIdentifier, originalPrompt: prompt, identity: identity, profile: .current)
+            case let (nil, .some(material)):
+                project = try AddOnProject.materialSwordSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, swordDisplayName: material.swordDisplayName, attackBonus: material.attackBonus, durability: material.durability, originalPrompt: prompt, identity: identity, profile: .current)
+            default: throw LLMClientError.invalidResponse
+            }
             let report = AddOnProjectValidator.validate(project, profile: .current)
             guard report.isSuccessful else {
                 throw ProjectIntentValidationError(issues: report.errors)
@@ -98,6 +96,17 @@ private struct ProjectIntentGeneration: Decodable {
     let outcome: ProjectGenerationOutcome
     let message: String
     let sword: SwordIntent?
+    let materialSwordSet: MaterialSwordSetIntent?
+}
+
+private struct MaterialSwordSetIntent: Decodable {
+    let materialName: String
+    let color: PixelArtColor
+    let sourceItem: FoundationSwordIngredient
+    let sourceCount: Int
+    let swordDisplayName: String?
+    let attackBonus: Int
+    let durability: Int
 }
 
 private struct SwordIntent: Decodable {
@@ -180,17 +189,15 @@ private struct OpenAIRequestDocument: Encodable {
     }
 
     private static let instructions = """
-    Convert the user's request into exactly one Craftberry custom sword intent.
-    Craftberry currently supports only a colored sword, an attack bonus from 1 through 30, durability from 50 through 2000, and a standard crafting-table recipe with exactly two of one supported material plus a stick.
-    If a requested detail is omitted, use blue, attack bonus 10, durability 500, and diamond. Never output Bedrock JSON, identifiers, UUIDs, filenames, code, markdown, or fields outside the schema.
-    If the request needs unsupported artifact types, effects, custom recipes, custom models, multiple artifacts, or unsupported ingredients, set outcome to unsupported, set sword to null, and state a short supported prompt the user can try.
-    If outcome is ready, make message a short friendly summary and populate every sword field.
+    Convert the request into exactly one supported Craftberry intent: either a single custom sword or one named material ingot plus its matching sword.
+    A material set makes a shapeless ingot from 1 through 9 copies of one supported vanilla material, then a sword from two ingots and a stick. Defaults are Azure, blue, diamond x4, attack 10, durability 500, names "Azure Ingot" and "Azure Sword". Never output Bedrock JSON, identifiers, UUIDs, filenames, code, markdown, or fields outside the schema.
+    If unsupported, set both intents to null. If ready, populate exactly one intent.
     """
 
     private static let schema: JSONValue = .object([
         "type": .string("object"),
         "additionalProperties": .bool(false),
-        "required": .array(["schemaVersion", "outcome", "message", "sword"].map(JSONValue.string)),
+        "required": .array(["schemaVersion", "outcome", "message", "sword", "materialSwordSet"].map(JSONValue.string)),
         "properties": .object([
             "schemaVersion": .object(["type": .string("integer"), "const": .integer(1)]),
             "outcome": .object([
@@ -238,7 +245,19 @@ private struct OpenAIRequestDocument: Encodable {
                         ])
                     ])
                 ])
-            ])
+            ]),
+            "materialSwordSet": .object(["anyOf": .array([
+                .object(["type": .string("null")]),
+                .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["materialName", "color", "sourceItem", "sourceCount", "swordDisplayName", "attackBonus", "durability"].map(JSONValue.string)), "properties": .object([
+                    "materialName": .object(["type": .string("string"), "minLength": .integer(1), "maxLength": .integer(24)]),
+                    "color": .object(["type": .string("string"), "enum": .array(PixelArtColor.allCases.map { .string($0.rawValue) })]),
+                    "sourceItem": .object(["type": .string("string"), "enum": .array(FoundationSwordIngredient.allCases.map { .string($0.rawValue) })]),
+                    "sourceCount": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(9)]),
+                    "swordDisplayName": .object(["anyOf": .array([.object(["type": .string("null")]), .object(["type": .string("string"), "minLength": .integer(1), "maxLength": .integer(32)])])]),
+                    "attackBonus": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(30)]),
+                    "durability": .object(["type": .string("integer"), "minimum": .integer(50), "maximum": .integer(2_000)])
+                ])])
+            ])])
         ])
     ])
 }

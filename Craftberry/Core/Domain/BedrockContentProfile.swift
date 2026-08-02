@@ -68,19 +68,11 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         itemFormatVersion: "1.21.100",
         recipeFormatVersion: "1.20.10",
         supportedItemTraits: [.combat, .durability, .handEquipped],
-        vanillaItemIdentifiers: [
-            "minecraft:amethyst_shard",
-            "minecraft:blaze_rod",
-            "minecraft:diamond",
-            "minecraft:emerald",
-            "minecraft:gold_ingot",
-            "minecraft:iron_ingot",
-            "minecraft:lapis_lazuli",
-            "minecraft:netherite_ingot",
-            "minecraft:quartz",
-            "minecraft:redstone",
-            "minecraft:stick"
-        ],
+        vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
         vanillaItemTags: []
     )
+
+    public var materialSourceIdentifiers: Set<String> {
+        vanillaItemIdentifiers.intersection(GeneratedVanillaItemCatalog.materialSources)
+    }
 }

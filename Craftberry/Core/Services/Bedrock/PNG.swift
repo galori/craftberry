@@ -42,10 +42,13 @@ enum SwordPalette {
 
 public enum PixelArtTextureRenderer {
     public static func render(_ resource: VisualResource, pixelScale: Int = 1) -> Data {
-        render(color: resource.color, pixelScale: pixelScale)
+        switch resource.kind {
+        case .swordPixelArt: renderSword(color: resource.color, pixelScale: pixelScale)
+        case .ingotPixelArt: renderIngot(color: resource.color, pixelScale: pixelScale)
+        }
     }
 
-    private static func render(color: PixelArtColor, pixelScale: Int) -> Data {
+    private static func renderSword(color: PixelArtColor, pixelScale: Int) -> Data {
         let scale = max(1, pixelScale)
         let side = 32 * scale
         var pixels = Array(repeating: RGBA.transparent, count: side * side)
@@ -75,6 +78,20 @@ public enum PixelArtTextureRenderer {
         fill(15, 25, 1, 3, .hiltHighlight)
         fill(14, 28, 4, 1, .outline)
 
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderIngot(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(7, 11, 18, 10, .outline); fill(9, 9, 14, 2, .outline); fill(9, 21, 14, 2, .outline)
+        fill(9, 11, 14, 8, palette.main); fill(11, 10, 10, 2, palette.highlight); fill(11, 19, 10, 2, palette.shadow)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 }

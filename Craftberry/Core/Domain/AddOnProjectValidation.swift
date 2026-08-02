@@ -38,7 +38,7 @@ public struct CompilationReport: Codable, Equatable, Sendable {
 public enum AddOnProjectValidator {
     public static func validate(_ project: AddOnProject, profile: BedrockContentProfile) -> CompilationReport {
         var issues: [CompilationIssue] = []
-        if project.schemaVersion != 1 {
+        if project.schemaVersion != 1 && project.schemaVersion != 2 {
             issues.append(
                 CompilationIssue(
                     severity: .error,
@@ -77,7 +77,7 @@ public enum AddOnProjectValidator {
             to: &issues
         )
         appendDuplicateIssues(
-            values: project.recipes.map(\.id),
+            values: project.allRecipeIDs,
             code: "duplicate_recipe_id",
             path: "content.recipes",
             noun: "recipe",
@@ -254,7 +254,18 @@ public enum AddOnProjectValidator {
                 )
             }
         }
-        if hasRecipeDependencyCycle(project.recipes) {
+        for recipe in project.shapelessRecipes {
+            let recipePath = "content.recipes.\(recipe.id.rawValue)"
+            if !(1...9).contains(recipe.ingredients.count) {
+                issues.append(CompilationIssue(severity: .error, code: "shapeless_recipe_ingredient_count", path: "\(recipePath).ingredients", message: "Shapeless recipes require one through nine ingredients."))
+            }
+            validateRecipeResult(recipe.result, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
+            validateUnlock(recipe.unlock, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
+            for (index, reference) in recipe.ingredients.enumerated() {
+                validate(reference, path: "\(recipePath).ingredients.\(index)", itemIDs: itemIDs, profile: profile, issues: &issues)
+            }
+        }
+        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes) {
             issues.append(
                 CompilationIssue(
                     severity: .error,
@@ -267,11 +278,18 @@ public enum AddOnProjectValidator {
         return CompilationReport(profileID: profile.id, issues: issues)
     }
 
-    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition]) -> Bool {
+    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition]) -> Bool {
         var dependencies: [ContentID: Set<ContentID>] = [:]
         for recipe in recipes {
             guard case .generated(let resultID) = recipe.result.item else { continue }
             let generatedIngredients = recipe.ingredients.values.reduce(into: Set<ContentID>()) { ids, reference in
+                if case .generated(let id) = reference { ids.insert(id) }
+            }
+            dependencies[resultID, default: []].formUnion(generatedIngredients)
+        }
+        for recipe in shapelessRecipes {
+            guard case .generated(let resultID) = recipe.result.item else { continue }
+            let generatedIngredients = recipe.ingredients.reduce(into: Set<ContentID>()) { ids, reference in
                 if case .generated(let id) = reference { ids.insert(id) }
             }
             dependencies[resultID, default: []].formUnion(generatedIngredients)
@@ -293,6 +311,18 @@ public enum AddOnProjectValidator {
         }
 
         return dependencies.keys.sorted { $0.rawValue < $1.rawValue }.contains(where: visit)
+    }
+
+    private static func validateRecipeResult(_ result: RecipeResult, recipePath: String, itemIDs: Set<ContentID>, profile: BedrockContentProfile, issues: inout [CompilationIssue]) {
+        if !(1...64).contains(result.count) {
+            issues.append(CompilationIssue(severity: .error, code: "recipe_result_count", path: "\(recipePath).result.count", message: "Recipe result counts must be between 1 and 64."))
+        }
+        validate(result.item, path: "\(recipePath).result", itemIDs: itemIDs, profile: profile, issues: &issues)
+    }
+
+    private static func validateUnlock(_ unlock: [ContentReference], recipePath: String, itemIDs: Set<ContentID>, profile: BedrockContentProfile, issues: inout [CompilationIssue]) {
+        if unlock.isEmpty { issues.append(CompilationIssue(severity: .error, code: "recipe_unlock_required", path: "\(recipePath).unlock", message: "Recipes in this profile require at least one unlock condition.")) }
+        for (index, reference) in unlock.enumerated() { validate(reference, path: "\(recipePath).unlock.\(index)", itemIDs: itemIDs, profile: profile, issues: &issues) }
     }
 
     private static func validate(
@@ -383,6 +413,7 @@ public enum AddOnProjectValidator {
         let values: [(path: String, id: ContentID)] =
             project.items.map { ("content.items.\($0.id.rawValue).id", $0.id) }
             + project.recipes.map { ("content.recipes.\($0.id.rawValue).id", $0.id) }
+            + project.shapelessRecipes.map { ("content.recipes.\($0.id.rawValue).id", $0.id) }
             + project.visualResources.map { ("content.visualResources.\($0.id.rawValue).id", $0.id) }
         for value in values where !isValidIdentifierSegment(value.id.rawValue) {
             issues.append(

@@ -27,6 +27,7 @@
 		A10000000000000000000018 /* AddOnProjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* AddOnProjectTests.swift */; };
 		A10000000000000000000019 /* OpenAIResponsesClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* OpenAIResponsesClientTests.swift */; };
 		A10000000000000000000020 /* CreationViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* CreationViewModelTests.swift */; };
+		A10000000000000000000021 /* GeneratedVanillaItemCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* GeneratedVanillaItemCatalog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +65,7 @@
 		A20000000000000000000022 /* AddOnProjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnProjectTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* OpenAIResponsesClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClientTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000024 /* CreationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModelTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000025 /* GeneratedVanillaItemCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedVanillaItemCatalog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +125,7 @@
 				A20000000000000000000018 /* AddOnProject.swift */,
 				A20000000000000000000019 /* BedrockContentProfile.swift */,
 				A20000000000000000000020 /* AddOnProjectValidation.swift */,
+				A20000000000000000000025 /* GeneratedVanillaItemCatalog.swift */,
 			);
 			path = Core/Domain;
 			sourceTree = "<group>";
@@ -298,6 +301,7 @@
 				A10000000000000000000015 /* BedrockContentProfile.swift in Sources */,
 				A10000000000000000000016 /* AddOnProjectValidation.swift in Sources */,
 				A10000000000000000000017 /* BedrockDocuments.swift in Sources */,
+				A10000000000000000000021 /* GeneratedVanillaItemCatalog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

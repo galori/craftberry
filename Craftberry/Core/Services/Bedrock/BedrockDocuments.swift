@@ -145,6 +145,24 @@ struct ShapedRecipeDocument: Encodable {
     }
 }
 
+struct ShapelessRecipeDocument: Encodable {
+    let formatVersion: String
+    let recipe: Recipe
+
+    struct Recipe: Encodable {
+        let description: ShapedRecipeDocument.Description
+        let tags: [String]
+        let ingredients: [ShapedRecipeDocument.Ingredient]
+        let result: ShapedRecipeDocument.Result
+        let unlock: [ShapedRecipeDocument.Ingredient]
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case recipe = "minecraft:recipe_shapeless"
+    }
+}
+
 struct ItemTextureDocument: Encodable {
     let resourcePackName: String
     let textureData: [String: Texture]

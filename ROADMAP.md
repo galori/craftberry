@@ -58,7 +58,8 @@ It validates the complete graph before filesystem writes, emits typed `Encodable
 ## Incremental delivery
 
 1. **Foundation and sword parity.** Introduce the semantic project, stable identity, typed references/documents, profile resources, compilation reports and sidecars; port the sword; add fake-client state tests. Code is implemented. Physical-device acceptance remains pending.
-2. **General items and stable recipes.** Add coordinated materials, tools, weapons, armor, wearables, food, fuel, repair/enchantment traits, throwable/projectile items, records, placers, and every stable recipe form in the profile.
+2. **Material sword set (Phase 2A).** A named ingot plus matching sword, typed shapeless and shaped recipes, two original sprites, a pinned ten-input vanilla catalog, and schema-v2 sidecars are implemented. Device acceptance remains pending; see `PHASE2_MATERIAL_SWORD_SET.md`.
+3. **General items and stable recipes.** Add coordinated tools, weapons, armor, wearables, food, fuel, repair/enchantment traits, throwable/projectile items, records, placers, and every stable recipe form in the profile.
 3. **Materials, blocks, crops, and ores.** Add blocks, states/permutations, placement and geometry, light/mining behavior, drops, terrain textures, features, and bounded whole-family archetypes.
 4. **Entities and gameplay content.** Add passive, hostile, tameable, rideable, projectile, and boss-like templates with behavior/resource wiring, spawning, loot, particles, sounds, then dialogue and trades.
 5. **Structures, biomes, and world generation.** Add typed blueprints and deterministic `.mcstructure` output, jigsaws, features/rules, biome additions, and cooperative composition.

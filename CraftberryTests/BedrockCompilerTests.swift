@@ -7,6 +7,21 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsMaterialSetShapelessAndShapedRecipes() throws {
+        let project = try AddOnProject.materialSwordSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "set", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let shapeless = try XCTUnwrap(behavior.first { $0.path == "recipes/azure_a1b2c3_ingot_recipe.json" })
+        let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: shapeless.data) as? [String: Any])
+        let recipe = try XCTUnwrap(object["minecraft:recipe_shapeless"] as? [String: Any])
+        XCTAssertEqual((recipe["ingredients"] as? [[String: String]])?.count, 4)
+        XCTAssertEqual((recipe["result"] as? [String: Any])?["item"] as? String, "craftberry:azure_a1b2c3_ingot")
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_ingot.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_sword.json" })
+    }
     func testCompilerPersistsProjectSidecarBesideVersionedBuild() throws {
         let project = try makeProject()
         let outputDirectory = FileManager.default.temporaryDirectory
@@ -234,6 +249,10 @@ final class BedrockCompilerTests: XCTestCase {
             ),
             profile: .current
         )
+    }
+
+    private func makeIdentity() -> AddOnProjectIdentity {
+        AddOnProjectIdentity(projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!, namespace: "craftberry", contentSuffix: "a1b2c3", packUUIDs: PackUUIDs(behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!, behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!, resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!, resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!))
     }
 
     private func pack(named name: String, in archive: [ZipArchiveEntry]) throws -> [ZipArchiveEntry] {

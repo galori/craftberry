@@ -15,8 +15,9 @@ The profile currently carries the format versions and the small vanilla item cat
 | Family | Semantic IR | Compiler/assets | Schema/sample evidence | Automated | Device | Status |
 |---|---|---|---|---|---|---|
 | Single melee sword | Supported | Typed item, shaped recipe, texture, localization, manifests, packs | Exact assertions derived from current working Bedrock forms; Mojang commit pinned | Yes | Pending | Foundation code complete |
-| Multi-item collections, tools, armor, food, wearables | Planned | Planned | Required per emitted shape | Planned | Pending | Phase 2 |
-| Shapeless, furnace, brewing, smithing transform/trim | Planned | Planned | Required per recipe type/station/unlock | Planned | Pending | Phase 2 |
+| Material ingot + matching sword collection | Supported | Typed items, shaped/shapeless recipes, sprites, localization, packs | Pinned fire-charge recipe and diamond-spear item forms | Yes | Pending | Phase 2A code complete |
+| Multi-item collections, tools, armor, food, wearables | Planned | Planned | Required per emitted shape | Planned | Pending | Later Phase 2 |
+| Shapeless, furnace, brewing, smithing transform/trim | Shapeless supported for material ingots | Furnace/brewing/smithing planned | Fire-charge evidence for shapeless only | Yes for shapeless | Pending | Phase 2A |
 | Blocks, ores, crops, material families | Planned | Planned | Required per archetype | Planned | Pending | Phase 3 |
 | Entities, projectiles, spawning, loot, trades | Planned | Planned | Required per archetype | Planned | Pending | Phase 4 |
 | Structures, biomes, features, world generation | Planned | Planned | Required per archetype | Planned | Pending | Phase 5 |

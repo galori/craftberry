@@ -130,6 +130,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
 
 public enum ItemMenuCategory: String, Codable, Sendable {
     case equipment
+    case items
 }
 
 public struct ItemDefinition: Codable, Equatable, Sendable {
@@ -192,8 +193,25 @@ public struct ShapedRecipeDefinition: Codable, Equatable, Sendable {
     }
 }
 
+public struct ShapelessRecipeDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let tags: [String]
+    public let ingredients: [ContentReference]
+    public let result: RecipeResult
+    public let unlock: [ContentReference]
+
+    public init(id: ContentID, tags: [String], ingredients: [ContentReference], result: RecipeResult, unlock: [ContentReference]) {
+        self.id = id
+        self.tags = tags
+        self.ingredients = ingredients
+        self.result = result
+        self.unlock = unlock
+    }
+}
+
 public enum VisualResourceKind: String, Codable, Sendable {
     case swordPixelArt
+    case ingotPixelArt
 }
 
 public struct VisualResource: Codable, Equatable, Sendable {
@@ -211,16 +229,18 @@ public struct VisualResource: Codable, Equatable, Sendable {
 public enum AddOnContentNode: Codable, Equatable, Sendable {
     case item(ItemDefinition)
     case shapedRecipe(ShapedRecipeDefinition)
+    case shapelessRecipe(ShapelessRecipeDefinition)
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, shapedRecipe, visualResource }
+    private enum Kind: String, Codable { case item, shapedRecipe, shapelessRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         switch try values.decode(Kind.self, forKey: .type) {
         case .item: self = .item(try values.decode(ItemDefinition.self, forKey: .value))
         case .shapedRecipe: self = .shapedRecipe(try values.decode(ShapedRecipeDefinition.self, forKey: .value))
+        case .shapelessRecipe: self = .shapelessRecipe(try values.decode(ShapelessRecipeDefinition.self, forKey: .value))
         case .visualResource: self = .visualResource(try values.decode(VisualResource.self, forKey: .value))
         }
     }
@@ -233,6 +253,9 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
             try values.encode(item, forKey: .value)
         case .shapedRecipe(let recipe):
             try values.encode(Kind.shapedRecipe, forKey: .type)
+            try values.encode(recipe, forKey: .value)
+        case .shapelessRecipe(let recipe):
+            try values.encode(Kind.shapelessRecipe, forKey: .type)
             try values.encode(recipe, forKey: .value)
         case .visualResource(let resource):
             try values.encode(Kind.visualResource, forKey: .type)
@@ -253,7 +276,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     public let content: [AddOnContentNode]
 
     public init(
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 2,
         id: UUID,
         namespace: String,
         displayName: String,
@@ -282,8 +305,20 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         content.compactMap { if case .shapedRecipe(let recipe) = $0 { recipe } else { nil } }
     }
 
+    public var shapelessRecipes: [ShapelessRecipeDefinition] {
+        content.compactMap { if case .shapelessRecipe(let recipe) = $0 { recipe } else { nil } }
+    }
+
+    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) }
+
     public var visualResources: [VisualResource] {
         content.compactMap { if case .visualResource(let resource) = $0 { resource } else { nil } }
+    }
+
+    public func migratedToCurrentSchema() throws -> AddOnProject {
+        guard schemaVersion <= 2 else { throw AddOnProjectError.unsupportedProjectSchema(schemaVersion) }
+        guard schemaVersion != 2 else { return self }
+        return AddOnProject(schemaVersion: 2, id: id, namespace: namespace, displayName: displayName, packUUIDs: packUUIDs, buildVersion: buildVersion, targetProfileID: targetProfileID, originalPrompt: originalPrompt, content: content)
     }
 
     public static func sword(
@@ -343,13 +378,46 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             content: [.item(item), .shapedRecipe(recipe), .visualResource(visual)]
         )
     }
+
+    public static func materialSwordSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        swordDisplayName: String? = nil,
+        attackBonus: Int = 10,
+        durability: Int = 500,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (1...30).contains(attackBonus) else { throw AddOnProjectError.invalidAttackBonus }
+        guard (50...2_000).contains(durability) else { throw AddOnProjectError.invalidDurability }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let swordID = ContentID("\(stem)_sword")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let sword = ItemDefinition(id: swordID, displayName: swordDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let swordRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_sword_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(swordID), count: 1), unlock: [.generated(ingotID)])
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(sword), .shapelessRecipe(ingotRecipe), .shapedRecipe(swordRecipe), .visualResource(VisualResource(id: ingotID, kind: .ingotPixelArt, color: color)), .visualResource(VisualResource(id: swordID, kind: .swordPixelArt, color: color))])
+    }
 }
+
+private extension String { var nonEmpty: String? { isEmpty ? nil : self } }
 
 public enum AddOnProjectError: LocalizedError, Equatable {
     case emptyDisplayName
     case displayNameTooLong
     case invalidAttackBonus
     case invalidDurability
+    case invalidIngredientCount
+    case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
     public var errorDescription: String? {
@@ -358,6 +426,8 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .displayNameTooLong: "Item names must be 32 characters or fewer."
         case .invalidAttackBonus: "Attack bonus must be between 1 and 30."
         case .invalidDurability: "Durability must be between 50 and 2,000."
+        case .invalidIngredientCount: "Material recipes need between 1 and 9 source items."
+        case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."
         }

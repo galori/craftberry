@@ -7,6 +7,39 @@ import XCTest
 #endif
 
 final class AddOnProjectTests: XCTestCase {
+    func testMaterialSwordSetCreatesDerivedItemsAndRecipes() throws {
+        let project = try AddOnProject.materialSwordSet(
+            materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4,
+            originalPrompt: "Azure diamond material set", identity: testIdentity()
+        )
+
+        XCTAssertEqual(project.schemaVersion, 2)
+        XCTAssertEqual(project.items.map(\.id), [ContentID("azure_a1b2c3_ingot"), ContentID("azure_a1b2c3_sword")])
+        XCTAssertEqual(project.items.first?.displayName, "Azure Ingot")
+        XCTAssertEqual(project.items.first?.traits, ItemTraits())
+        XCTAssertEqual(project.shapelessRecipes.first?.ingredients, Array(repeating: .vanilla("minecraft:diamond"), count: 4))
+        XCTAssertEqual(project.recipes.first?.pattern, [" I ", " I ", " S "])
+        XCTAssertEqual(project.recipes.first?.ingredients["I"], .generated(ContentID("azure_a1b2c3_ingot")))
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
+    func testMaterialSetRejectsInvalidShapelessIngredientCount() throws {
+        let project = try AddOnProject.materialSwordSet(originalPrompt: "set", identity: testIdentity())
+        let recipe = try XCTUnwrap(project.shapelessRecipes.first)
+        let invalid = ShapelessRecipeDefinition(id: recipe.id, tags: recipe.tags, ingredients: [], result: recipe.result, unlock: recipe.unlock)
+        let invalidProject = AddOnProject(schemaVersion: project.schemaVersion, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content.map { if case .shapelessRecipe = $0 { return .shapelessRecipe(invalid) }; return $0 })
+        XCTAssertEqual(AddOnProjectValidator.validate(invalidProject, profile: .current).errors.map(\.code), ["shapeless_recipe_ingredient_count"])
+    }
+
+    func testV1ProjectMigratesWithoutChangingIdentity() throws {
+        let project = try makeSwordProject()
+        let v1 = AddOnProject(schemaVersion: 1, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content)
+        let migrated = try v1.migratedToCurrentSchema()
+        XCTAssertEqual(migrated.schemaVersion, 2)
+        XCTAssertEqual(migrated.id, v1.id)
+        XCTAssertEqual(migrated.packUUIDs, v1.packUUIDs)
+        XCTAssertEqual(migrated.content, v1.content)
+    }
     func testSwordArchetypeRejectsInvalidSemanticTraits() {
         XCTAssertThrowsError(
             try AddOnProject.sword(
@@ -428,7 +461,7 @@ final class AddOnProjectTests: XCTestCase {
             vanillaItemTags: BedrockContentProfile.current.vanillaItemTags
         )
         let invalidProject = AddOnProject(
-            schemaVersion: 2,
+            schemaVersion: 3,
             id: project.id,
             namespace: project.namespace,
             displayName: project.displayName,
@@ -468,6 +501,10 @@ final class AddOnProjectTests: XCTestCase {
             ),
             profile: .current
         )
+    }
+
+    private func testIdentity() -> AddOnProjectIdentity {
+        AddOnProjectIdentity(projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!, namespace: "craftberry", contentSuffix: "a1b2c3", packUUIDs: PackUUIDs(behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!, behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!, resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!, resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!))
     }
 
     private func replacingRecipe(

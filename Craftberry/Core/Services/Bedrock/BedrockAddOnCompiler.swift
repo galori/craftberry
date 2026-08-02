@@ -43,6 +43,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         profile: BedrockContentProfile,
         outputDirectory: URL
     ) throws -> BedrockCompilationResult {
+        let project = try project.migratedToCurrentSchema()
         let validationReport = AddOnProjectValidator.validate(project, profile: profile)
         guard validationReport.isSuccessful else {
             throw BedrockCompilationError.invalidProject(validationReport)
@@ -229,6 +230,17 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 )
             )
         }
+        for recipe in project.shapelessRecipes.sorted(by: shapelessRecipeOrder) {
+            let resultIdentifier = try resultIdentifier(for: recipe.result.item, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).result")
+            let ingredients = try recipe.ingredients.enumerated().map { index, reference in
+                try ingredient(for: reference, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).ingredients.\(index)")
+            }
+            let unlock = try recipe.unlock.enumerated().map { index, reference in
+                try ingredient(for: reference, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).unlock.\(index)")
+            }
+            let document = ShapelessRecipeDocument(formatVersion: profile.recipeFormatVersion, recipe: .init(description: .init(identifier: identifier(for: recipe.id, namespace: project.namespace)), tags: recipe.tags, ingredients: ingredients, result: .init(item: resultIdentifier, count: recipe.result.count), unlock: unlock))
+            entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+        }
         entries.append(
             ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
         )
@@ -398,6 +410,10 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
     }
 
     private func recipeOrder(_ lhs: ShapedRecipeDefinition, _ rhs: ShapedRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func shapelessRecipeOrder(_ lhs: ShapelessRecipeDefinition, _ rhs: ShapelessRecipeDefinition) -> Bool {
         lhs.id.rawValue < rhs.id.rawValue
     }
 }

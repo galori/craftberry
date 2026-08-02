@@ -7,6 +7,25 @@ import XCTest
 #endif
 
 final class OpenAIResponsesClientTests: XCTestCase {
+    func testClientAssemblesMaterialSwordSetFromStructuredIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","sword":null,"materialSwordSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"swordDisplayName":null,"attackBonus":10,"durability":500}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let identity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { identity })
+
+        let generation = try await client.generateProject(from: "An Azure ingot from four diamonds and a sword")
+
+        XCTAssertEqual(generation.project?.items.map(\.displayName), ["Azure Ingot", "Azure Sword"])
+        XCTAssertEqual(generation.project?.shapelessRecipes.first?.ingredients.count, 4)
+    }
     func testClientAssemblesAStableProjectFromStructuredIntent() async throws {
         let identity = AddOnProjectIdentity(
             projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!,
@@ -110,6 +129,10 @@ final class OpenAIResponsesClientTests: XCTestCase {
                 "content": [["type": "output_text", "text": structuredText]]
             ]]
         ])
+    }
+
+    private func identity() -> AddOnProjectIdentity {
+        AddOnProjectIdentity(projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!, namespace: "craftberry", contentSuffix: "a1b2c3", packUUIDs: PackUUIDs(behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!, behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!, resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!, resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!))
     }
 }
 
