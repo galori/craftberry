@@ -125,11 +125,7 @@ struct CreationView: View {
     private func progressState(title: String, detail: String, steps: [String]) -> some View {
         VStack(spacing: 0) {
             Spacer()
-            ZStack {
-                Circle().stroke(Color.craftberrySurface, lineWidth: 3).frame(width: 148, height: 148)
-                Circle().trim(from: 0.05, to: 0.67).stroke(Color.craftberryOrange, style: .init(lineWidth: 3, lineCap: .round)).frame(width: 148, height: 148).rotationEffect(.degrees(-90))
-                CraftberryMark(size: 82)
-            }
+            CraftingProgressIndicator()
             Text(title)
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
@@ -140,17 +136,7 @@ struct CreationView: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, 9)
 
-            VStack(alignment: .leading, spacing: 18) {
-                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                    HStack(spacing: 12) {
-                        Image(systemName: index == steps.count - 1 ? "circle" : "checkmark.circle.fill")
-                            .foregroundStyle(index == steps.count - 1 ? Color.craftberryOrange : Color.craftberryGold)
-                        Text(step)
-                            .font(.subheadline.weight(index == steps.count - 1 ? .bold : .regular))
-                            .foregroundStyle(index == steps.count - 1 ? .white : Color.craftberryMuted)
-                    }
-                }
-            }
+            AnimatedProgressSteps(steps: steps)
             .padding(.top, 38)
             .padding(.horizontal, 44)
             Spacer()
@@ -404,9 +390,7 @@ private struct CraftingRecipePreview: View {
             .frame(width: 44, height: 44)
             .overlay {
                 if isMaterial {
-                    Image(systemName: "diamond.fill")
-                        .font(.title3)
-                        .foregroundStyle(ingredient.color)
+                    IngredientGlyph(ingredient: ingredient)
                 } else if isStick {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color.craftberryStick)
@@ -414,6 +398,130 @@ private struct CraftingRecipePreview: View {
                         .rotationEffect(.degrees(38))
                 }
             }
+    }
+}
+
+private struct IngredientGlyph: View {
+    let ingredient: CraftingIngredient
+
+    var body: some View {
+        switch ingredient {
+        case .blazeRod:
+            Capsule()
+                .fill(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
+                .frame(width: 11, height: 29)
+                .rotationEffect(.degrees(38))
+        case .redstone:
+            Image(systemName: "sparkles")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.red)
+        case .quartz:
+            Image(systemName: "triangle.fill")
+                .font(.title3)
+                .foregroundStyle(.white)
+                .rotationEffect(.degrees(180))
+        case .amethystShard:
+            Image(systemName: "triangle.fill")
+                .font(.title3)
+                .foregroundStyle(.purple)
+                .rotationEffect(.degrees(180))
+        case .ironIngot, .goldIngot, .netheriteIngot:
+            RoundedRectangle(cornerRadius: 3)
+                .fill(ingredient.color)
+                .frame(width: 25, height: 13)
+                .rotationEffect(.degrees(-8))
+        case .lapisLazuli:
+            Circle()
+                .fill(.blue)
+                .frame(width: 20, height: 20)
+        case .emerald:
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.green)
+                .frame(width: 20, height: 20)
+                .rotationEffect(.degrees(45))
+        case .diamond:
+            Image(systemName: "diamond.fill")
+                .font(.title3)
+                .foregroundStyle(Color.craftberryBlue)
+        }
+    }
+}
+
+private struct CraftingProgressIndicator: View {
+    @State private var isSpinning = false
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.craftberrySurface, lineWidth: 3).frame(width: 148, height: 148)
+            Circle()
+                .trim(from: 0.05, to: 0.67)
+                .stroke(Color.craftberryOrange, style: .init(lineWidth: 3, lineCap: .round))
+                .frame(width: 148, height: 148)
+                .rotationEffect(.degrees(isSpinning ? 360 : 0))
+            CraftberryMark(size: 82)
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.25).repeatForever(autoreverses: false)) {
+                isSpinning = true
+            }
+        }
+        .accessibilityLabel("Generation in progress")
+    }
+}
+
+private struct AnimatedProgressSteps: View {
+    let steps: [String]
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1.05)) { timeline in
+            let activeIndex = Int(timeline.date.timeIntervalSinceReferenceDate / 1.05) % steps.count
+
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(spacing: 12) {
+                        StepMarker(state: markerState(index: index, activeIndex: activeIndex))
+                        Text(step)
+                            .font(.subheadline.weight(index == activeIndex ? .bold : .regular))
+                            .foregroundStyle(index == activeIndex ? .white : Color.craftberryMuted)
+                    }
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: activeIndex)
+        }
+    }
+
+    private func markerState(index: Int, activeIndex: Int) -> StepMarker.State {
+        if index < activeIndex { return .complete }
+        if index == activeIndex { return .active }
+        return .upcoming
+    }
+}
+
+private struct StepMarker: View {
+    enum State { case complete, active, upcoming }
+    let state: State
+
+    var body: some View {
+        Group {
+            switch state {
+            case .complete:
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.craftberryBackground)
+                    .frame(width: 22, height: 22)
+                    .background(Color.craftberryGold, in: Circle())
+            case .active:
+                Circle()
+                    .stroke(Color.craftberryOrange, lineWidth: 2)
+                    .frame(width: 22, height: 22)
+                    .overlay(Circle().fill(Color.craftberryOrange).frame(width: 8, height: 8))
+            case .upcoming:
+                Circle()
+                    .stroke(Color.craftberrySurface, lineWidth: 2)
+                    .frame(width: 22, height: 22)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

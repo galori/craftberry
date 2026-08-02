@@ -66,8 +66,19 @@ final class BedrockCompilerTests: XCTestCase {
 
         let itemJSON = String(decoding: item.data, as: UTF8.self)
         XCTAssertTrue(itemJSON.contains("\"textures\" : {"))
-        XCTAssertTrue(itemJSON.contains("\"default\" : \"craftberry:azure_sword_a1b2c3\""))
+        XCTAssertTrue(itemJSON.contains("\"default\" : \"azure_sword_a1b2c3\""))
         XCTAssertTrue(itemJSON.contains("\"value\" : \"item.craftberry:azure_sword_a1b2c3.name\""))
+
+        let textureMap = try XCTUnwrap(resourcePack.first(where: { $0.path == "textures/item_texture.json" }))
+        let textureMapJSON = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: textureMap.data) as? [String: Any]
+        )
+        let textureData = try XCTUnwrap(textureMapJSON["texture_data"] as? [String: Any])
+        XCTAssertEqual(
+            (textureData["azure_sword_a1b2c3"] as? [String: String])?["textures"],
+            "textures/items/azure_sword_a1b2c3"
+        )
+        XCTAssertNil(textureData["craftberry:azure_sword_a1b2c3"])
 
         let localization = try XCTUnwrap(resourcePack.first(where: { $0.path == "texts/en_US.lang" }))
         XCTAssertEqual(

@@ -102,7 +102,7 @@ public final class BedrockAddOnCompiler: Sendable {
                 ],
                 "components": [
                     "minecraft:display_name": ["value": localizationKey],
-                    "minecraft:icon": ["textures": ["default": identifier.rawValue]],
+                    "minecraft:icon": ["textures": ["default": identifier.pathComponent]],
                     "minecraft:max_stack_size": 1,
                     "minecraft:hand_equipped": true,
                     "minecraft:damage": ["value": specification.attackBonus],
@@ -159,7 +159,7 @@ public final class BedrockAddOnCompiler: Sendable {
         let textureMap: [String: Any] = [
             "resource_pack_name": "\(specification.displayName) Resources",
             "texture_data": [
-                identifier.rawValue: ["textures": "textures/items/\(identifier.pathComponent)"]
+                identifier.pathComponent: ["textures": "textures/items/\(identifier.pathComponent)"]
             ]
         ]
         return [
