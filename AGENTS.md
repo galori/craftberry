@@ -37,6 +37,27 @@ Update this section when the actual Xcode project layout is introduced or materi
 - **Accessibility is a feature.** Maintain Dynamic Type, VoiceOver labels, sufficient contrast, and useful loading/error states in every user flow.
 - **No unlicensed Minecraft assets.** Use original generated pixel art and plain compatibility text; do not copy Mojang logos, textures, or UI assets.
 
+## Bedrock JSON Validity
+
+Bedrock's actual engine validation is stricter than the official docs, stricter than most third-party guides, and it changes across releases (e.g. recipe `unlock` requirements arrived in 1.20.30). A real custom-sword bug (blank icon, nothing shown in hand, recipe wouldn't complete) survived a hand-rolled PNG encoder audit, a ZIP archive audit, and three rounds of guessing at `minecraft:icon` JSON shape — all before the actual cause was found. It turned out to be two unrelated, engine-enforced rules that no amount of re-reading our own JSON would have surfaced:
+
+- `minecraft:item.description.menu_category.group` must be namespace-prefixed (`"minecraft:itemGroup.name.sword"`, not `"itemGroup.name.sword"`). A parse failure here silently drops other components too — it surfaced as an unrelated "missing icon" error even though the icon JSON itself was already correct. One bad field can cascade into misleading errors elsewhere in the same file.
+- `minecraft:recipe_shaped` (and other recipe types) require an `unlock` array as of 1.20.30+. Without it the whole recipe is silently rejected, not just hidden from the recipe book.
+
+### Validating new JSON as features grow
+
+- Don't trust memory, docs pages, or article summaries for exact Bedrock schema requirements — cross-check new fields against real files in [Mojang/bedrock-samples](https://github.com/Mojang/bedrock-samples) (`behavior_pack/items`, `behavior_pack/recipes`, `resource_pack/textures/item_texture.json`, etc.) before writing the Swift that emits them. That repo reflects what the current engine actually accepts; a doc page can lag behind it.
+- Every new component or JSON shape the compiler emits needs a concrete assertion in `BedrockCompilerTests` pinned to the same value/structure a working vanilla or previously device-verified file uses — not just "is this valid JSON."
+- When adding a new addon kind (not just a new sword variant), diff its emitted files against the closest vanilla equivalent before calling it done — new item/block/entity kinds pull in new components, each with their own hidden validation rules.
+
+### Troubleshooting checklist when generated content "looks right" but fails in-game
+
+1. Turn on the Content Log first (Settings → Creator → Content Log) — before importing anything, not after something's already suspected broken. It reports the exact file, field path, and reason for every parse failure on load.
+2. Build the test artifact with a brand-new display name each time (the compiler already generates a random suffix and fresh UUIDs per build). This keeps it unambiguous which pack you're looking at in-game and avoids ever needing to hunt for how to delete a previously imported pack from the device.
+3. Import the artifact, activate both packs for the world, load in, and read the Content Log literally — treat its reported file/field path as ground truth over any theory formed from re-reading the emitted JSON alone.
+4. Independently rule out the encoding layer before chasing schema theories: confirm the PNG decodes (`sips`, Preview, or PIL) and the ZIP extracts (`unzip`) cleanly. That separates "the file is corrupt" from "the schema is wrong" and avoids re-guessing JSON key names blind.
+5. A raw/untranslated tooltip key (`item.namespace:name.name` shown instead of a real display name) specifically points at a resource-pack loading/parsing failure (`item_texture.json`, `texts/languages.json`, or the `.lang` file) — not just a missing translation entry.
+
 ## Testing
 
 - Use XCTest as the default test framework; run focused tests while iterating and the full test target before handoff.
