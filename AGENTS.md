@@ -8,7 +8,7 @@
 - Run the smallest relevant checks while iterating, then run the full unit-test suite before considering a cohesive change complete.
 - Keep ordinary validation local and side-effect-free. Builds and tests may write ignored derived data or temporary files, but must not modify Minecraft, iOS device data, Xcode user settings, or external services unless the task explicitly requires it.
 - Preserve unrelated or pre-existing worktree changes.
-- Make branch, PR, commit, push, or merge changes only when the user has asked for them. Never commit directly to `main`.
+- For this temporary POC workflow, commit and push each cohesive change directly to `main` after its full validation suite passes. Replace this rule with the branch-and-PR flow before the project is shared beyond this local development workflow.
 
 ### Pull request flow
 

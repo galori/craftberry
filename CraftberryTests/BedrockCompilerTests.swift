@@ -53,10 +53,26 @@ final class BedrockCompilerTests: XCTestCase {
         let item = try XCTUnwrap(behaviorPack.first(where: { $0.path == "items/azure_sword_a1b2c3.json" }))
         XCTAssertTrue(String(decoding: item.data, as: UTF8.self).contains("minecraft:damage"))
         XCTAssertTrue(String(decoding: item.data, as: UTF8.self).contains("\"value\" : 20"))
-        XCTAssertNotNil(behaviorPack.first(where: { $0.path == "recipes/azure_sword_a1b2c3.json" }))
+        let recipe = try XCTUnwrap(behaviorPack.first(where: { $0.path == "recipes/azure_sword_a1b2c3.json" }))
+        let recipeJSON = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: recipe.data) as? [String: Any]
+        )
+        let shapedRecipe = try XCTUnwrap(recipeJSON["minecraft:recipe_shaped"] as? [String: Any])
+        XCTAssertEqual(shapedRecipe["pattern"] as? [String], [" M ", " M ", " S "])
 
         let texture = try XCTUnwrap(resourcePack.first(where: { $0.path == "textures/items/azure_sword_a1b2c3.png" }))
         XCTAssertEqual(Array(texture.data.prefix(8)), [137, 80, 78, 71, 13, 10, 26, 10])
         XCTAssertEqual(PNGInspector.dimensions(of: texture.data), .init(width: 32, height: 32))
+
+        let itemJSON = String(decoding: item.data, as: UTF8.self)
+        XCTAssertTrue(itemJSON.contains("\"textures\" : {"))
+        XCTAssertTrue(itemJSON.contains("\"default\" : \"craftberry:azure_sword_a1b2c3\""))
+        XCTAssertTrue(itemJSON.contains("\"value\" : \"item.craftberry:azure_sword_a1b2c3.name\""))
+
+        let localization = try XCTUnwrap(resourcePack.first(where: { $0.path == "texts/en_US.lang" }))
+        XCTAssertEqual(
+            String(decoding: localization.data, as: UTF8.self),
+            "item.craftberry:azure_sword_a1b2c3.name=Azure Sword\n"
+        )
     }
 }

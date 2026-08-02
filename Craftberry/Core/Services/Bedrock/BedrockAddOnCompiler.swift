@@ -73,6 +73,7 @@ public final class BedrockAddOnCompiler: Sendable {
         resourceHeaderUUID: String
     ) throws -> [ZipArchiveEntry] {
         let version: [Int] = [1, 0, 0]
+        let localizationKey = "item.\(identifier.rawValue).name"
         let manifest: [String: Any] = [
             "format_version": 2,
             "header": [
@@ -100,8 +101,8 @@ public final class BedrockAddOnCompiler: Sendable {
                     "menu_category": ["category": "equipment", "group": "itemGroup.name.sword"]
                 ],
                 "components": [
-                    "minecraft:display_name": ["value": specification.displayName],
-                    "minecraft:icon": ["texture": identifier.rawValue],
+                    "minecraft:display_name": ["value": localizationKey],
+                    "minecraft:icon": ["textures": ["default": identifier.rawValue]],
                     "minecraft:max_stack_size": 1,
                     "minecraft:hand_equipped": true,
                     "minecraft:damage": ["value": specification.attackBonus],
@@ -165,6 +166,10 @@ public final class BedrockAddOnCompiler: Sendable {
             ZipArchiveEntry(path: "manifest.json", data: try json(manifest)),
             ZipArchiveEntry(path: "textures/item_texture.json", data: try json(textureMap)),
             ZipArchiveEntry(path: "textures/items/\(identifier.pathComponent).png", data: SwordTextureRenderer.render(specification)),
+            ZipArchiveEntry(
+                path: "texts/en_US.lang",
+                data: Data("item.\(identifier.rawValue).name=\(specification.displayName)\n".utf8)
+            ),
             ZipArchiveEntry(path: "pack_icon.png", data: SwordTextureRenderer.render(specification, pixelScale: 4))
         ]
     }
