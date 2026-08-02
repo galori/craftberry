@@ -2,6 +2,7 @@
 .build/
 .swiftpm/
 DerivedData/
+design-compare-reports/
 *.xcuserstate
 xcuserdata/
 Config/Secrets.xcconfig

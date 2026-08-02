@@ -11,126 +11,400 @@ struct CreationView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Build a Bedrock sword")
-                        .font(.largeTitle.bold())
-                    Text("Describe one colorful sword. Craftberry compiles it into a Bedrock .mcaddon file.")
-                        .foregroundStyle(.secondary)
+            ZStack {
+                Color.craftberryBackground.ignoresSafeArea()
 
-                    TextEditor(text: $viewModel.prompt)
-                        .frame(minHeight: 120)
-                        .padding(12)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 16))
-                        .accessibilityLabel("Sword description")
-
-                    Button {
-                        Task { await viewModel.generate() }
-                    } label: {
-                        Label("Generate sword", systemImage: "wand.and.stars")
-                            .frame(maxWidth: .infinity)
+                VStack(spacing: 0) {
+                    appHeader
+                    content
+                    if isEditing {
+                        composer
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(viewModel.isBusy)
-
-                    result
                 }
-                .padding()
             }
-            .navigationTitle("Craftberry")
+            .toolbar(.hidden, for: .navigationBar)
         }
+        .preferredColorScheme(.dark)
         .sheet(item: $shareItem) { item in
             ActivitySheet(url: item.url)
         }
     }
 
+    private var appHeader: some View {
+        HStack {
+            Circle()
+                .fill(Color.craftberrySurface)
+                .frame(width: 34, height: 34)
+                .overlay(Image(systemName: "cube.transparent").foregroundStyle(Color.craftberryMuted))
+                .accessibilityHidden(true)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                CraftberryMark(size: 24)
+                Text("Craftberry")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(Color.craftberrySurface)
+                .frame(width: 34, height: 34)
+                .overlay(Image(systemName: "person.fill").font(.caption).foregroundStyle(Color.craftberryMuted))
+                .accessibilityLabel("Profile")
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+    }
+
     @ViewBuilder
-    private var result: some View {
+    private var content: some View {
         switch viewModel.state {
         case .editing:
-            Label("Try: “Create a blue sword with +20 attack bonus crafted from diamonds.”", systemImage: "lightbulb")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            welcome
         case .generating:
-            ProgressView("Understanding your sword…")
-                .frame(maxWidth: .infinity, alignment: .leading)
+            progressState(
+                title: "Crafting your sword…",
+                detail: "Turning your idea into a Bedrock-ready design.",
+                steps: ["Reading your idea", "Balancing sword stats", "Planning the recipe"]
+            )
         case .building:
-            ProgressView("Building your .mcaddon…")
-                .frame(maxWidth: .infinity, alignment: .leading)
+            progressState(
+                title: "Building your add-on…",
+                detail: "Rendering pixel art and packaging your .mcaddon.",
+                steps: ["Rendering the sword", "Writing Bedrock files", "Packaging the build"]
+            )
         case .unsupported(let message), .failed(let message):
-            messageCard(message, color: .orange)
+            messageState(message)
         case .ready(let sword):
-            swordCard(sword, artifact: nil)
+            resultCard(sword, artifact: nil)
         case .built(let sword, let artifact):
-            swordCard(sword, artifact: artifact)
+            resultCard(sword, artifact: artifact)
         }
     }
 
-    private func swordCard(_ sword: SwordSpec, artifact: BedrockAddOnArtifact?) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 16) {
-                if let image = UIImage(data: SwordTextureRenderer.render(sword)) {
-                    Image(uiImage: image)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 96, height: 96)
-                        .accessibilityHidden(true)
+    private var welcome: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            CraftberryMark(size: 64)
+                .shadow(color: Color.craftberryOrange.opacity(0.42), radius: 22, y: 10)
+            Text("What should we\ncraft tonight?")
+                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white)
+                .padding(.top, 22)
+            Text("Describe a custom sword in your own words")
+                .font(.subheadline)
+                .foregroundStyle(Color.craftberryMuted)
+                .padding(.top, 8)
+
+            VStack(spacing: 10) {
+                PromptSuggestion("🗡️  A blue sword, 20 damage, crafted from diamonds") {
+                    viewModel.prompt = "A blue sword, 20 damage, crafted from diamonds"
                 }
-                VStack(alignment: .leading) {
-                    Text(sword.displayName).font(.title2.bold())
-                    Text("\(sword.color.rawValue.capitalized) sword")
-                        .foregroundStyle(.secondary)
+                PromptSuggestion("✨  A purple sword named Starfall, crafted from amethyst") {
+                    viewModel.prompt = "A purple sword named Starfall, crafted from amethyst"
+                }
+                PromptSuggestion("🔥  A red sword with 12 damage, crafted from blaze rods") {
+                    viewModel.prompt = "A red sword with 12 damage, crafted from blaze rods"
                 }
             }
-            LabeledContent("Attack bonus", value: "+\(sword.attackBonus)")
-            LabeledContent("Durability", value: "\(sword.durability)")
-            LabeledContent("Recipe", value: "2 \(sword.craftingIngredient.displayName) + 1 Stick")
-
-            if let artifact {
-                Button {
-                    shareItem = ShareItem(url: artifact.url)
-                } label: {
-                    Label("Export .mcaddon", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                Text("\(artifact.fileName) is ready. Save or share this build artifact, then transfer it to a physical iPhone for Minecraft validation when you are ready.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            } else {
-                Button("Build .mcaddon") { viewModel.buildArtifact(sword) }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-            }
-
-            Button("Start over") { viewModel.reset() }
-                .frame(maxWidth: .infinity)
+            .padding(.top, 28)
+            .padding(.horizontal, 22)
+            Spacer()
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 
-    private func messageCard(_ message: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var isEditing: Bool {
+        if case .editing = viewModel.state { return true }
+        return false
+    }
+
+    private func progressState(title: String, detail: String, steps: [String]) -> some View {
+        VStack(spacing: 0) {
+            Spacer()
+            ZStack {
+                Circle().stroke(Color.craftberrySurface, lineWidth: 3).frame(width: 148, height: 148)
+                Circle().trim(from: 0.05, to: 0.67).stroke(Color.craftberryOrange, style: .init(lineWidth: 3, lineCap: .round)).frame(width: 148, height: 148).rotationEffect(.degrees(-90))
+                CraftberryMark(size: 82)
+            }
+            Text(title)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .padding(.top, 38)
+            Text(detail)
+                .font(.subheadline)
+                .foregroundStyle(Color.craftberryMuted)
+                .multilineTextAlignment(.center)
+                .padding(.top, 9)
+
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(spacing: 12) {
+                        Image(systemName: index == steps.count - 1 ? "circle" : "checkmark.circle.fill")
+                            .foregroundStyle(index == steps.count - 1 ? Color.craftberryOrange : Color.craftberryGold)
+                        Text(step)
+                            .font(.subheadline.weight(index == steps.count - 1 ? .bold : .regular))
+                            .foregroundStyle(index == steps.count - 1 ? .white : Color.craftberryMuted)
+                    }
+                }
+            }
+            .padding(.top, 38)
+            .padding(.horizontal, 44)
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func messageState(_ message: String) -> some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(Color.craftberryOrange)
+            Text("Let’s try another idea")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
             Text(message)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.craftberryMuted)
+                .padding(.horizontal, 28)
             Button("Try again") { viewModel.reset() }
+                .buttonStyle(CraftberrySecondaryButtonStyle())
+                .padding(.horizontal, 36)
+            Spacer()
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
     }
+
+    private func resultCard(_ sword: SwordSpec, artifact: BedrockAddOnArtifact?) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack {
+                    Button { viewModel.reset() } label: {
+                        Image(systemName: "xmark")
+                            .font(.subheadline.weight(.bold))
+                            .frame(width: 34, height: 34)
+                            .background(Color.craftberrySurface, in: Circle())
+                    }
+                    .accessibilityLabel("Start over")
+                    Spacer()
+                    Text(artifact == nil ? "READY TO BUILD" : "BUILD COMPLETE")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(Color.craftberryMuted)
+                    Spacer()
+                    Image(systemName: artifact == nil ? "hammer.fill" : "checkmark")
+                        .frame(width: 34, height: 34)
+                        .background(Color.craftberrySurface, in: Circle())
+                        .foregroundStyle(Color.craftberryGold)
+                }
+
+                hero(sword)
+
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(sword.displayName)
+                            .font(.system(size: 26, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text(artifact == nil ? "Custom weapon · ready to package" : artifact!.fileName)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.craftberryMuted)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Text("NEW")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.craftberryGold)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(Color.craftberrySurface, in: Capsule())
+                }
+
+                HStack(spacing: 10) {
+                    StatTile(value: "+\(sword.attackBonus)", label: "Damage", color: .craftberryOrange)
+                    StatTile(value: sword.craftingIngredient.displayName, label: "Recipe", color: .craftberryBlue)
+                    StatTile(value: "\(sword.durability)", label: "Durability", color: .craftberryGold)
+                }
+
+                if let artifact {
+                    Button {
+                        shareItem = ShareItem(url: artifact.url)
+                    } label: {
+                        Label("Export .mcaddon", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(CraftberryPrimaryButtonStyle())
+
+                    Text("Save or share this build artifact, then transfer it to a physical iPhone for Minecraft validation.")
+                        .font(.footnote)
+                        .foregroundStyle(Color.craftberryMuted)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Button("Build .mcaddon") { viewModel.buildArtifact(sword) }
+                        .buttonStyle(CraftberryPrimaryButtonStyle())
+                }
+            }
+            .padding(24)
+        }
+    }
+
+    private func hero(_ sword: SwordSpec) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 24)
+                .fill(LinearGradient(colors: [Color.craftberryBlue.opacity(0.7), Color.craftberryBackground], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Image(uiImage: UIImage(data: SwordTextureRenderer.render(sword, pixelScale: 6)) ?? UIImage())
+                .interpolation(.none)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 138, height: 138)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 200)
+    }
+
+    private var composer: some View {
+        VStack(spacing: 12) {
+            HStack(alignment: .bottom, spacing: 10) {
+                ZStack(alignment: .topLeading) {
+                    if viewModel.prompt.isEmpty {
+                        Text("Describe your sword…")
+                            .foregroundStyle(Color.craftberryMuted)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 13)
+                            .allowsHitTesting(false)
+                    }
+                    TextEditor(text: $viewModel.prompt)
+                        .scrollContentBackground(.hidden)
+                        .foregroundStyle(.white)
+                        .frame(minHeight: 48, maxHeight: 92)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 3)
+                        .accessibilityLabel("Sword description")
+                }
+                Button {
+                    Task { await viewModel.generate() }
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.headline.weight(.bold))
+                        .frame(width: 42, height: 42)
+                }
+                .buttonStyle(CraftberryRoundButtonStyle())
+                .disabled(viewModel.isBusy || viewModel.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel("Generate sword")
+            }
+            .padding(7)
+            .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 25))
+
+            if case .editing = viewModel.state {
+                Text("Craftberry creates a Bedrock .mcaddon build artifact")
+                    .font(.caption2)
+                    .foregroundStyle(Color.craftberryMuted)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(Color.craftberryBackground.opacity(0.96))
+    }
+}
+
+private struct PromptSuggestion: View {
+    let prompt: String
+    let action: () -> Void
+    init(_ prompt: String, action: @escaping () -> Void) {
+        self.prompt = prompt
+        self.action = action
+    }
+
+    var body: some View {
+        Button(prompt, action: action)
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(Color.craftberryText)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16).padding(.vertical, 13)
+            .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct CraftberryMark: View {
+    let size: CGFloat
+    var body: some View {
+        RoundedRectangle(cornerRadius: size * 0.3)
+            .fill(LinearGradient(colors: [.craftberryGold, .craftberryOrange], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .frame(width: size, height: size)
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.13)
+                    .fill(.white)
+                    .frame(width: size * 0.32, height: size * 0.32)
+                    .rotationEffect(.degrees(45))
+            )
+            .accessibilityHidden(true)
+    }
+}
+
+private struct StatTile: View {
+    let value: String
+    let label: String
+    let color: Color
+    var body: some View {
+        VStack(spacing: 5) {
+            Text(value).font(.system(size: 16, weight: .heavy, design: .rounded)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.65)
+            Text(label).font(.caption2.weight(.semibold)).foregroundStyle(Color.craftberryMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 13)
+        .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct CraftberryPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .background(LinearGradient(colors: [.craftberryGold, .craftberryOrange], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 18))
+            .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+private struct CraftberrySecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct CraftberryRoundButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background(LinearGradient(colors: [.craftberryGold, .craftberryOrange], startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+            .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+private extension Color {
+    static let craftberryBackground = Color(red: 0.075, green: 0.079, blue: 0.095)
+    static let craftberrySurface = Color(red: 0.118, green: 0.125, blue: 0.15)
+    static let craftberryText = Color(red: 0.87, green: 0.875, blue: 0.9)
+    static let craftberryMuted = Color(red: 0.54, green: 0.55, blue: 0.61)
+    static let craftberryGold = Color(red: 0.95, green: 0.61, blue: 0.22)
+    static let craftberryOrange = Color(red: 0.86, green: 0.29, blue: 0.13)
+    static let craftberryBlue = Color(red: 0.36, green: 0.61, blue: 0.98)
 }
 
 private struct ActivitySheet: UIViewControllerRepresentable {
     let url: URL
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    }
-
+    func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: [url], applicationActivities: nil) }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 

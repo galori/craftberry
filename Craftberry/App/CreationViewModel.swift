@@ -16,7 +16,7 @@ final class CreationViewModel: ObservableObject {
         case failed(String)
     }
 
-    @Published var prompt = "Create a blue sword that does 20 damage and can be crafted from diamonds."
+    @Published var prompt = ""
     @Published private(set) var state: State = .editing
 
     var isBusy: Bool {
