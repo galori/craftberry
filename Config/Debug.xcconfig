@@ -1,2 +1,0 @@
-#include? "Secrets.xcconfig"
-OPENAI_API_KEY =
