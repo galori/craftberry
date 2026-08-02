@@ -66,6 +66,14 @@ Bedrock's actual engine validation is stricter than the official docs, stricter 
 - Test generic iOS share behavior on a physical device when changing export code. When the Bedrock compiler or packaging layout changes, separately validate an exported artifact in Minecraft on a physical iPhone; this is compatibility coverage, not an app handoff flow.
 - Keep generated test archives in temporary directories and clean them up after each test.
 
+### Reaching each UI state manually
+
+`CreationViewModel.State` is `editing → generating → (unsupported | ready) → building → built`, with `failed` reachable from several points. `CraftberryUITests` and a fake `LLMClient` fixture don't exist yet, so today, running the app for real:
+
+- `.failed` is reachable with zero setup — tap Generate with an empty or whitespace-only prompt; `generate()` short-circuits before any network call.
+- `.generating` / `.ready` / `.unsupported` / `.building` / `.built` all require a live OpenAI call, which needs a real key in the untracked `Config/Secrets.xcconfig` (copy `Config/Secrets.example.xcconfig` to `Config/Secrets.xcconfig` and set `OPENAI_API_KEY`; `Config/Debug.xcconfig` includes it automatically). Without a key, `generate()` fails immediately with a `missingAPIKey` error instead of reaching those states.
+- `CreationViewModel.init` already takes an optional `client: (any LLMClient)?` for injection — that's the seam to use when adding a fake `LLMClient` fixture for deterministic UI tests or a manual debug override, instead of hitting the network.
+
 ## Local Commands
 
 Once the Xcode project exists, prefer these commands from the repository root (replace the placeholder scheme and simulator as the project is created):
