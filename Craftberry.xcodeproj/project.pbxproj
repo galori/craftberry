@@ -10,16 +10,23 @@
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
-		A10000000000000000000004 /* SwordSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* SwordSpec.swift */; };
-		A10000000000000000000005 /* SwordGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* SwordGeneration.swift */; };
+		A10000000000000000000004 /* ContentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ContentIdentity.swift */; };
+		A10000000000000000000005 /* ProjectGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* ProjectGeneration.swift */; };
 		A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* OpenAIResponsesClient.swift */; };
 		A10000000000000000000007 /* BinaryEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* BinaryEncoding.swift */; };
 		A10000000000000000000008 /* PNG.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* PNG.swift */; };
 		A10000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* ZipArchive.swift */; };
 		A10000000000000000000010 /* BedrockAddOnCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* BedrockAddOnCompiler.swift */; };
-		A10000000000000000000011 /* SwordSpecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* SwordSpecTests.swift */; };
+		A10000000000000000000011 /* ContentIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ContentIdentityTests.swift */; };
 		A10000000000000000000012 /* BedrockCompilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BedrockCompilerTests.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* Assets.xcassets */; };
+		A10000000000000000000014 /* AddOnProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* AddOnProject.swift */; };
+		A10000000000000000000015 /* BedrockContentProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* BedrockContentProfile.swift */; };
+		A10000000000000000000016 /* AddOnProjectValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* AddOnProjectValidation.swift */; };
+		A10000000000000000000017 /* BedrockDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* BedrockDocuments.swift */; };
+		A10000000000000000000018 /* AddOnProjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* AddOnProjectTests.swift */; };
+		A10000000000000000000019 /* OpenAIResponsesClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* OpenAIResponsesClientTests.swift */; };
+		A10000000000000000000020 /* CreationViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* CreationViewModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,20 +43,27 @@
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
-		A20000000000000000000004 /* SwordSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwordSpec.swift; sourceTree = "<group>"; };
-		A20000000000000000000005 /* SwordGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwordGeneration.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* ContentIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentity.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* ProjectGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGeneration.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* OpenAIResponsesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClient.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* BinaryEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryEncoding.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* PNG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNG.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* BedrockAddOnCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockAddOnCompiler.swift; sourceTree = "<group>"; };
-		A20000000000000000000011 /* SwordSpecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwordSpecTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* ContentIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentityTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* BedrockCompilerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockCompilerTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000014 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A20000000000000000000015 /* Craftberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Craftberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000016 /* CraftberryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = CraftberryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20000000000000000000018 /* AddOnProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnProject.swift; sourceTree = "<group>"; };
+		A20000000000000000000019 /* BedrockContentProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockContentProfile.swift; sourceTree = "<group>"; };
+		A20000000000000000000020 /* AddOnProjectValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnProjectValidation.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* BedrockDocuments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockDocuments.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* AddOnProjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnProjectTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* OpenAIResponsesClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClientTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* CreationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,7 +119,10 @@
 		A40000000000000000000004 /* Core/Domain */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000004 /* SwordSpec.swift */,
+				A20000000000000000000004 /* ContentIdentity.swift */,
+				A20000000000000000000018 /* AddOnProject.swift */,
+				A20000000000000000000019 /* BedrockContentProfile.swift */,
+				A20000000000000000000020 /* AddOnProjectValidation.swift */,
 			);
 			path = Core/Domain;
 			sourceTree = "<group>";
@@ -122,8 +139,11 @@
 		A40000000000000000000006 /* CraftberryTests */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000011 /* SwordSpecTests.swift */,
+				A20000000000000000000011 /* ContentIdentityTests.swift */,
 				A20000000000000000000012 /* BedrockCompilerTests.swift */,
+				A20000000000000000000022 /* AddOnProjectTests.swift */,
+				A20000000000000000000023 /* OpenAIResponsesClientTests.swift */,
+				A20000000000000000000024 /* CreationViewModelTests.swift */,
 			);
 			path = CraftberryTests;
 			sourceTree = "<group>";
@@ -148,7 +168,7 @@
 		A40000000000000000000009 /* AI */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000005 /* SwordGeneration.swift */,
+				A20000000000000000000005 /* ProjectGeneration.swift */,
 				A20000000000000000000006 /* OpenAIResponsesClient.swift */,
 			);
 			path = AI;
@@ -161,6 +181,7 @@
 				A20000000000000000000008 /* PNG.swift */,
 				A20000000000000000000009 /* ZipArchive.swift */,
 				A20000000000000000000010 /* BedrockAddOnCompiler.swift */,
+				A20000000000000000000021 /* BedrockDocuments.swift */,
 			);
 			path = Bedrock;
 			sourceTree = "<group>";
@@ -266,13 +287,17 @@
 				A10000000000000000000001 /* CraftberryApp.swift in Sources */,
 				A10000000000000000000002 /* CreationView.swift in Sources */,
 				A10000000000000000000003 /* CreationViewModel.swift in Sources */,
-				A10000000000000000000004 /* SwordSpec.swift in Sources */,
-				A10000000000000000000005 /* SwordGeneration.swift in Sources */,
+				A10000000000000000000004 /* ContentIdentity.swift in Sources */,
+				A10000000000000000000005 /* ProjectGeneration.swift in Sources */,
 				A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */,
 				A10000000000000000000007 /* BinaryEncoding.swift in Sources */,
 				A10000000000000000000008 /* PNG.swift in Sources */,
 				A10000000000000000000009 /* ZipArchive.swift in Sources */,
 				A10000000000000000000010 /* BedrockAddOnCompiler.swift in Sources */,
+				A10000000000000000000014 /* AddOnProject.swift in Sources */,
+				A10000000000000000000015 /* BedrockContentProfile.swift in Sources */,
+				A10000000000000000000016 /* AddOnProjectValidation.swift in Sources */,
+				A10000000000000000000017 /* BedrockDocuments.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,8 +305,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000011 /* SwordSpecTests.swift in Sources */,
+				A10000000000000000000011 /* ContentIdentityTests.swift in Sources */,
 				A10000000000000000000012 /* BedrockCompilerTests.swift in Sources */,
+				A10000000000000000000018 /* AddOnProjectTests.swift in Sources */,
+				A10000000000000000000019 /* OpenAIResponsesClientTests.swift in Sources */,
+				A10000000000000000000020 /* CreationViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

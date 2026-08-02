@@ -18,7 +18,7 @@ struct RGBA: Equatable {
 }
 
 enum SwordPalette {
-    static func colors(for color: SwordColor) -> (main: RGBA, highlight: RGBA, shadow: RGBA) {
+    static func colors(for color: PixelArtColor) -> (main: RGBA, highlight: RGBA, shadow: RGBA) {
         switch color {
         case .red: (RGBA(red: 220, green: 58, blue: 58, alpha: 255), RGBA(red: 255, green: 132, blue: 124, alpha: 255), RGBA(red: 125, green: 35, blue: 48, alpha: 255))
         case .orange: (RGBA(red: 235, green: 126, blue: 45, alpha: 255), RGBA(red: 255, green: 190, blue: 102, alpha: 255), RGBA(red: 151, green: 65, blue: 35, alpha: 255))
@@ -40,12 +40,16 @@ enum SwordPalette {
     }
 }
 
-public enum SwordTextureRenderer {
-    public static func render(_ specification: SwordSpec, pixelScale: Int = 1) -> Data {
+public enum PixelArtTextureRenderer {
+    public static func render(_ resource: VisualResource, pixelScale: Int = 1) -> Data {
+        render(color: resource.color, pixelScale: pixelScale)
+    }
+
+    private static func render(color: PixelArtColor, pixelScale: Int) -> Data {
         let scale = max(1, pixelScale)
         let side = 32 * scale
         var pixels = Array(repeating: RGBA.transparent, count: side * side)
-        let palette = SwordPalette.colors(for: specification.color)
+        let palette = SwordPalette.colors(for: color)
 
         func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
             for row in max(0, y * scale)..<min(side, (y + height) * scale) {

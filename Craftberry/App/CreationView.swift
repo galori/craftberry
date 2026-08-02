@@ -66,22 +66,22 @@ struct CreationView: View {
             welcome
         case .generating:
             progressState(
-                title: "Crafting your sword…",
-                detail: "Turning your idea into a Bedrock-ready design.",
-                steps: ["Reading your idea", "Balancing sword stats", "Planning the recipe"]
+                title: "Crafting your add-on…",
+                detail: "Turning your idea into a validated Bedrock project.",
+                steps: ["Reading your idea", "Building the content graph", "Validating references"]
             )
         case .building:
             progressState(
                 title: "Building your add-on…",
-                detail: "Rendering pixel art and packaging your .mcaddon.",
-                steps: ["Rendering the sword", "Writing Bedrock files", "Packaging the build"]
+                detail: "Rendering assets and packaging your .mcaddon.",
+                steps: ["Rendering project assets", "Writing Bedrock files", "Packaging the build"]
             )
         case .unsupported(let message), .failed(let message):
             messageState(message)
-        case .ready(let sword):
-            resultCard(sword, artifact: nil)
-        case .built(let sword, let artifact):
-            resultCard(sword, artifact: artifact)
+        case .ready(let project):
+            resultCard(project, result: nil)
+        case .built(let project, let result):
+            resultCard(project, result: result)
         }
     }
 
@@ -95,7 +95,7 @@ struct CreationView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white)
                 .padding(.top, 22)
-            Text("Describe a custom sword in your own words")
+            Text("Describe a custom Bedrock add-on in your own words")
                 .font(.subheadline)
                 .foregroundStyle(Color.craftberryMuted)
                 .padding(.top, 8)
@@ -164,7 +164,9 @@ struct CreationView: View {
         }
     }
 
-    private func resultCard(_ sword: SwordSpec, artifact: BedrockAddOnArtifact?) -> some View {
+    @ViewBuilder
+    private func resultCard(_ project: AddOnProject, result: BedrockCompilationResult?) -> some View {
+        if let summary = ProjectSummary(project: project) {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
@@ -176,25 +178,25 @@ struct CreationView: View {
                     }
                     .accessibilityLabel("Start over")
                     Spacer()
-                    Text(artifact == nil ? "READY TO BUILD" : "BUILD COMPLETE")
+                    Text(result == nil ? "READY TO BUILD" : "BUILD COMPLETE")
                         .font(.caption.weight(.bold))
                         .tracking(1.2)
                         .foregroundStyle(Color.craftberryMuted)
                     Spacer()
-                    Image(systemName: artifact == nil ? "hammer.fill" : "checkmark")
+                    Image(systemName: result == nil ? "hammer.fill" : "checkmark")
                         .frame(width: 34, height: 34)
                         .background(Color.craftberrySurface, in: Circle())
                         .foregroundStyle(Color.craftberryGold)
                 }
 
-                hero(sword)
+                hero(summary.visualResource)
 
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(sword.displayName)
+                        Text(project.displayName)
                             .font(.system(size: 26, weight: .heavy, design: .rounded))
                             .foregroundStyle(.white)
-                        Text(artifact == nil ? "Custom weapon · ready to package" : artifact!.fileName)
+                        Text(result == nil ? summary.collectionDescription : result!.artifact.fileName)
                             .font(.subheadline)
                             .foregroundStyle(Color.craftberryMuted)
                             .lineLimit(1)
@@ -208,16 +210,16 @@ struct CreationView: View {
                 }
 
                 HStack(spacing: 10) {
-                    StatTile(value: "+\(sword.attackBonus)", label: "Damage", color: .craftberryOrange)
-                    StatTile(value: sword.craftingIngredient.displayName, label: "Recipe", color: .craftberryBlue)
-                    StatTile(value: "\(sword.durability)", label: "Durability", color: .craftberryGold)
+                    StatTile(value: "+\(summary.attackBonus)", label: "Damage", color: .craftberryOrange)
+                    StatTile(value: summary.ingredient.displayName, label: "Recipe", color: .craftberryBlue)
+                    StatTile(value: "\(summary.durability)", label: "Durability", color: .craftberryGold)
                 }
 
-                CraftingRecipePreview(ingredient: sword.craftingIngredient)
+                CraftingRecipePreview(ingredient: summary.ingredient)
 
-                if let artifact {
+                if let result {
                     Button {
-                        shareItem = ShareItem(url: artifact.url)
+                        shareItem = ShareItem(url: result.artifact.url)
                     } label: {
                         Label("Export .mcaddon", systemImage: "square.and.arrow.up")
                     }
@@ -229,19 +231,22 @@ struct CreationView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 } else {
-                    Button("Build .mcaddon") { viewModel.buildArtifact(sword) }
+                    Button("Build .mcaddon") { viewModel.buildArtifact(project) }
                         .buttonStyle(CraftberryPrimaryButtonStyle())
                 }
             }
             .padding(24)
         }
+        } else {
+            messageState("The generated project has no supported previewable item.")
+        }
     }
 
-    private func hero(_ sword: SwordSpec) -> some View {
+    private func hero(_ visualResource: VisualResource) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24)
                 .fill(LinearGradient(colors: [Color.craftberryBlue.opacity(0.7), Color.craftberryBackground], startPoint: .topLeading, endPoint: .bottomTrailing))
-            Image(uiImage: UIImage(data: SwordTextureRenderer.render(sword, pixelScale: 6)) ?? UIImage())
+            Image(uiImage: UIImage(data: PixelArtTextureRenderer.render(visualResource, pixelScale: 6)) ?? UIImage())
                 .interpolation(.none)
                 .resizable()
                 .scaledToFit()
@@ -257,7 +262,7 @@ struct CreationView: View {
             HStack(alignment: .bottom, spacing: 10) {
                 ZStack(alignment: .topLeading) {
                     if viewModel.prompt.isEmpty {
-                        Text("Describe your sword…")
+                        Text("Describe your add-on…")
                             .foregroundStyle(Color.craftberryMuted)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 13)
@@ -269,7 +274,7 @@ struct CreationView: View {
                         .frame(minHeight: 48, maxHeight: 92)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 3)
-                        .accessibilityLabel("Sword description")
+                        .accessibilityLabel("Add-on description")
                 }
                 Button {
                     Task { await viewModel.generate() }
@@ -280,7 +285,7 @@ struct CreationView: View {
                 }
                 .buttonStyle(CraftberryRoundButtonStyle())
                 .disabled(viewModel.isBusy || viewModel.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .accessibilityLabel("Generate sword")
+                .accessibilityLabel("Generate add-on")
             }
             .padding(7)
             .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 25))
@@ -348,8 +353,53 @@ private struct StatTile: View {
     }
 }
 
+private struct ProjectSummary {
+    let visualResource: VisualResource
+    let attackBonus: Int
+    let durability: Int
+    let ingredient: IngredientSummary
+    let collectionDescription: String
+
+    init?(project: AddOnProject) {
+        guard let item = project.items.first,
+              let visualResource = project.visualResources.first(where: { $0.id == item.visualResourceID }),
+              let attackBonus = item.traits.combat?.attackBonus,
+              let durability = item.traits.durability?.maximum,
+              let ingredientReference = project.recipes.first?.ingredients["M"] else {
+            return nil
+        }
+        self.visualResource = visualResource
+        self.attackBonus = attackBonus
+        self.durability = durability
+        ingredient = IngredientSummary(reference: ingredientReference)
+        let itemLabel = project.items.count == 1 ? "item" : "items"
+        let recipeLabel = project.recipes.count == 1 ? "recipe" : "recipes"
+        collectionDescription = "\(project.items.count) \(itemLabel) · \(project.recipes.count) \(recipeLabel)"
+    }
+}
+
+private struct IngredientSummary {
+    let identifier: String
+    let displayName: String
+
+    init(reference: ContentReference) {
+        switch reference {
+        case .vanilla(let identifier), .tag(let identifier):
+            self.identifier = identifier
+        case .generated(let id):
+            identifier = id.rawValue
+        }
+        let path = identifier.split(separator: ":", maxSplits: 1).last.map(String.init) ?? identifier
+        displayName = path.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    var path: String {
+        identifier.split(separator: ":", maxSplits: 1).last.map(String.init) ?? identifier
+    }
+}
+
 private struct CraftingRecipePreview: View {
-    let ingredient: CraftingIngredient
+    let ingredient: IngredientSummary
 
     var body: some View {
         VStack(spacing: 12) {
@@ -402,47 +452,51 @@ private struct CraftingRecipePreview: View {
 }
 
 private struct IngredientGlyph: View {
-    let ingredient: CraftingIngredient
+    let ingredient: IngredientSummary
 
     var body: some View {
-        switch ingredient {
-        case .blazeRod:
+        switch ingredient.path {
+        case "blaze_rod":
             Capsule()
                 .fill(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
                 .frame(width: 11, height: 29)
                 .rotationEffect(.degrees(38))
-        case .redstone:
+        case "redstone":
             Image(systemName: "sparkles")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.red)
-        case .quartz:
+        case "quartz":
             Image(systemName: "triangle.fill")
                 .font(.title3)
                 .foregroundStyle(.white)
                 .rotationEffect(.degrees(180))
-        case .amethystShard:
+        case "amethyst_shard":
             Image(systemName: "triangle.fill")
                 .font(.title3)
                 .foregroundStyle(.purple)
                 .rotationEffect(.degrees(180))
-        case .ironIngot, .goldIngot, .netheriteIngot:
+        case "iron_ingot", "gold_ingot", "netherite_ingot":
             RoundedRectangle(cornerRadius: 3)
                 .fill(ingredient.color)
                 .frame(width: 25, height: 13)
                 .rotationEffect(.degrees(-8))
-        case .lapisLazuli:
+        case "lapis_lazuli":
             Circle()
                 .fill(.blue)
                 .frame(width: 20, height: 20)
-        case .emerald:
+        case "emerald":
             RoundedRectangle(cornerRadius: 4)
                 .fill(.green)
                 .frame(width: 20, height: 20)
                 .rotationEffect(.degrees(45))
-        case .diamond:
+        case "diamond":
             Image(systemName: "diamond.fill")
                 .font(.title3)
                 .foregroundStyle(Color.craftberryBlue)
+        default:
+            Image(systemName: "cube.fill")
+                .font(.title3)
+                .foregroundStyle(Color.craftberryMuted)
         }
     }
 }
@@ -569,19 +623,20 @@ private extension Color {
     static let craftberryStick = Color(red: 0.55, green: 0.33, blue: 0.16)
 }
 
-private extension CraftingIngredient {
+private extension IngredientSummary {
     var color: Color {
-        switch self {
-        case .diamond: .craftberryBlue
-        case .emerald: .green
-        case .ironIngot: .gray
-        case .goldIngot: .craftberryGold
-        case .netheriteIngot: .purple
-        case .amethystShard: .purple
-        case .blazeRod: .orange
-        case .redstone: .red
-        case .lapisLazuli: .blue
-        case .quartz: .white
+        switch path {
+        case "diamond": .craftberryBlue
+        case "emerald": .green
+        case "iron_ingot": .gray
+        case "gold_ingot": .craftberryGold
+        case "netherite_ingot": .purple
+        case "amethyst_shard": .purple
+        case "blaze_rod": .orange
+        case "redstone": .red
+        case "lapis_lazuli": .blue
+        case "quartz": .white
+        default: .craftberryMuted
         }
     }
 }

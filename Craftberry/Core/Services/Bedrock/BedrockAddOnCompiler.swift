@@ -1,6 +1,6 @@
 import Foundation
 
-public struct BedrockAddOnArchive: Sendable {
+private struct BedrockAddOnArchive: Sendable {
     public let entries: [ZipArchiveEntry]
 }
 
@@ -8,177 +8,396 @@ public struct BedrockAddOnArtifact: Sendable {
     public let url: URL
     public let identifier: BedrockIdentifier
     public let fileName: String
+    public let projectSidecarURL: URL
 }
 
-public final class BedrockAddOnCompiler: Sendable {
-    private let suffixGenerator: @Sendable () -> String
-    private let uuidGenerator: @Sendable () -> UUID
+public struct BedrockCompilationResult: Sendable {
+    public let artifact: BedrockAddOnArtifact
+    public let report: CompilationReport
+}
 
-    public init(
-        suffixGenerator: @escaping @Sendable () -> String = { String(UUID().uuidString.prefix(6)).lowercased() },
-        uuidGenerator: @escaping @Sendable () -> UUID = { UUID() }
-    ) {
-        self.suffixGenerator = suffixGenerator
-        self.uuidGenerator = uuidGenerator
+public enum BedrockCompilationError: LocalizedError {
+    case invalidProject(CompilationReport)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidProject(let report):
+            report.errors.first?.message ?? "The add-on project is invalid."
+        }
     }
+}
 
-    public func compile(_ specification: SwordSpec, outputDirectory: URL) throws -> BedrockAddOnArtifact {
-        let identifier = BedrockIdentifier.make(displayName: specification.displayName, suffix: suffixGenerator())
-        let archive = try buildArchive(specification, identifier: identifier)
-        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-        let outputURL = outputDirectory.appending(path: "\(identifier.pathComponent).mcaddon")
-        let archiveData = try ZipArchiveWriter.archive(entries: archive.entries)
+public protocol AddOnCompiling: Sendable {
+    func compile(
+        project: AddOnProject,
+        profile: BedrockContentProfile,
+        outputDirectory: URL
+    ) throws -> BedrockCompilationResult
+}
+
+public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
+    public init() {}
+
+    public func compile(
+        project: AddOnProject,
+        profile: BedrockContentProfile,
+        outputDirectory: URL
+    ) throws -> BedrockCompilationResult {
+        let validationReport = AddOnProjectValidator.validate(project, profile: profile)
+        guard validationReport.isSuccessful else {
+            throw BedrockCompilationError.invalidProject(validationReport)
+        }
+
+        let compiledArchive = try makeArchive(project: project, profile: profile)
+        let archiveData = try ZipArchiveWriter.archive(entries: compiledArchive.archive.entries)
+        let sidecarData = try BedrockDocumentEncoder.encode(project)
+        let primaryItem = try require(
+            project.items.first,
+            profile: profile,
+            code: "missing_required_content",
+            path: "content.items",
+            message: "An add-on project must contain at least one item."
+        )
+        let identifier = BedrockIdentifier(rawValue: "\(project.namespace):\(primaryItem.id.rawValue)")
+
+        let projectDirectory = outputDirectory.appending(
+            path: project.id.uuidString.lowercased(),
+            directoryHint: .isDirectory
+        )
+        let sidecarURL = projectDirectory.appending(path: "project.json")
+        let version = project.buildVersion.components.map(String.init).joined(separator: ".")
+        let buildDirectory = projectDirectory.appending(
+            path: "builds/\(version)",
+            directoryHint: .isDirectory
+        )
+        let outputURL = buildDirectory.appending(path: "\(identifier.pathComponent).mcaddon")
+
+        try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+        try sidecarData.write(to: sidecarURL, options: .atomic)
         try archiveData.write(to: outputURL, options: .atomic)
-        return BedrockAddOnArtifact(url: outputURL, identifier: identifier, fileName: outputURL.lastPathComponent)
+
+        let report = CompilationReport(
+            profileID: profile.id,
+            issues: validationReport.issues,
+            emittedFiles: compiledArchive.emittedFiles.sorted()
+        )
+        return BedrockCompilationResult(
+            artifact: BedrockAddOnArtifact(
+                url: outputURL,
+                identifier: identifier,
+                fileName: outputURL.lastPathComponent,
+                projectSidecarURL: sidecarURL
+            ),
+            report: report
+        )
     }
 
-    public func buildArchive(_ specification: SwordSpec) throws -> BedrockAddOnArchive {
-        let identifier = BedrockIdentifier.make(displayName: specification.displayName, suffix: suffixGenerator())
-        return try buildArchive(specification, identifier: identifier)
-    }
-
-    private func buildArchive(_ specification: SwordSpec, identifier: BedrockIdentifier) throws -> BedrockAddOnArchive {
-        let behaviorHeaderUUID = uuidGenerator().uuidString.lowercased()
-        let behaviorModuleUUID = uuidGenerator().uuidString.lowercased()
-        let resourceHeaderUUID = uuidGenerator().uuidString.lowercased()
-        let resourceModuleUUID = uuidGenerator().uuidString.lowercased()
-        let resourceName = "\(identifier.pathComponent)_resources"
-        let behaviorName = "\(identifier.pathComponent)_behavior"
-
-        let behaviorEntries = try behaviorPackEntries(
-            specification: specification,
-            identifier: identifier,
-            behaviorHeaderUUID: behaviorHeaderUUID,
-            behaviorModuleUUID: behaviorModuleUUID,
-            resourceHeaderUUID: resourceHeaderUUID
+    private func makeArchive(
+        project: AddOnProject,
+        profile: BedrockContentProfile
+    ) throws -> (archive: BedrockAddOnArchive, emittedFiles: [String]) {
+        let primaryItem = try require(
+            project.items.sorted(by: contentOrder).first,
+            profile: profile,
+            code: "missing_required_content",
+            path: "content.items",
+            message: "An add-on project must contain at least one item."
         )
-        let resourceEntries = try resourcePackEntries(
-            specification: specification,
-            identifier: identifier,
-            resourceHeaderUUID: resourceHeaderUUID,
-            resourceModuleUUID: resourceModuleUUID
-        )
-
-        return BedrockAddOnArchive(entries: [
-            ZipArchiveEntry(path: "\(behaviorName).mcpack", data: try ZipArchiveWriter.archive(entries: behaviorEntries)),
-            ZipArchiveEntry(path: "\(resourceName).mcpack", data: try ZipArchiveWriter.archive(entries: resourceEntries))
-        ])
+        let behaviorPackName = "\(primaryItem.id.rawValue)_behavior"
+        let resourcePackName = "\(primaryItem.id.rawValue)_resources"
+        let behaviorEntries = try behaviorPackEntries(project: project, profile: profile)
+        let resourceEntries = try resourcePackEntries(project: project, profile: profile)
+        let outerEntries = [
+            ZipArchiveEntry(
+                path: "\(behaviorPackName).mcpack",
+                data: try ZipArchiveWriter.archive(entries: behaviorEntries)
+            ),
+            ZipArchiveEntry(
+                path: "\(resourcePackName).mcpack",
+                data: try ZipArchiveWriter.archive(entries: resourceEntries)
+            )
+        ]
+        let emittedFiles = outerEntries.map(\.path)
+            + behaviorEntries.map { "behavior/\($0.path)" }
+            + resourceEntries.map { "resources/\($0.path)" }
+        return (BedrockAddOnArchive(entries: outerEntries), emittedFiles)
     }
 
     private func behaviorPackEntries(
-        specification: SwordSpec,
-        identifier: BedrockIdentifier,
-        behaviorHeaderUUID: String,
-        behaviorModuleUUID: String,
-        resourceHeaderUUID: String
+        project: AddOnProject,
+        profile: BedrockContentProfile
     ) throws -> [ZipArchiveEntry] {
-        let version: [Int] = [1, 0, 0]
-        let localizationKey = "item.\(identifier.rawValue).name"
-        let manifest: [String: Any] = [
-            "format_version": 2,
-            "header": [
-                "name": "\(specification.displayName) Behavior",
-                "description": "Generated by Craftberry",
-                "uuid": behaviorHeaderUUID,
-                "version": version,
-                "min_engine_version": [1, 21, 80]
-            ],
-            "modules": [[
-                "type": "data",
-                "uuid": behaviorModuleUUID,
-                "version": version
-            ]],
-            "dependencies": [[
-                "uuid": resourceHeaderUUID,
-                "version": version
-            ]]
+        let version = project.buildVersion.components
+        let manifest = ManifestDocument(
+            formatVersion: profile.manifestFormatVersion,
+            header: ManifestDocument.Header(
+                name: "\(project.displayName) Behavior",
+                description: "Generated by Craftberry",
+                uuid: project.packUUIDs.behaviorHeader.uuidString.lowercased(),
+                version: version,
+                minimumEngineVersion: profile.minimumEngineVersion.components
+            ),
+            modules: [ManifestDocument.Module(
+                type: "data",
+                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
+                version: version
+            )],
+            dependencies: [ManifestDocument.Dependency(
+                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
+                version: version
+            )]
+        )
+        let primaryVisual = try primaryVisualResource(project: project, profile: profile)
+        var entries = [
+            ZipArchiveEntry(path: "manifest.json", data: try BedrockDocumentEncoder.encode(manifest))
         ]
-        let item: [String: Any] = [
-            "format_version": "1.21.80",
-            "minecraft:item": [
-                "description": [
-                    "identifier": identifier.rawValue,
-                    "menu_category": ["category": "equipment", "group": "minecraft:itemGroup.name.sword"]
-                ],
-                "components": [
-                    "minecraft:display_name": ["value": localizationKey],
-                    "minecraft:icon": ["textures": ["default": identifier.pathComponent]],
-                    "minecraft:max_stack_size": 1,
-                    "minecraft:hand_equipped": true,
-                    "minecraft:damage": ["value": specification.attackBonus],
-                    "minecraft:durability": [
-                        "max_durability": specification.durability,
-                        "damage_chance": ["min": 100, "max": 100]
-                    ]
-                ]
-            ]
-        ]
-        let recipe: [String: Any] = [
-            "format_version": "1.20.10",
-            "minecraft:recipe_shaped": [
-                "description": ["identifier": "\(identifier.rawValue)_recipe"],
-                "tags": ["crafting_table"],
-                "pattern": [" M ", " M ", " S "],
-                "key": [
-                    "M": ["item": specification.craftingIngredient.bedrockIdentifier],
-                    "S": ["item": "minecraft:stick"]
-                ],
-                "result": ["item": identifier.rawValue, "count": 1],
-                "unlock": [["item": specification.craftingIngredient.bedrockIdentifier]]
-            ]
-        ]
-        return [
-            ZipArchiveEntry(path: "manifest.json", data: try json(manifest)),
-            ZipArchiveEntry(path: "items/\(identifier.pathComponent).json", data: try json(item)),
-            ZipArchiveEntry(path: "recipes/\(identifier.pathComponent).json", data: try json(recipe)),
-            ZipArchiveEntry(path: "pack_icon.png", data: SwordTextureRenderer.render(specification, pixelScale: 4))
-        ]
+        for item in project.items.sorted(by: contentOrder) {
+            let identifier = identifier(for: item.id, namespace: project.namespace)
+            let document = ItemDocument(
+                formatVersion: profile.itemFormatVersion,
+                item: ItemDocument.Item(
+                    description: ItemDocument.Description(
+                        identifier: identifier,
+                        menuCategory: ItemDocument.MenuCategory(
+                            category: item.menuCategory.rawValue,
+                            group: item.menuGroup
+                        )
+                    ),
+                    components: ItemDocument.Components(
+                        displayName: ItemDocument.DisplayName(value: "item.\(identifier).name"),
+                        icon: ItemDocument.Icon(textures: ["default": item.id.rawValue]),
+                        maximumStackSize: item.traits.maximumStackSize,
+                        handEquipped: ItemDocument.HandEquipped(value: item.traits.handEquipped),
+                        damage: item.traits.combat.map { ItemDocument.Damage(value: $0.attackBonus) },
+                        durability: item.traits.durability.map {
+                            ItemDocument.Durability(
+                                maximumDurability: $0.maximum,
+                                damageChance: ItemDocument.DamageChance(min: 100, max: 100)
+                            )
+                        }
+                    )
+                )
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "items/\(item.id.rawValue).json",
+                    data: try BedrockDocumentEncoder.encode(document)
+                )
+            )
+        }
+        for recipe in project.recipes.sorted(by: recipeOrder) {
+            let resultIdentifier = try resultIdentifier(
+                for: recipe.result.item,
+                namespace: project.namespace,
+                profile: profile,
+                path: "content.recipes.\(recipe.id.rawValue).result"
+            )
+            var key: [String: ShapedRecipeDocument.Ingredient] = [:]
+            for (symbol, reference) in recipe.ingredients {
+                key[symbol] = try ingredient(
+                    for: reference,
+                    namespace: project.namespace,
+                    profile: profile,
+                    path: "content.recipes.\(recipe.id.rawValue).ingredients.\(symbol)"
+                )
+            }
+            let unlock = try recipe.unlock.enumerated().map { index, reference in
+                try ingredient(
+                    for: reference,
+                    namespace: project.namespace,
+                    profile: profile,
+                    path: "content.recipes.\(recipe.id.rawValue).unlock.\(index)"
+                )
+            }
+            let document = ShapedRecipeDocument(
+                formatVersion: profile.recipeFormatVersion,
+                recipe: ShapedRecipeDocument.Recipe(
+                    description: ShapedRecipeDocument.Description(
+                        identifier: identifier(for: recipe.id, namespace: project.namespace)
+                    ),
+                    tags: recipe.tags,
+                    pattern: recipe.pattern,
+                    key: key,
+                    result: ShapedRecipeDocument.Result(item: resultIdentifier, count: recipe.result.count),
+                    unlock: unlock
+                )
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "recipes/\(recipe.id.rawValue).json",
+                    data: try BedrockDocumentEncoder.encode(document)
+                )
+            )
+        }
+        entries.append(
+            ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
+        )
+        return entries
     }
 
     private func resourcePackEntries(
-        specification: SwordSpec,
-        identifier: BedrockIdentifier,
-        resourceHeaderUUID: String,
-        resourceModuleUUID: String
+        project: AddOnProject,
+        profile: BedrockContentProfile
     ) throws -> [ZipArchiveEntry] {
-        let version: [Int] = [1, 0, 0]
-        let manifest: [String: Any] = [
-            "format_version": 2,
-            "header": [
-                "name": "\(specification.displayName) Resources",
-                "description": "Generated by Craftberry",
-                "uuid": resourceHeaderUUID,
-                "version": version,
-                "min_engine_version": [1, 21, 80]
-            ],
-            "modules": [[
-                "type": "resources",
-                "uuid": resourceModuleUUID,
-                "version": version
-            ]]
+        let version = project.buildVersion.components
+        let resourcePackDisplayName = "\(project.displayName) Resources"
+        let manifest = ManifestDocument(
+            formatVersion: profile.manifestFormatVersion,
+            header: ManifestDocument.Header(
+                name: resourcePackDisplayName,
+                description: "Generated by Craftberry",
+                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
+                version: version,
+                minimumEngineVersion: profile.minimumEngineVersion.components
+            ),
+            modules: [ManifestDocument.Module(
+                type: "resources",
+                uuid: project.packUUIDs.resourceModule.uuidString.lowercased(),
+                version: version
+            )],
+            dependencies: nil
+        )
+        var textureData: [String: ItemTextureDocument.Texture] = [:]
+        var entries = [
+            ZipArchiveEntry(path: "manifest.json", data: try BedrockDocumentEncoder.encode(manifest))
         ]
-        let textureMap: [String: Any] = [
-            "resource_pack_name": "\(specification.displayName) Resources",
-            "texture_data": [
-                identifier.pathComponent: ["textures": "textures/items/\(identifier.pathComponent)"]
-            ]
-        ]
-        return [
-            ZipArchiveEntry(path: "manifest.json", data: try json(manifest)),
-            ZipArchiveEntry(path: "textures/item_texture.json", data: try json(textureMap)),
-            ZipArchiveEntry(path: "textures/items/\(identifier.pathComponent).png", data: SwordTextureRenderer.render(specification)),
-            ZipArchiveEntry(path: "texts/languages.json", data: try json(["en_US"])),
+        var localizationLines: [String] = []
+        for item in project.items.sorted(by: contentOrder) {
+            let visual = try require(
+                project.visualResources.first(where: { $0.id == item.visualResourceID }),
+                profile: profile,
+                code: "missing_visual_resource",
+                path: "content.items.\(item.id.rawValue).visualResourceID",
+                message: "Item \(item.id.rawValue) references a missing visual resource."
+            )
+            textureData[item.id.rawValue] = ItemTextureDocument.Texture(
+                textures: "textures/items/\(item.id.rawValue)"
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "textures/items/\(item.id.rawValue).png",
+                    data: PixelArtTextureRenderer.render(visual)
+                )
+            )
+            localizationLines.append(
+                "item.\(identifier(for: item.id, namespace: project.namespace)).name=\(item.displayName)"
+            )
+        }
+        let textureMap = ItemTextureDocument(
+            resourcePackName: resourcePackDisplayName,
+            textureData: textureData
+        )
+        entries.append(
+            ZipArchiveEntry(
+                path: "textures/item_texture.json",
+                data: try BedrockDocumentEncoder.encode(textureMap)
+            )
+        )
+        entries.append(
+            ZipArchiveEntry(path: "texts/languages.json", data: try BedrockDocumentEncoder.encode(["en_US"]))
+        )
+        entries.append(
             ZipArchiveEntry(
                 path: "texts/en_US.lang",
-                data: Data("item.\(identifier.rawValue).name=\(specification.displayName)\n".utf8)
-            ),
-            ZipArchiveEntry(path: "pack_icon.png", data: SwordTextureRenderer.render(specification, pixelScale: 4))
-        ]
+                data: Data((localizationLines.joined(separator: "\n") + "\n").utf8)
+            )
+        )
+        entries.append(
+            ZipArchiveEntry(
+                path: "pack_icon.png",
+                data: PixelArtTextureRenderer.render(try primaryVisualResource(project: project, profile: profile), pixelScale: 4)
+            )
+        )
+        return entries
     }
 
-    private func json(_ object: Any) throws -> Data {
-        var data = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
-        data.append(10)
-        return data
+    private func primaryVisualResource(
+        project: AddOnProject,
+        profile: BedrockContentProfile
+    ) throws -> VisualResource {
+        let item = try require(
+            project.items.sorted(by: contentOrder).first,
+            profile: profile,
+            code: "missing_required_content",
+            path: "content.items",
+            message: "An add-on project must contain at least one item."
+        )
+        return try require(
+            project.visualResources.first(where: { $0.id == item.visualResourceID }),
+            profile: profile,
+            code: "missing_visual_resource",
+            path: "content.items.\(item.id.rawValue).visualResourceID",
+            message: "Item \(item.id.rawValue) references a missing visual resource."
+        )
+    }
+
+    private func ingredient(
+        for reference: ContentReference,
+        namespace: String,
+        profile: BedrockContentProfile,
+        path: String
+    ) throws -> ShapedRecipeDocument.Ingredient {
+        switch reference {
+        case .vanilla(let identifier):
+            return ShapedRecipeDocument.Ingredient(item: identifier)
+        case .tag(let identifier):
+            return ShapedRecipeDocument.Ingredient(tag: identifier)
+        case .generated(let id):
+            return ShapedRecipeDocument.Ingredient(item: self.identifier(for: id, namespace: namespace))
+        }
+    }
+
+    private func resultIdentifier(
+        for reference: ContentReference,
+        namespace: String,
+        profile: BedrockContentProfile,
+        path: String
+    ) throws -> String {
+        switch reference {
+        case .vanilla(let identifier): identifier
+        case .generated(let id): self.identifier(for: id, namespace: namespace)
+        case .tag:
+            throw BedrockCompilationError.invalidProject(
+                CompilationReport(
+                    profileID: profile.id,
+                    issues: [CompilationIssue(
+                        severity: .error,
+                        code: "tag_result_unsupported",
+                        path: path,
+                        message: "A recipe result cannot be a tag."
+                    )]
+                )
+            )
+        }
+    }
+
+    private func identifier(for id: ContentID, namespace: String) -> String {
+        "\(namespace):\(id.rawValue)"
+    }
+
+    private func require<T>(
+        _ value: T?,
+        profile: BedrockContentProfile,
+        code: String,
+        path: String,
+        message: String
+    ) throws -> T {
+        guard let value else {
+            throw BedrockCompilationError.invalidProject(
+                CompilationReport(
+                    profileID: profile.id,
+                    issues: [CompilationIssue(severity: .error, code: code, path: path, message: message)]
+                )
+            )
+        }
+        return value
+    }
+
+    private func contentOrder(_ lhs: ItemDefinition, _ rhs: ItemDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func recipeOrder(_ lhs: ShapedRecipeDefinition, _ rhs: ShapedRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
     }
 }

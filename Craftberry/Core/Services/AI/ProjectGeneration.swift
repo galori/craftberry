@@ -1,26 +1,31 @@
 import Foundation
 
-public enum SwordGenerationOutcome: String, Codable, Sendable {
+public enum ProjectGenerationOutcome: String, Codable, Sendable {
     case ready
     case unsupported
 }
 
-public struct SwordGeneration: Codable, Equatable, Sendable {
+public struct ProjectGeneration: Codable, Equatable, Sendable {
     public let schemaVersion: Int
-    public let outcome: SwordGenerationOutcome
+    public let outcome: ProjectGenerationOutcome
     public let message: String
-    public let sword: SwordSpec?
+    public let project: AddOnProject?
 
-    public init(schemaVersion: Int = 1, outcome: SwordGenerationOutcome, message: String, sword: SwordSpec?) {
+    public init(
+        schemaVersion: Int = 1,
+        outcome: ProjectGenerationOutcome,
+        message: String,
+        project: AddOnProject?
+    ) {
         self.schemaVersion = schemaVersion
         self.outcome = outcome
         self.message = message
-        self.sword = sword
+        self.project = project
     }
 }
 
 public protocol LLMClient: Sendable {
-    func generateSword(from prompt: String) async throws -> SwordGeneration
+    func generateProject(from prompt: String) async throws -> ProjectGeneration
 }
 
 public enum LLMClientError: LocalizedError {
