@@ -18,6 +18,7 @@
 		A10000000000000000000010 /* BedrockAddOnCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* BedrockAddOnCompiler.swift */; };
 		A10000000000000000000011 /* SwordSpecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* SwordSpecTests.swift */; };
 		A10000000000000000000012 /* BedrockCompilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BedrockCompilerTests.swift */; };
+		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		A20000000000000000000014 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A20000000000000000000015 /* Craftberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Craftberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000016 /* CraftberryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = CraftberryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,7 +48,7 @@
 
 /* Begin PBXGroup section */
 		A40000000000000000000001 = {isa = PBXGroup; children = (A40000000000000000000002 /* Craftberry */, A40000000000000000000006 /* CraftberryTests */, A40000000000000000000007 /* Config */, A40000000000000000000008 /* Products */); sourceTree = "<group>"; };
-		A40000000000000000000002 /* Craftberry */ = {isa = PBXGroup; children = (A40000000000000000000003 /* App */, A40000000000000000000004 /* Domain */, A40000000000000000000005 /* Services */); path = Craftberry; sourceTree = "<group>"; };
+		A40000000000000000000002 /* Craftberry */ = {isa = PBXGroup; children = (A20000000000000000000017 /* Assets.xcassets */, A40000000000000000000003 /* App */, A40000000000000000000004 /* Domain */, A40000000000000000000005 /* Services */); path = Craftberry; sourceTree = "<group>"; };
 		A40000000000000000000003 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001, A20000000000000000000002, A20000000000000000000003, A20000000000000000000013); path = App; sourceTree = "<group>"; };
 		A40000000000000000000004 /* Domain */ = {isa = PBXGroup; children = (A20000000000000000000004); path = Core/Domain; sourceTree = "<group>"; };
 		A40000000000000000000005 /* Services */ = {isa = PBXGroup; children = (A40000000000000000000009 /* AI */, A40000000000000000000010 /* Bedrock */); path = Core/Services; sourceTree = "<group>"; };
@@ -67,7 +69,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A80000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A80000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000013 /* Assets.xcassets in Resources */); runOnlyForDeploymentPostprocessing = 0; };
 		A80000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
@@ -87,8 +89,8 @@
 /* Begin XCBuildConfiguration section */
 		A60000000000000000000004 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = A20000000000000000000014; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Debug; };
 		A60000000000000000000005 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Release; };
-		A60000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = A20000000000000000000014; buildSettings = { CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ""; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Craftberry/App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
-		A60000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Craftberry/App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		A60000000000000000000006 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = A20000000000000000000014; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ""; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Craftberry/App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		A60000000000000000000007 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Craftberry/App/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
 		A60000000000000000000008 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Craftberry.app/Craftberry"; }; name = Debug; };
 		A60000000000000000000009 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.craftberry.app.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Craftberry.app/Craftberry"; }; name = Release; };
 /* End XCBuildConfiguration section */
