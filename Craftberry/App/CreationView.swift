@@ -227,6 +227,8 @@ struct CreationView: View {
                     StatTile(value: "\(sword.durability)", label: "Durability", color: .craftberryGold)
                 }
 
+                CraftingRecipePreview(ingredient: sword.craftingIngredient)
+
                 if let artifact {
                     Button {
                         shareItem = ShareItem(url: artifact.url)
@@ -360,6 +362,61 @@ private struct StatTile: View {
     }
 }
 
+private struct CraftingRecipePreview: View {
+    let ingredient: CraftingIngredient
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Crafting recipe")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Text("2 \(ingredient.displayName) + 1 Stick")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.craftberryMuted)
+            }
+
+            HStack(spacing: 7) {
+                ForEach(0..<3, id: \.self) { column in
+                    VStack(spacing: 7) {
+                        ForEach(0..<3, id: \.self) { row in
+                            ingredientCell(row: row, column: column)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(14)
+        .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Crafting recipe: two \(ingredient.displayName) and one stick in a vertical line")
+    }
+
+    @ViewBuilder
+    private func ingredientCell(row: Int, column: Int) -> some View {
+        let isMaterial = column == 1 && (row == 0 || row == 1)
+        let isStick = column == 1 && row == 2
+
+        RoundedRectangle(cornerRadius: 7)
+            .fill(Color.craftberryRecipeSlot)
+            .frame(width: 44, height: 44)
+            .overlay {
+                if isMaterial {
+                    Image(systemName: "diamond.fill")
+                        .font(.title3)
+                        .foregroundStyle(ingredient.color)
+                } else if isStick {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.craftberryStick)
+                        .frame(width: 6, height: 26)
+                        .rotationEffect(.degrees(38))
+                }
+            }
+    }
+}
+
 private struct CraftberryPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -400,6 +457,25 @@ private extension Color {
     static let craftberryGold = Color(red: 0.95, green: 0.61, blue: 0.22)
     static let craftberryOrange = Color(red: 0.86, green: 0.29, blue: 0.13)
     static let craftberryBlue = Color(red: 0.36, green: 0.61, blue: 0.98)
+    static let craftberryRecipeSlot = Color(red: 0.08, green: 0.085, blue: 0.105)
+    static let craftberryStick = Color(red: 0.55, green: 0.33, blue: 0.16)
+}
+
+private extension CraftingIngredient {
+    var color: Color {
+        switch self {
+        case .diamond: .craftberryBlue
+        case .emerald: .green
+        case .ironIngot: .gray
+        case .goldIngot: .craftberryGold
+        case .netheriteIngot: .purple
+        case .amethystShard: .purple
+        case .blazeRod: .orange
+        case .redstone: .red
+        case .lapisLazuli: .blue
+        case .quartz: .white
+        }
+    }
 }
 
 private struct ActivitySheet: UIViewControllerRepresentable {
