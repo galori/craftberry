@@ -42,7 +42,7 @@ The profile currently carries the format versions and the small vanilla item cat
 | No partial filesystem output after semantic validation failure | Automated |
 | Fake-client ready, unsupported, network, validation, build, export-ready flows | Automated on iOS simulator |
 | Blockception schema lint | Pending |
-| Physical iPhone import, both packs active, clean Content Log | Pending |
+| Physical iPhone import, both packs active, load-time Content Log | Verified for a fresh fixture; OCR matched its pack ID during world load. A recipe-conflict warning was present, so a clean Content Log remains pending. |
 | Survival crafting, appearance, combat, durability | Pending |
 
 ## Decision changes
@@ -52,4 +52,4 @@ The profile currently carries the format versions and the small vanilla item cat
 | 2026-08-02 | Pin the active profile to Mojang sample release `1.26.30.5` instead of the historical POC’s 1.21.80+ target | The implementation must target one current, explicit baseline; changing it now requires migration |
 | 2026-08-02 | Keep Blockception lint pending for the foundation rather than treating it as an authority | The compiler emits only already assertion-covered foundation documents; selective vendoring begins with the next document families |
 | 2026-08-02 | Keep the foundation device status pending | This development environment was not authorized or equipped to mutate Minecraft or physical-device state |
-| 2026-08-02 | Scaffold standalone `scripts/minecraft-import.sh` / `scripts/minecraft-mirror-drive.sh` tooling for the Device column, but leave Device status Pending | `minecraft-import.sh` (import via Safari) is verified end-to-end on a physical iPhone; `minecraft-mirror-drive.sh` (in-world pack activation + OCR verification) remains uncalibrated pending an iPhone Mirroring session; see AGENTS.md Testing section |
+| 2026-08-02 | Calibrate standalone Minecraft validation tooling on the physical iPhone while retaining the foundation's overall Device status as pending | `minecraft-import.sh` reliably imports a fresh fixture through Safari. `minecraft-mirror-drive.sh` activates it in My World with keyboard focus navigation because Minecraft Ore UI ignores mirrored pointer clicks; OCR matched the fixture pack ID in the load-time Content Log and the custom sword rendered in hand/hotbar. Clean Content Log, inventory-name lookup, survival crafting, combat, and durability remain pending. |

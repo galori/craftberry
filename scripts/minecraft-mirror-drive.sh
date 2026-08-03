@@ -7,12 +7,12 @@ OUTPUT_DIR="$ROOT_DIR/.build/minecraft-mirror"
 DEFAULT_STEPS_FILE="$SCRIPT_DIR/minecraft-activation-steps.json"
 
 usage() {
-    cat <<USAGE
+    cat <<'USAGE'
 Usage: scripts/minecraft-mirror-drive.sh <command> [args]
 
 Leg 2 of physical-device Minecraft validation: drives Minecraft's own UI
-(not accessibility-navigable, so XCUITest can't reach it) by sending
-synthetic clicks into the Mac-side "iPhone Mirroring" window, and verifies
+(not accessibility-navigable, so XCUITest can't reach it) through keyboard
+focus navigation in the Mac-side "iPhone Mirroring" window, and verifies
 outcomes with screenshots + Vision-framework OCR (scripts/ocr.swift).
 
 Requires you to have already started an iPhone Mirroring session by hand
@@ -24,17 +24,27 @@ Commands:
   screenshot [name]         Screenshot just the mirrored window, for calibration.
   tap <relX> <relY> [name]  Click inside the mirrored window at a fraction of
                              its width/height (0.0-1.0 each), then screenshot.
+  home                      Go to the Home Screen (View menu command; no
+                             swipe gesture needed/available for Face ID
+                             phones).
+  spotlight                 Open Spotlight search (View menu command).
+  type <text>               Type text via the keyboard into the current
+                             focused field (routes to the mirrored phone).
+  key <name> [count]        Send a key to the mirrored phone. Names: tab,
+                             left, right, up, down, escape.
+  confirm [count]           Send Return to confirm the focused control.
   run [steps.json]          Run a declarative step sequence (default:
                              scripts/minecraft-activation-steps.json). Each
                              step is one of:
-                               {"type": "tap", "x": 0-1, "y": 0-1, "label": "..."}
+                               {"type": "key", "key": "tab|left|right|up|down|escape", "count": N, "label": "..."}
+                               {"type": "confirm", "count": N, "label": "..."}
+                               {"type": "type", "text": "...", "label": "..."}
                                {"type": "wait", "seconds": N, "label": "..."}
                                {"type": "ocr", "expect": "text", "label": "..."}
-                             tap coordinates are fractions of the mirrored
-                             window, not absolute pixels, so they survive
-                             window resizes. A step with x/y still set to
-                             null has not been calibrated against the live
-                             device yet.
+                             Minecraft's Ore UI ignores mirrored pointer
+                             clicks, so use key/confirm steps for its UI.
+                             `tap` remains available only for ordinary iOS
+                             views outside Minecraft.
 
 All screenshots and logs are kept under .build/minecraft-mirror.
 USAGE
@@ -80,6 +90,27 @@ require_window() {
         echo "Start a session by hand (Spotlight -> iPhone Mirroring -> select the device -> authenticate), then re-run this script." >&2
         exit 1
     fi
+    ensure_window_is_capturable
+}
+
+# `screencapture -R` silently crops a rectangle with a negative origin. Keep
+# the mirror window on the primary display before computing any relative
+# coordinates or taking evidence screenshots.
+ensure_window_is_capturable() {
+    if (( WIN_X < 0 || WIN_Y < 0 )); then
+        echo "Repositioning iPhone Mirroring window onto the primary display." >&2
+        osascript <<'APPLESCRIPT' >/dev/null
+tell application "System Events"
+    tell process "iPhone Mirroring"
+        set position of window 1 to {40, 40}
+    end tell
+end tell
+APPLESCRIPT
+        window_frame || {
+            echo "error: could not re-read the repositioned iPhone Mirroring window frame." >&2
+            exit 1
+        }
+    fi
 }
 
 screenshot_window() {
@@ -95,12 +126,86 @@ tap_relative() {
     require_window
     abs_x="$(python3 -c "print(round($WIN_X + $WIN_W * $rel_x))")"
     abs_y="$(python3 -c "print(round($WIN_Y + $WIN_H * $rel_y))")"
-    osascript -e "tell application \"System Events\" to click at {$abs_x, $abs_y}"
+    # AppleScript's `System Events click at` does not reliably register as a
+    # touch on the mirrored surface (confirmed live: repeated taps on
+    # unambiguous targets like Home Screen icons produced no reaction). A
+    # raw Quartz mouseDown+mouseUp with a brief hold does.
+    python3 "$SCRIPT_DIR/lib/mirror_click.py" "$abs_x" "$abs_y"
+}
+
+mirroring_menu_click() {
+    local menu_item="$1"
+    require_window
+    osascript -e "tell application \"System Events\" to tell process \"iPhone Mirroring\" to click menu item \"$menu_item\" of menu 1 of menu bar item \"View\" of menu bar 1" >/dev/null
 }
 
 cmd_window() {
     require_window
     echo "x,y,width,height = $WIN_X,$WIN_Y,$WIN_W,$WIN_H"
+}
+
+cmd_home() {
+    mirroring_menu_click "Home Screen"
+}
+
+cmd_spotlight() {
+    mirroring_menu_click "Spotlight"
+}
+
+cmd_type() {
+    local text="${1:?text required}"
+    require_window
+    osascript - "$text" <<'APPLESCRIPT' >/dev/null
+on run argv
+    tell application "System Events" to keystroke (item 1 of argv)
+end run
+APPLESCRIPT
+}
+
+key_code() {
+    case "$1" in
+        tab) echo 48 ;;
+        left) echo 123 ;;
+        right) echo 124 ;;
+        down) echo 125 ;;
+        up) echo 126 ;;
+        escape) echo 53 ;;
+        *)
+            echo "error: unsupported key '$1'; use tab, left, right, up, down, or escape." >&2
+            exit 1
+            ;;
+    esac
+}
+
+send_key() {
+    local name="$1" count="${2:-1}" code
+    [[ "$count" =~ ^[1-9][0-9]*$ ]] || {
+        echo "error: key count must be a positive integer, got '$count'." >&2
+        exit 1
+    }
+    code="$(key_code "$name")"
+    require_window
+    for ((press = 0; press < count; press++)); do
+        osascript -e "tell application \"System Events\" to key code $code" >/dev/null
+        sleep 0.15
+    done
+}
+
+cmd_key() {
+    send_key "${1:?key name required}" "${2:-1}"
+}
+
+cmd_confirm() {
+    local count="${1:-1}"
+    [[ "$count" =~ ^[1-9][0-9]*$ ]] || {
+        echo "error: confirm count must be a positive integer, got '$count'." >&2
+        exit 1
+    }
+    require_window
+    for ((press = 0; press < count; press++)); do
+        osascript -e 'tell application "System Events" to key code 36' >/dev/null
+        sleep 0.15
+    done
 }
 
 cmd_screenshot() {
@@ -145,6 +250,28 @@ cmd_run() {
         printf 'Step %02d (%s): %s\n' "$i" "$type" "$label"
 
         case "$type" in
+            key)
+                local key count
+                key="$(jq -r '.key' <<<"$step")"
+                count="$(jq -r '.count // 1' <<<"$step")"
+                send_key "$key" "$count"
+                sleep 0.5
+                screenshot_window "$shot_path"
+                ;;
+            confirm)
+                local count
+                count="$(jq -r '.count // 1' <<<"$step")"
+                cmd_confirm "$count"
+                sleep 0.5
+                screenshot_window "$shot_path"
+                ;;
+            type)
+                local text
+                text="$(jq -r '.text' <<<"$step")"
+                cmd_type "$text"
+                sleep 0.5
+                screenshot_window "$shot_path"
+                ;;
             tap)
                 local x y
                 x="$(jq -r '.x' <<<"$step")"
@@ -200,6 +327,11 @@ main() {
         window) cmd_window ;;
         screenshot) cmd_screenshot "$@" ;;
         tap) cmd_tap "$@" ;;
+        home) cmd_home ;;
+        spotlight) cmd_spotlight ;;
+        type) cmd_type "$@" ;;
+        key) cmd_key "$@" ;;
+        confirm) cmd_confirm "$@" ;;
         run) cmd_run "$@" ;;
         -h|--help|help|"") usage ;;
         *)
