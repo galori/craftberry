@@ -3,19 +3,19 @@ import XCTest
 /// A USB/XCTest proof that Bedrock accepts a device-level coordinate gesture.
 ///
 /// This deliberately does not use accessibility lookup: Minecraft's Ore UI
-/// exposes no useful accessibility elements. The initial coordinate is the
-/// centre of the Creative inventory search field, calibrated on the iPhone
-/// 16e while Minecraft is in landscape. It is normalized to Minecraft's
-/// application frame, so it is not tied to a particular mirrored-window size.
+/// exposes no useful accessibility elements. The coordinate is the centre of
+/// the main-menu Play button on the iPhone 16e in landscape. It is normalized
+/// to Minecraft's application frame, so it is not tied to a particular
+/// mirrored-window size.
 final class MinecraftCoordinateTouchUITests: XCTestCase {
     private let minecraftBundleID = "com.mojang.minecraftpe"
-    private let creativeSearchField = CGVector(dx: 0.265, dy: 0.150)
+    private let mainMenuPlayButton = CGVector(dx: 0.500, dy: 0.443)
 
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    func testMinecraftReceivesCoordinateTapInCreativeSearch() throws {
+    func testMinecraftReceivesCoordinateTapOnPlay() throws {
         let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
         minecraft.launch()
 
@@ -24,13 +24,17 @@ final class MinecraftCoordinateTouchUITests: XCTestCase {
             "Minecraft did not come to the foreground. Keep it installed, unlocked, and connected over USB."
         )
 
-        attach("Before XCTest coordinate tap")
-        minecraft.coordinate(withNormalizedOffset: creativeSearchField).tap()
+        // Minecraft renders its own loading screen, so becoming foreground is
+        // not enough to establish that Ore UI is ready. On the physical 16e,
+        // eight seconds covers a cold launch with margin and lands on the
+        // deterministic main menu.
+        sleep(8)
 
-        // A focused search field opens Minecraft's on-screen keyboard. Give
-        // the custom renderer one frame cycle before recording proof.
-        sleep(1)
-        attach("After XCTest coordinate tap")
+        attach("Before tapping Minecraft Play")
+        minecraft.coordinate(withNormalizedOffset: mainMenuPlayButton).tap()
+
+        sleep(2)
+        attach("After tapping Minecraft Play")
     }
 
     private func attach(_ name: String) {
