@@ -68,13 +68,15 @@ struct CreationView: View {
             progressState(
                 title: "Crafting your add-on…",
                 detail: "Turning your idea into a validated Bedrock project.",
-                steps: ["Reading your idea", "Building the content graph", "Validating references"]
+                steps: ["Reading your idea", "Building the content graph", "Validating references"],
+                stateIdentifier: "craftberry.state.generating"
             )
         case .building:
             progressState(
                 title: "Building your add-on…",
                 detail: "Rendering assets and packaging your .mcaddon.",
-                steps: ["Rendering project assets", "Writing Bedrock files", "Packaging the build"]
+                steps: ["Rendering project assets", "Writing Bedrock files", "Packaging the build"],
+                stateIdentifier: "craftberry.state.building"
             )
         case .unsupported(let message), .failed(let message):
             messageState(message)
@@ -95,6 +97,7 @@ struct CreationView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white)
                 .padding(.top, 22)
+                .accessibilityIdentifier("craftberry.state.editing")
             Text("Describe a custom Bedrock add-on in your own words")
                 .font(.subheadline)
                 .foregroundStyle(Color.craftberryMuted)
@@ -122,7 +125,7 @@ struct CreationView: View {
         return false
     }
 
-    private func progressState(title: String, detail: String, steps: [String]) -> some View {
+    private func progressState(title: String, detail: String, steps: [String], stateIdentifier: String) -> some View {
         VStack(spacing: 0) {
             Spacer()
             CraftingProgressIndicator()
@@ -130,6 +133,7 @@ struct CreationView: View {
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .padding(.top, 38)
+                .accessibilityIdentifier(stateIdentifier)
             Text(detail)
                 .font(.subheadline)
                 .foregroundStyle(Color.craftberryMuted)
@@ -182,6 +186,7 @@ struct CreationView: View {
                         .font(.caption.weight(.bold))
                         .tracking(1.2)
                         .foregroundStyle(Color.craftberryMuted)
+                        .accessibilityIdentifier(result == nil ? "craftberry.state.ready" : "craftberry.state.built")
                     Spacer()
                     Image(systemName: result == nil ? "hammer.fill" : "checkmark")
                         .frame(width: 34, height: 34)
@@ -228,6 +233,7 @@ struct CreationView: View {
                         Label("Export .mcaddon", systemImage: "square.and.arrow.up")
                     }
                     .buttonStyle(CraftberryPrimaryButtonStyle())
+                    .accessibilityIdentifier("craftberry.export")
 
                     Text("Save or share this build artifact, then transfer it to a physical iPhone for Minecraft validation.")
                         .font(.footnote)
@@ -235,8 +241,11 @@ struct CreationView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 } else {
-                    Button("Build .mcaddon") { viewModel.buildArtifact(project) }
+                    Button("Build .mcaddon") {
+                        Task { await viewModel.buildArtifact(project) }
+                    }
                         .buttonStyle(CraftberryPrimaryButtonStyle())
+                        .accessibilityIdentifier("craftberry.build")
                 }
             }
             .padding(24)
@@ -279,6 +288,7 @@ struct CreationView: View {
                         .padding(.horizontal, 11)
                         .padding(.vertical, 3)
                         .accessibilityLabel("Add-on description")
+                        .accessibilityIdentifier("craftberry.prompt")
                 }
                 Button {
                     Task { await viewModel.generate() }
@@ -290,6 +300,7 @@ struct CreationView: View {
                 .buttonStyle(CraftberryRoundButtonStyle())
                 .disabled(viewModel.isBusy || viewModel.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityLabel("Generate add-on")
+                .accessibilityIdentifier("craftberry.generate")
             }
             .padding(7)
             .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 25))

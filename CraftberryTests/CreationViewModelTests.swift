@@ -94,7 +94,7 @@ final class CreationViewModelTests: XCTestCase {
         viewModel.prompt = "A blue sword"
         await viewModel.generate()
 
-        viewModel.buildArtifact(project)
+        await viewModel.buildArtifact(project)
 
         guard case .failed(let message) = viewModel.state else {
             return XCTFail("Expected failed state, got \(viewModel.state)")
@@ -117,7 +117,7 @@ final class CreationViewModelTests: XCTestCase {
         viewModel.prompt = "A blue sword"
         await viewModel.generate()
 
-        viewModel.buildArtifact(project)
+        await viewModel.buildArtifact(project)
 
         guard case .built(let builtProject, let result) = viewModel.state else {
             return XCTFail("Expected built state, got \(viewModel.state)")

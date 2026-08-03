@@ -71,11 +71,12 @@ Bedrock's actual engine validation is stricter than the official docs, stricter 
 
 ### Reaching each UI state manually
 
-`CreationViewModel.State` is `editing → generating → (unsupported | ready) → building → built`, with `failed` reachable from several points. Deterministic fake-client and compiler tests cover these states in `CreationViewModelTests`; a separate `CraftberryUITests` target does not exist yet. Running the app for real:
+`CreationViewModel.State` is `editing → generating → (unsupported | ready) → building → built`, with `failed` reachable from several points. Deterministic fake-client and compiler tests cover these states in `CreationViewModelTests`; `CraftberryUITests` covers the physical-device smoke flow through the iOS share sheet. Running the app for real:
 
 - `.failed` is reachable with zero setup — tap Generate with an empty or whitespace-only prompt; `generate()` short-circuits before any network call.
 - `.generating` / `.ready` / `.unsupported` / `.building` / `.built` all require a live OpenAI call, which needs a real key in the untracked `Config/Secrets.xcconfig` (copy `Config/Secrets.example.xcconfig` to `Config/Secrets.xcconfig` and set `OPENAI_API_KEY`; `Config/Debug.xcconfig` includes it automatically). Without a key, `generate()` fails immediately with a `missingAPIKey` error instead of reaching those states.
-- `CreationViewModel.init` accepts an optional `LLMClient`, compiler, and artifact-directory provider. Keep using those seams for deterministic tests or a future manual Debug override instead of hitting the network or Documents directory.
+- `CreationViewModel.init` accepts an optional `LLMClient`, compiler, and artifact-directory provider. Keep using those seams for deterministic tests instead of hitting the network or Documents directory.
+- The internal `--ui-testing` launch argument is Debug-only and reserved for XCTest. It injects deterministic generation and a temporary artifact directory; Release builds must not enable fake behavior.
 
 ## Local Commands
 
@@ -85,6 +86,8 @@ Once the Xcode project exists, prefer these commands from the repository root (r
 xcodebuild -list
 xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
 xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build
+scripts/ios-device.sh list
+scripts/ios-device.sh test
 ```
 
 Do not run a signed archive, upload, TestFlight distribution, or device installation unless the user explicitly asks.

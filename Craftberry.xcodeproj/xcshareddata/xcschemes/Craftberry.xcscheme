@@ -39,6 +39,16 @@
                ReferencedContainer = "container:Craftberry.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A50000000000000000000003"
+               BuildableName = "CraftberryUITests.xctest"
+               BlueprintName = "CraftberryUITests"
+               ReferencedContainer = "container:Craftberry.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

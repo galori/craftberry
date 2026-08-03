@@ -66,15 +66,19 @@ final class CreationViewModel: ObservableObject {
         }
     }
 
-    func buildArtifact(_ project: AddOnProject) {
+    func buildArtifact(_ project: AddOnProject) async {
         state = .building(project)
+        await Task.yield()
         do {
             let directory = try artifactDirectoryProvider()
-            let result = try compiler.compile(
-                project: project,
-                profile: .current,
-                outputDirectory: directory
-            )
+            let compiler = compiler
+            let result = try await Task.detached(priority: .userInitiated) {
+                try compiler.compile(
+                    project: project,
+                    profile: .current,
+                    outputDirectory: directory
+                )
+            }.value
             state = .built(project, result)
         } catch {
             state = .failed(error.localizedDescription)
