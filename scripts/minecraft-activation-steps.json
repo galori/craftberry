@@ -1,0 +1,16 @@
+[
+  {"type": "tap", "x": null, "y": null, "label": "Play tab in main menu"},
+  {"type": "wait", "seconds": 1, "label": "world list loads"},
+  {"type": "tap", "x": null, "y": null, "label": "Edit (pencil) icon on the test world"},
+  {"type": "wait", "seconds": 1, "label": "world settings loads"},
+  {"type": "tap", "x": null, "y": null, "label": "Behavior Packs tab"},
+  {"type": "tap", "x": null, "y": null, "label": "Activate button on the imported behavior pack"},
+  {"type": "tap", "x": null, "y": null, "label": "Resource Packs tab"},
+  {"type": "tap", "x": null, "y": null, "label": "Activate button on the imported resource pack"},
+  {"type": "tap", "x": null, "y": null, "label": "Save button"},
+  {"type": "wait", "seconds": 2, "label": "world list reloads"},
+  {"type": "tap", "x": null, "y": null, "label": "Play button on the world row"},
+  {"type": "wait", "seconds": 10, "label": "world finishes loading"},
+  {"type": "tap", "x": null, "y": null, "label": "open inventory / creative item search"},
+  {"type": "ocr", "expect": "REPLACE_WITH_ITEM_DISPLAY_NAME", "label": "imported item's display name appears in creative search"}
+]
