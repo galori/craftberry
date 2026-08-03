@@ -57,4 +57,18 @@ These two legs run sequentially, not concurrently: starting an iPhone Mirroring 
 
 Direct creative-inventory lookup of the item's localized display name remains a pending device-acceptance check: the inventory grid did not respond to keyboard focus navigation in the initial calibration. The current automated assertion is the imported pack-ID match in the load-time Content Log, alongside the observed correctly rendered item.
 
+### Full physical-device emerald-sword acceptance
+
+`MinecraftEmeraldSwordE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it generates **Emerald Test Sword**, which uses `minecraft:emerald`—a supported but nonstandard vanilla sword material—builds and exports the `.mcaddon`, hands it to Minecraft, activates both pack halves for **My World**, crafts it from two emeralds and a stick, and uses OCR to assert its localized name.
+
+Minecraft coordinate UI changes with the device, Minecraft release, world layout, and crafting-table placement. Accordingly, the test is deliberately disabled in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) until every named tap step has been calibrated on the dedicated physical iPhone following `docs/MINECRAFT_DEVICE_AUTOMATION.md`. Fill each `x`/`y` pair with normalized `XCUIApplication` offsets, set `enabled` to `true`, quit iPhone Mirroring, unlock the USB-connected iPhone, then run:
+
+```sh
+xcodebuild -project Craftberry.xcodeproj -scheme Craftberry -configuration Debug \
+  -destination 'platform=iOS,id=<device-id>' -allowProvisioningUpdates \
+  -only-testing:CraftberryUITests/MinecraftEmeraldSwordE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted test
+```
+
+The test retains a screenshot after every calibrated action. Recalibrate after any Minecraft UI update, and reset **My World** to its known creative test state before each run.
+
 The core is also exposed as the `CraftberryCore` Swift package target for isolated Swift 6 compiler tests. See [ROADMAP.md](ROADMAP.md) for the active architecture and delivery plan, [CAPABILITIES.md](CAPABILITIES.md) for profile support and verification status, and [PLAN.md](PLAN.md) for the historical sword POC plan.

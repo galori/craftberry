@@ -48,12 +48,13 @@ private extension CreationViewModel {
 private struct UITestingLLMClient: LLMClient {
     func generateProject(from prompt: String) async throws -> ProjectGeneration {
         try await Task.sleep(nanoseconds: 2_000_000_000)
+        let usesEmerald = ProcessInfo.processInfo.arguments.contains("--ui-testing-emerald-sword")
         let project = try AddOnProject.sword(
-            displayName: "Cyan Test Sword",
-            color: .cyan,
+            displayName: usesEmerald ? "Emerald Test Sword" : "Cyan Test Sword",
+            color: usesEmerald ? .green : .cyan,
             attackBonus: 14,
             durability: 500,
-            craftingIngredient: "minecraft:diamond",
+            craftingIngredient: usesEmerald ? "minecraft:emerald" : "minecraft:diamond",
             originalPrompt: prompt,
             identity: AddOnProjectIdentity(
                 projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000101")!,

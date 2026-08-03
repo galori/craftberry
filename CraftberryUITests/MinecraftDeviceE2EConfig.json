@@ -1,0 +1,75 @@
+{
+  "enabled": false,
+  "expectedSwordName": "Emerald Test Sword",
+  "steps": [
+    {
+      "name": "Wait for Minecraft's main menu to finish rendering",
+      "action": "wait",
+      "seconds": 8
+    },
+    {
+      "name": "Open the world list from Play",
+      "action": "tap",
+      "x": 0.5,
+      "y": 0.443
+    },
+    {
+      "name": "Confirm the existing creative world is visible",
+      "action": "ocr",
+      "text": "My World"
+    },
+    {
+      "name": "Open the My World edit screen",
+      "action": "tap"
+    },
+    {
+      "name": "Open Behavior Packs in the My World settings sidebar",
+      "action": "tap"
+    },
+    {
+      "name": "Open Available Behavior Packs",
+      "action": "tap"
+    },
+    {
+      "name": "Select the imported Emerald Test Sword behavior pack",
+      "action": "tap"
+    },
+    {
+      "name": "Activate the imported behavior pack and accept Minecraft's compatibility warning",
+      "action": "tap"
+    },
+    {
+      "name": "Open Resource Packs in the My World settings sidebar",
+      "action": "tap"
+    },
+    {
+      "name": "Select and activate the imported Emerald Test Sword resource pack",
+      "action": "tap"
+    },
+    {
+      "name": "Launch My World in creative mode with both pack halves active",
+      "action": "tap"
+    },
+    {
+      "name": "Open the calibrated crafting table in My World",
+      "action": "tap"
+    },
+    {
+      "name": "Place two emeralds in the sword recipe pattern",
+      "action": "tap"
+    },
+    {
+      "name": "Place one stick below the emeralds",
+      "action": "tap"
+    },
+    {
+      "name": "Take the crafted Emerald Test Sword and select it in the hotbar",
+      "action": "tap"
+    },
+    {
+      "name": "Confirm the crafted sword's localized display name",
+      "action": "ocr",
+      "text": "$EXPECTED_SWORD_NAME"
+    }
+  ]
+}

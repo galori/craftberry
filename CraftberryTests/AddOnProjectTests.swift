@@ -31,6 +31,20 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(AddOnProjectValidator.validate(invalidProject, profile: .current).errors.map(\.code), ["shapeless_recipe_ingredient_count"])
     }
 
+    func testSwordSupportsEmeraldAsANonstandardSwordMaterial() throws {
+        let project = try AddOnProject.sword(
+            displayName: "Emerald Test Sword",
+            color: .green,
+            attackBonus: 14,
+            durability: 500,
+            craftingIngredient: "minecraft:emerald",
+            originalPrompt: "An emerald sword"
+        )
+
+        XCTAssertEqual(project.items.first?.displayName, "Emerald Test Sword")
+        XCTAssertEqual(project.recipes.first?.ingredients["M"], .vanilla("minecraft:emerald"))
+    }
+
     func testV1ProjectMigratesWithoutChangingIdentity() throws {
         let project = try makeSwordProject()
         let v1 = AddOnProject(schemaVersion: 1, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content)

@@ -32,6 +32,8 @@
 		A10000000000000000000023 /* MinecraftHandoffUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* MinecraftHandoffUITests.swift */; };
 		A10000000000000000000024 /* MinecraftImportConfig.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* MinecraftImportConfig.json */; };
 		A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */; };
+		A10000000000000000000026 /* MinecraftEmeraldSwordE2EUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* MinecraftEmeraldSwordE2EUITests.swift */; };
+		A10000000000000000000027 /* MinecraftDeviceE2EConfig.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* MinecraftDeviceE2EConfig.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +84,8 @@
 		A20000000000000000000028 /* MinecraftHandoffUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftHandoffUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000029 /* MinecraftImportConfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MinecraftImportConfig.json; sourceTree = "<group>"; };
 		A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCoordinateTouchUITests.swift; sourceTree = "<group>"; };
+		A20000000000000000000031 /* MinecraftEmeraldSwordE2EUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftEmeraldSwordE2EUITests.swift; sourceTree = "<group>"; };
+		A20000000000000000000032 /* MinecraftDeviceE2EConfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MinecraftDeviceE2EConfig.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -181,7 +185,9 @@
 				A20000000000000000000026 /* CraftberryUITests.swift */,
 				A20000000000000000000028 /* MinecraftHandoffUITests.swift */,
 				A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */,
+				A20000000000000000000031 /* MinecraftEmeraldSwordE2EUITests.swift */,
 				A20000000000000000000029 /* MinecraftImportConfig.json */,
+				A20000000000000000000032 /* MinecraftDeviceE2EConfig.json */,
 			);
 			path = CraftberryUITests;
 			sourceTree = "<group>";
@@ -344,6 +350,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000024 /* MinecraftImportConfig.json in Resources */,
+				A10000000000000000000027 /* MinecraftDeviceE2EConfig.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,6 +398,7 @@
 				A10000000000000000000022 /* CraftberryUITests.swift in Sources */,
 				A10000000000000000000023 /* MinecraftHandoffUITests.swift in Sources */,
 				A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */,
+				A10000000000000000000026 /* MinecraftEmeraldSwordE2EUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
