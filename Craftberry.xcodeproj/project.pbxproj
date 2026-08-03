@@ -31,6 +31,7 @@
 		A10000000000000000000022 /* CraftberryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* CraftberryUITests.swift */; };
 		A10000000000000000000023 /* MinecraftHandoffUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* MinecraftHandoffUITests.swift */; };
 		A10000000000000000000024 /* MinecraftImportConfig.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* MinecraftImportConfig.json */; };
+		A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +81,7 @@
 		A20000000000000000000027 /* CraftberryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = CraftberryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000028 /* MinecraftHandoffUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftHandoffUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000029 /* MinecraftImportConfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MinecraftImportConfig.json; sourceTree = "<group>"; };
+		A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCoordinateTouchUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +180,7 @@
 			children = (
 				A20000000000000000000026 /* CraftberryUITests.swift */,
 				A20000000000000000000028 /* MinecraftHandoffUITests.swift */,
+				A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */,
 				A20000000000000000000029 /* MinecraftImportConfig.json */,
 			);
 			path = CraftberryUITests;
@@ -387,6 +390,7 @@
 			files = (
 				A10000000000000000000022 /* CraftberryUITests.swift in Sources */,
 				A10000000000000000000023 /* MinecraftHandoffUITests.swift in Sources */,
+				A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

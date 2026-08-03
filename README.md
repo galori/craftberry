@@ -47,6 +47,10 @@ Two more scripts drive that Minecraft-side validation without exercising Craftbe
 
 These two legs run sequentially, not concurrently: starting an iPhone Mirroring session locks the phone's own screen, and Xcode/XCUITest cannot talk to a locked device's UI — so leg 1 (device unlocked, driven by Xcode) must finish before leg 2 (device locked, driven by the mirror) begins.
 
+### Coordinate-touch proof (USB only)
+
+`scripts/minecraft-coordinate-touch.sh` is the deliberately small proof for Bedrock UI that does not expose accessibility elements. Quit iPhone Mirroring, unlock the iPhone, connect it by USB, and leave Minecraft open to the landscape Creative inventory. The test launches Minecraft, taps the calibrated All Items search-field coordinate through XCTest, and retains before/after device screenshots in `.build/minecraft-coordinate-touch/*.xcresult`. It uses a normalized coordinate within Minecraft's application frame, avoiding dependence on Mac mirror-window pixels. A post-tap keyboard/focused search field proves that device-level XCTest input reaches a target that Mirroring's indirect pointer does not.
+
 **Manual steps neither script can automate:**
 - Starting the iPhone Mirroring session itself — there is no CLI/AppleScript/URL scheme for this; open **iPhone Mirroring.app**, select the device, and authenticate with Face ID/passcode on the phone by hand before running `minecraft-mirror-drive.sh`.
 - Before `run`, replace both `REPLACE_WITH_IMPORTED_PACK_DIGITS` values in `scripts/minecraft-activation-steps.json` with a digits-only substring from the just-imported fixture name. Minecraft consumes some letters as in-game shortcuts while filtering. The keyboard focus sequence is calibrated for the existing creative world named **My World** and should be rechecked after a Minecraft UI update. The script automatically moves a mirror window whose origin is negative, preventing `screencapture -R` from silently cropping evidence images.
