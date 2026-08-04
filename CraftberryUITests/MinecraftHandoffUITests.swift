@@ -61,6 +61,19 @@ final class MinecraftHandoffUITests: XCTestCase {
         // Files is standard, stable UIKit and always has a Downloads
         // location, so drive that instead of chasing Safari's own UI further.
         let fileNameHint = URL(string: urlString)?.lastPathComponent ?? "mcaddon"
+
+        // Deleting the downloaded file from Files/iCloud Drive is best-effort
+        // device hygiene, not part of this test's acceptance signal: it must
+        // run whether the test above passes or fails, and a cleanup hiccup
+        // must never affect this test's own pass/fail result. Without this,
+        // repeated runs pile up stale downloads — 273 stale items had
+        // already accumulated in Downloads from prior manual use before this
+        // existed (see `openDownloadedFile` below). Mirrors the same
+        // teardown pattern in MinecraftEmeraldSwordE2EUITests.
+        addTeardownBlock { [self] in
+            deleteDownloadedFile(matching: fileNameHint)
+        }
+
         let files = XCUIApplication(bundleIdentifier: "com.apple.DocumentsApp")
         try openDownloadedFile(in: files, matching: fileNameHint)
         attach(name: "After opening downloaded file in Files")
@@ -194,6 +207,80 @@ final class MinecraftHandoffUITests: XCTestCase {
             app.staticTexts["Minecraft"]
         ]
         _ = try tapFirstExisting(openInCandidates, timeout: 10, description: "Minecraft Open In button")
+    }
+
+    /// Best-effort cleanup: deletes the just-downloaded `.mcaddon` from Files
+    /// so repeated runs of this test don't accumulate stale downloads. Never
+    /// calls `XCTFail` — unlike `tapFirstExisting`, every lookup here uses
+    /// the non-fatal `firstExisting` and simply logs and returns if a step
+    /// can't be completed, since a cleanup hiccup must not affect this
+    /// test's own pass/fail result.
+    private func deleteDownloadedFile(matching fileNameHint: String) {
+        let files = XCUIApplication(bundleIdentifier: "com.apple.DocumentsApp")
+        files.terminate()
+        files.launch()
+
+        if let doneButton = firstExisting([files.buttons["QLOverlayDoneButtonAccessibilityIdentifier"]], timeout: 2) {
+            doneButton.tap()
+        }
+
+        for _ in 0..<6 {
+            guard let back = firstExisting([files.buttons["BackButton"]], timeout: 3) else { break }
+            back.tap()
+            usleep(500_000)
+        }
+
+        let downloadsCandidates = [
+            files.staticTexts["Downloads"],
+            files.buttons["Downloads"],
+            files.cells["Downloads"],
+            files.cells.staticTexts["Downloads"]
+        ]
+        if let downloadsLocation = firstExisting(downloadsCandidates, timeout: 3) {
+            downloadsLocation.tap()
+        }
+
+        let fileCandidates = [
+            files.cells["\(fileNameHint), mcaddon"],
+            files.staticTexts[fileNameHint]
+        ]
+        guard let fileCell = firstExisting(fileCandidates, timeout: 10) else {
+            attach(name: "Cleanup: could not find downloaded file '\(fileNameHint)' to delete (logged only, not failing the test)")
+            return
+        }
+
+        fileCell.press(forDuration: 1.0)
+
+        // Confirmed live: a file downloaded via Safari's Downloads shows
+        // "Remove Download" in its context menu, not "Delete" — the latter
+        // is Files' generic destructive action for files it owns outright,
+        // but a Downloads entry is a placeholder over the Safari download,
+        // so its removal action is named differently. Check for it first.
+        let deleteMenuCandidates = [
+            files.buttons["Remove Download"],
+            files.menuItems["Remove Download"],
+            files.buttons["Delete"],
+            files.menuItems["Delete"],
+            files.collectionViews.buttons["Delete"]
+        ]
+        guard let deleteButton = firstExisting(deleteMenuCandidates, timeout: 5) else {
+            attach(name: "Cleanup: could not find a removal action in the context menu for '\(fileNameHint)' (logged only, not failing the test)")
+            return
+        }
+        deleteButton.tap()
+
+        // Some iOS versions show a further confirmation ("Delete" in an
+        // alert); others delete immediately. Tap it if present; otherwise
+        // this is a harmless no-op since the file is already gone.
+        let confirmCandidates = [
+            files.alerts.buttons["Delete"],
+            files.sheets.buttons["Delete"]
+        ]
+        if let confirmButton = firstExisting(confirmCandidates, timeout: 3) {
+            confirmButton.tap()
+        }
+
+        attach(name: "Cleanup: deleted downloaded file '\(fileNameHint)' from Files")
     }
 
     private func dumpTree(_ label: String, in app: XCUIApplication) {

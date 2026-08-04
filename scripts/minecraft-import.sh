@@ -27,6 +27,10 @@ generation) with a brand-new display name and identifiers.
 Activating the imported pack in a test world and verifying it in-game is a
 separate step: scripts/minecraft-mirror-drive.sh.
 
+After a successful handoff, the downloaded .mcaddon is automatically removed
+from Files/Downloads (best-effort; a cleanup hiccup is logged, not fatal),
+so repeated runs don't pile up stale Downloads entries.
+
 Set DEVICE_ID=<xcode-device-id> when more than one physical iPhone is connected.
 Set MCADDON_SERVER_PORT to pin the local HTTP server port; otherwise a free
 ephemeral port is picked automatically each run (avoids "Address already in

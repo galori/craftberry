@@ -65,6 +65,7 @@ Bedrock's actual engine validation is stricter than the official docs, stricter 
 ## Testing
 
 - Use XCTest as the default test framework; run focused tests while iterating and the full test target before handoff.
+- For Minecraft Ore UI automation, follow `docs/MINECRAFT_DEVICE_AUTOMATION.md`: use normalized USB/XCTest coordinates and require screenshot/OCR evidence; never use Mirroring pointer clicks or treat successful gesture synthesis alone as acceptance.
 - Unit-test all IR validation and defaults, identifier sanitization, manifest dependency wiring, generated JSON, texture dimensions, and both `.mcpack` and `.mcaddon` archive entries.
 - Use fixtures and fake `LLMClient` implementations for deterministic app and UI tests. Keep live API tests opt-in and never require a real key for the normal suite.
 - Test generic iOS share behavior on a physical device when changing export code. When the Bedrock compiler or packaging layout changes, separately validate an exported artifact in Minecraft on a physical iPhone; this is compatibility coverage, not an app handoff flow.

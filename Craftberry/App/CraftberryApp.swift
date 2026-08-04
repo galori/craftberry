@@ -49,6 +49,7 @@ private struct UITestingLLMClient: LLMClient {
     func generateProject(from prompt: String) async throws -> ProjectGeneration {
         try await Task.sleep(nanoseconds: 2_000_000_000)
         let usesEmerald = ProcessInfo.processInfo.arguments.contains("--ui-testing-emerald-sword")
+        let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let project = try AddOnProject.sword(
             displayName: usesEmerald ? "Emerald Test Sword" : "Cyan Test Sword",
             color: usesEmerald ? .green : .cyan,
@@ -56,19 +57,23 @@ private struct UITestingLLMClient: LLMClient {
             durability: 500,
             craftingIngredient: usesEmerald ? "minecraft:emerald" : "minecraft:diamond",
             originalPrompt: prompt,
-            identity: AddOnProjectIdentity(
-                projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000101")!,
-                namespace: "craftberry",
-                contentSuffix: "uitest",
-                packUUIDs: PackUUIDs(
-                    behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000101")!,
-                    behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000102")!,
-                    resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000103")!,
-                    resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000104")!
-                )
-            )
+            identity: usesFreshPackIdentity ? .generate() : fixedUITestingIdentity
         )
         return ProjectGeneration(outcome: .ready, message: "Ready", project: project)
+    }
+
+    private var fixedUITestingIdentity: AddOnProjectIdentity {
+        AddOnProjectIdentity(
+            projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000101")!,
+            namespace: "craftberry",
+            contentSuffix: "uitest",
+            packUUIDs: PackUUIDs(
+                behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000101")!,
+                behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000102")!,
+                resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000103")!,
+                resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000104")!
+            )
+        )
     }
 }
 

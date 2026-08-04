@@ -1,17 +1,17 @@
 {
-  "enabled": false,
+  "enabled": true,
   "expectedSwordName": "Emerald Test Sword",
   "steps": [
     {
-      "name": "Wait for Minecraft's main menu to finish rendering",
-      "action": "wait",
-      "seconds": 8
-    },
-    {
-      "name": "Open the world list from Play",
+      "name": "Open the world list from Minecraft's main menu",
       "action": "tap",
       "x": 0.5,
       "y": 0.443
+    },
+    {
+      "name": "Wait for the world list to finish rendering",
+      "action": "wait",
+      "seconds": 8
     },
     {
       "name": "Confirm the existing creative world is visible",
@@ -20,56 +20,403 @@
     },
     {
       "name": "Open the My World edit screen",
-      "action": "tap"
+      "action": "tap",
+      "x": 0.22,
+      "y": 0.7
     },
     {
-      "name": "Open Behavior Packs in the My World settings sidebar",
-      "action": "tap"
+      "name": "Wait for My World settings",
+      "action": "wait",
+      "seconds": 2
     },
     {
-      "name": "Open Available Behavior Packs",
-      "action": "tap"
+      "name": "Scroll the settings sidebar toward pack controls",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
     },
     {
-      "name": "Select the imported Emerald Test Sword behavior pack",
-      "action": "tap"
+      "name": "Finish scrolling the settings sidebar to pack controls",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
     },
     {
-      "name": "Activate the imported behavior pack and accept Minecraft's compatibility warning",
-      "action": "tap"
+      "name": "Wait for the pack controls",
+      "action": "wait",
+      "seconds": 2
     },
     {
-      "name": "Open Resource Packs in the My World settings sidebar",
-      "action": "tap"
+      "name": "Open Behavior Packs",
+      "action": "tap",
+      "x": 0.2,
+      "y": 0.81
     },
     {
-      "name": "Select and activate the imported Emerald Test Sword resource pack",
-      "action": "tap"
+      "name": "Wait for Behavior Packs to finish rendering",
+      "action": "wait",
+      "seconds": 5
     },
     {
-      "name": "Launch My World in creative mode with both pack halves active",
-      "action": "tap"
+      "name": "Confirm the Behavior Packs screen is open",
+      "action": "ocr",
+      "text": "Behavior Packs"
+    },
+  {
+    "name": "Open Available Behavior Packs",
+    "action": "tap",
+    "x": 0.82,
+    "y": 0.38
+  },
+    {
+      "name": "Wait for available behavior packs",
+      "action": "wait",
+      "seconds": 3
+    },
+  {
+    "name": "Confirm the imported behavior pack is available",
+    "action": "ocr",
+      "text": "Emerald Test Sword Behavior"
     },
     {
-      "name": "Open the calibrated crafting table in My World",
-      "action": "tap"
+    "name": "Activate the imported behavior pack",
+    "action": "tap",
+    "x": 0.94,
+    "y": 0.52
+  },
+    {
+      "name": "Wait for Minecraft's add-on stacking warning",
+      "action": "wait",
+      "seconds": 2
     },
     {
-      "name": "Place two emeralds in the sword recipe pattern",
-      "action": "tap"
+      "name": "Confirm the add-on stacking warning",
+      "action": "ocr",
+      "text": "Using Add-Ons"
     },
     {
-      "name": "Place one stick below the emeralds",
-      "action": "tap"
+      "name": "Accept the add-on stacking warning",
+      "action": "tap",
+      "x": 0.5,
+      "y": 0.65
     },
     {
-      "name": "Take the crafted Emerald Test Sword and select it in the hotbar",
-      "action": "tap"
+      "name": "Wait for behavior and dependent resource activation",
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "name": "Open Resource Packs",
+      "action": "tap",
+      "x": 0.2,
+      "y": 0.7
+    },
+    {
+      "name": "Wait for active resource packs",
+      "action": "wait",
+      "seconds": 5
+    },
+    {
+      "name": "Scroll the active resource-pack list",
+      "action": "drag",
+      "x": 0.7,
+      "y": 0.85,
+      "endX": 0.7,
+      "endY": 0.25
+    },
+    {
+      "name": "Wait for the active imported resource pack row",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Confirm the imported resource pack is active",
+      "action": "ocr",
+      "text": "Emerald Test Sword Resources"
+    },
+    {
+      "name": "Scroll the settings sidebar back toward Play",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.2,
+      "endX": 0.2,
+      "endY": 0.88
+    },
+    {
+      "name": "Finish scrolling the settings sidebar back to Play",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.2,
+      "endX": 0.2,
+      "endY": 0.88
+    },
+    {
+      "name": "Wait for the world Play button",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Launch My World locally in creative mode",
+      "action": "tap",
+      "x": 0.18,
+      "y": 0.565
+    },
+    {
+      "name": "Wait for My World to finish loading",
+      "action": "wait",
+      "seconds": 45
+    },
+    {
+      "name": "Open the crafting table directly in front of the player",
+      "action": "tap",
+      "x": 0.5,
+      "y": 0.78
+    },
+    {
+      "name": "Wait for the crafting table interface",
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "name": "Confirm the crafting table interface is open",
+      "action": "ocr",
+      "text": "Crafting"
+    },
+    {
+      "name": "Focus the Creative inventory search field for emerald",
+      "action": "tap",
+      "x": 0.29,
+      "y": 0.155
+    },
+    {
+      "name": "Search the Creative inventory for emerald",
+      "action": "keyText",
+      "text": "emerald"
+    },
+    {
+      "name": "Wait for emerald search results",
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "name": "Pick the first emerald stack",
+      "action": "tap",
+      "x": 0.309,
+      "y": 0.25
+    },
+    {
+      "name": "Place emerald in the top-center recipe slot",
+      "action": "tap",
+      "x": 0.708,
+      "y": 0.16
+    },
+    {
+      "name": "Pick the second emerald stack",
+      "action": "tap",
+      "x": 0.309,
+      "y": 0.25
+    },
+    {
+      "name": "Place emerald in the middle-center recipe slot",
+      "action": "tap",
+      "x": 0.708,
+      "y": 0.275
+    },
+    {
+      "name": "Clear the Creative inventory search",
+      "action": "tap",
+      "x": 0.463,
+      "y": 0.155
+    },
+    {
+      "name": "Focus the Creative inventory search field for stick",
+      "action": "tap",
+      "x": 0.29,
+      "y": 0.155
+    },
+    {
+      "name": "Search the Creative inventory for stick",
+      "action": "keyText",
+      "text": "stick"
+    },
+    {
+      "name": "Wait for stick search results",
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "name": "Pick a vanilla stick stack",
+      "action": "tap",
+      "x": 0.253,
+      "y": 0.25
+    },
+    {
+      "name": "Place stick in the bottom-center recipe slot",
+      "action": "tap",
+      "x": 0.708,
+      "y": 0.395
+    },
+    {
+      "name": "Wait for the crafted sword output",
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "name": "Take the crafted Emerald Test Sword output",
+      "action": "tap",
+      "x": 0.708,
+      "y": 0.75
+    },
+    {
+      "name": "Put the crafted sword in the seventh inventory hotbar slot",
+      "action": "tap",
+      "x": 0.611,
+      "y": 0.91
+    },
+    {
+      "name": "Close the crafting interface",
+      "action": "tap",
+      "x": 0.947,
+      "y": 0.065
+    },
+    {
+      "name": "Wait for the creative HUD",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Select the crafted green sword in the HUD hotbar",
+      "action": "tap",
+      "x": 0.57,
+      "y": 0.92
     },
     {
       "name": "Confirm the crafted sword's localized display name",
       "action": "ocr",
       "text": "$EXPECTED_SWORD_NAME"
+    }
+  ],
+  "cleanupSteps": [
+    {
+      "name": "Open the pause menu",
+      "action": "tap",
+      "x": 0.5325,
+      "y": 0.035
+    },
+    {
+      "name": "Wait for the pause menu",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Save and quit to the world list",
+      "action": "tap",
+      "x": 0.301,
+      "y": 0.7035
+    },
+    {
+      "name": "Wait for the world list",
+      "action": "wait",
+      "seconds": 5
+    },
+    {
+      "name": "Open the My World edit screen (cleanup)",
+      "action": "tap",
+      "x": 0.22,
+      "y": 0.7
+    },
+    {
+      "name": "Wait for My World settings (cleanup)",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Scroll the settings sidebar toward pack controls (cleanup)",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
+    },
+    {
+      "name": "Finish scrolling the settings sidebar to pack controls (cleanup)",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
+    },
+    {
+      "name": "Wait for the pack controls (cleanup)",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Open Behavior Packs (cleanup)",
+      "action": "tap",
+      "x": 0.2,
+      "y": 0.81
+    },
+    {
+      "name": "Wait for Behavior Packs Active tab",
+      "action": "wait",
+      "seconds": 5
+    },
+    {
+      "name": "Deactivate the just-activated behavior pack (top of Active list)",
+      "action": "tap",
+      "x": 0.94,
+      "y": 0.52
+    },
+    {
+      "name": "Wait for the removal confirmation dialog",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Confirm behavior pack removal (Just continue)",
+      "action": "tap",
+      "x": 0.5,
+      "y": 0.704
+    },
+    {
+      "name": "Wait for the behavior pack deactivation to finish",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Open Resource Packs (cleanup)",
+      "action": "tap",
+      "x": 0.2,
+      "y": 0.7
+    },
+    {
+      "name": "Wait for Resource Packs Active tab",
+      "action": "wait",
+      "seconds": 5
+    },
+    {
+      "name": "Scroll the active resource-pack list (cleanup)",
+      "action": "drag",
+      "x": 0.7,
+      "y": 0.85,
+      "endX": 0.7,
+      "endY": 0.25
+    },
+    {
+      "name": "Wait for the scrolled resource-pack list",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Deactivate Emerald Test Sword Resources if uniquely active",
+      "action": "removeIfUniquelyActive",
+      "text": "Emerald Test Sword Resources",
+      "x": 0.94
     }
   ]
 }
