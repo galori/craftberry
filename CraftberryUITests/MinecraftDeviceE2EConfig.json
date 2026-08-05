@@ -14,15 +14,210 @@
       "seconds": 8
     },
     {
-      "name": "Confirm the existing creative world is visible",
-      "action": "ocr",
-      "text": "My World"
+      "name": "Tap Create new world",
+      "action": "tap",
+      "x": 0.838,
+      "y": 0.288
+    },
+    {
+      "name": "Wait for the Create From template chooser",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Tap Create new world from scratch",
+      "action": "tap",
+      "x": 0.189,
+      "y": 0.208
+    },
+    {
+      "name": "Wait for the Create New World form",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Focus the test world name field",
+      "action": "tap",
+      "x": 0.66,
+      "y": 0.23
+    },
+    {
+      "name": "Append the unique test world marker",
+      "action": "keyText",
+      "text": " craftberry test"
+    },
+    {
+      "name": "Wait after naming the test world",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Toggle Creative game mode",
+      "action": "tap",
+      "x": 0.8095,
+      "y": 0.4567
+    },
+    {
+      "name": "Wait for the Creative-mode achievements notice",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Open the Advanced tab",
+      "action": "tap",
+      "x": 0.09,
+      "y": 0.968
+    },
+    {
+      "name": "Wait for the Advanced form",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Scroll the sidebar down toward Cheats",
+      "action": "drag",
+      "x": 0.15,
+      "y": 0.88,
+      "endX": 0.15,
+      "endY": 0.2
+    },
+    {
+      "name": "Finish scrolling the sidebar down toward Cheats",
+      "action": "drag",
+      "x": 0.15,
+      "y": 0.88,
+      "endX": 0.15,
+      "endY": 0.2
+    },
+    {
+      "name": "Wait for the scrolled sidebar",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Open the Cheats tab",
+      "action": "tap",
+      "x": 0.1775,
+      "y": 0.6006
+    },
+    {
+      "name": "Wait for the Cheats form",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Activate Cheats (needed for the fresh-world /tp and /setblock commands)",
+      "action": "tap",
+      "x": 0.931,
+      "y": 0.1753
+    },
+    {
+      "name": "Wait for Cheats to enable",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Return to the Advanced tab for the World seed field",
+      "action": "tap",
+      "x": 0.09,
+      "y": 0.397
+    },
+    {
+      "name": "Wait for the Advanced form",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Focus the World seed field",
+      "action": "tap",
+      "x": 0.5775,
+      "y": 0.2327
+    },
+    {
+      "name": "Wait for the seed keyboard",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Type the deterministic world seed",
+      "action": "numericKeyText",
+      "text": "12345678"
+    },
+    {
+      "name": "Wait after dismissing the seed keyboard",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Scroll the sidebar back up toward Create",
+      "action": "drag",
+      "x": 0.15,
+      "y": 0.2,
+      "endX": 0.15,
+      "endY": 0.88
+    },
+    {
+      "name": "Finish scrolling the sidebar back up toward Create",
+      "action": "drag",
+      "x": 0.15,
+      "y": 0.2,
+      "endX": 0.15,
+      "endY": 0.88
+    },
+    {
+      "name": "Wait for the restored sidebar",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Tap CREATE",
+      "action": "tap",
+      "x": 0.178,
+      "y": 0.5736
+    },
+    {
+      "name": "Wait for the achievements-disabled dialog",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Confirm Create anyway",
+      "action": "tap",
+      "x": 0.5,
+      "y": 0.713
+    },
+    {
+      "name": "Wait for the fresh world to finish loading",
+      "action": "wait",
+      "seconds": 45
+    },
+    {
+      "name": "Open the pause menu to activate packs",
+      "action": "tap",
+      "x": 0.5325,
+      "y": 0.035
+    },
+    {
+      "name": "Wait for the pause menu",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Save and quit to the world list",
+      "action": "tap",
+      "x": 0.301,
+      "y": 0.7035
+    },
+    {
+      "name": "Wait for the world list",
+      "action": "wait",
+      "seconds": 5
     },
     {
       "name": "Open the My World edit screen",
       "action": "tap",
-      "x": 0.22,
-      "y": 0.7
+      "x": 0.9225,
+      "y": 0.4513
     },
     {
       "name": "Wait for My World settings",
@@ -57,6 +252,17 @@
       "y": 0.81
     },
     {
+      "name": "Wait before retrying Behavior Packs navigation",
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "name": "Retry opening Behavior Packs",
+      "action": "tap",
+      "x": 0.2,
+      "y": 0.81
+    },
+    {
       "name": "Wait for Behavior Packs to finish rendering",
       "action": "wait",
       "seconds": 5
@@ -66,28 +272,28 @@
       "action": "ocr",
       "text": "Behavior Packs"
     },
-  {
-    "name": "Open Available Behavior Packs",
-    "action": "tap",
-    "x": 0.82,
-    "y": 0.38
-  },
+    {
+      "name": "Open Available Behavior Packs",
+      "action": "tap",
+      "x": 0.82,
+      "y": 0.38
+    },
     {
       "name": "Wait for available behavior packs",
       "action": "wait",
       "seconds": 3
     },
-  {
-    "name": "Confirm the imported behavior pack is available",
-    "action": "ocr",
+    {
+      "name": "Confirm the imported behavior pack is available",
+      "action": "ocr",
       "text": "Emerald Test Sword Behavior"
     },
     {
-    "name": "Activate the imported behavior pack",
-    "action": "tap",
-    "x": 0.94,
-    "y": 0.52
-  },
+      "name": "Activate the imported behavior pack",
+      "action": "tap",
+      "x": 0.94,
+      "y": 0.295
+    },
     {
       "name": "Wait for Minecraft's add-on stacking warning",
       "action": "wait",
@@ -96,13 +302,13 @@
     {
       "name": "Confirm the add-on stacking warning",
       "action": "ocr",
-      "text": "Using Add-Ons"
+      "text": "Update world?"
     },
     {
       "name": "Accept the add-on stacking warning",
       "action": "tap",
       "x": 0.5,
-      "y": 0.65
+      "y": 0.705
     },
     {
       "name": "Wait for behavior and dependent resource activation",
@@ -110,31 +316,45 @@
       "seconds": 6
     },
     {
-      "name": "Open Resource Packs",
+      "name": "Open Active Behavior Packs",
+      "action": "tap",
+      "x": 0.51,
+      "y": 0.17
+    },
+    {
+      "name": "Wait for active behavior packs",
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "name": "Confirm the behavior pack is active",
+      "action": "ocr",
+      "text": "Emerald Test Sword Behavior"
+    },
+    {
+      "name": "Open Resource Packs after behavior activation",
       "action": "tap",
       "x": 0.2,
       "y": 0.7
     },
     {
-      "name": "Wait for active resource packs",
+      "name": "Wait for Resource Packs after behavior activation",
       "action": "wait",
       "seconds": 5
     },
     {
-      "name": "Scroll the active resource-pack list",
-      "action": "drag",
-      "x": 0.7,
-      "y": 0.85,
-      "endX": 0.7,
-      "endY": 0.25
+      "name": "Open Active Resource Packs",
+      "action": "tap",
+      "x": 0.51,
+      "y": 0.17
     },
     {
-      "name": "Wait for the active imported resource pack row",
+      "name": "Wait for active resource packs",
       "action": "wait",
       "seconds": 3
     },
     {
-      "name": "Confirm the imported resource pack is active",
+      "name": "Confirm the dependent resource pack is active",
       "action": "ocr",
       "text": "Emerald Test Sword Resources"
     },
@@ -171,10 +391,30 @@
       "seconds": 45
     },
     {
+      "name": "Teleport to the deterministic crafting-table staging position",
+      "action": "chatCommand",
+      "text": "/tp @s 100 80 95 90 45"
+    },
+    {
+      "name": "Wait after teleporting",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Place a crafting table directly in front of the staged position",
+      "action": "chatCommand",
+      "text": "/setblock 98 80 95 crafting_table"
+    },
+    {
+      "name": "Wait after placing the crafting table",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
       "name": "Open the crafting table directly in front of the player",
       "action": "tap",
-      "x": 0.5,
-      "y": 0.78
+      "x": 0.5075,
+      "y": 0.265
     },
     {
       "name": "Wait for the crafting table interface",
@@ -272,6 +512,11 @@
       "y": 0.75
     },
     {
+      "name": "Confirm the crafted sword's localized display name",
+      "action": "ocr",
+      "text": "$EXPECTED_SWORD_NAME"
+    },
+    {
       "name": "Put the crafted sword in the seventh inventory hotbar slot",
       "action": "tap",
       "x": 0.611,
@@ -293,11 +538,6 @@
       "action": "tap",
       "x": 0.57,
       "y": 0.92
-    },
-    {
-      "name": "Confirm the crafted sword's localized display name",
-      "action": "ocr",
-      "text": "$EXPECTED_SWORD_NAME"
     }
   ],
   "cleanupSteps": [
@@ -324,99 +564,188 @@
       "seconds": 5
     },
     {
-      "name": "Open the My World edit screen (cleanup)",
+      "name": "Back out to the main menu",
       "action": "tap",
-      "x": 0.22,
-      "y": 0.7
+      "x": 0.0375,
+      "y": 0.049
     },
     {
-      "name": "Wait for My World settings (cleanup)",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Scroll the settings sidebar toward pack controls (cleanup)",
-      "action": "drag",
-      "x": 0.2,
-      "y": 0.88,
-      "endX": 0.2,
-      "endY": 0.2
-    },
-    {
-      "name": "Finish scrolling the settings sidebar to pack controls (cleanup)",
-      "action": "drag",
-      "x": 0.2,
-      "y": 0.88,
-      "endX": 0.2,
-      "endY": 0.2
-    },
-    {
-      "name": "Wait for the pack controls (cleanup)",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Open Behavior Packs (cleanup)",
-      "action": "tap",
-      "x": 0.2,
-      "y": 0.81
-    },
-    {
-      "name": "Wait for Behavior Packs Active tab",
-      "action": "wait",
-      "seconds": 5
-    },
-    {
-      "name": "Deactivate the just-activated behavior pack (top of Active list)",
-      "action": "tap",
-      "x": 0.94,
-      "y": 0.52
-    },
-    {
-      "name": "Wait for the removal confirmation dialog",
+      "name": "Wait for the main menu",
       "action": "wait",
       "seconds": 3
     },
     {
-      "name": "Confirm behavior pack removal (Just continue)",
+      "name": "Open Settings",
       "action": "tap",
       "x": 0.5,
-      "y": 0.704
+      "y": 0.58
     },
     {
-      "name": "Wait for the behavior pack deactivation to finish",
+      "name": "Wait for Settings",
       "action": "wait",
-      "seconds": 3
+      "seconds": 2
     },
     {
-      "name": "Open Resource Packs (cleanup)",
-      "action": "tap",
-      "x": 0.2,
-      "y": 0.7
-    },
-    {
-      "name": "Wait for Resource Packs Active tab",
-      "action": "wait",
-      "seconds": 5
-    },
-    {
-      "name": "Scroll the active resource-pack list (cleanup)",
+      "name": "Scroll the Settings sidebar toward Storage",
       "action": "drag",
-      "x": 0.7,
-      "y": 0.85,
-      "endX": 0.7,
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
+    },
+    {
+      "name": "Continue scrolling the Settings sidebar toward Storage",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
+    },
+    {
+      "name": "Finish scrolling the Settings sidebar to Storage",
+      "action": "drag",
+      "x": 0.2,
+      "y": 0.88,
+      "endX": 0.2,
+      "endY": 0.2
+    },
+    {
+      "name": "Wait for the scrolled Settings sidebar",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Open Storage",
+      "action": "tap",
+      "x": 0.075,
+      "y": 0.7035
+    },
+    {
+      "name": "Wait for Storage",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Expand the Worlds storage row",
+      "action": "tap",
+      "x": 0.85,
+      "y": 0.8658
+    },
+    {
+      "name": "Wait for the Worlds row to expand",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Scroll to the expanded Worlds list",
+      "action": "drag",
+      "x": 0.5,
+      "y": 0.9,
+      "endX": 0.5,
+      "endY": 0.15
+    },
+    {
+      "name": "Finish scrolling to the expanded Worlds list",
+      "action": "drag",
+      "x": 0.5,
+      "y": 0.9,
+      "endX": 0.5,
+      "endY": 0.15
+    },
+    {
+      "name": "Wait for the expanded Worlds list",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Delete the uniquely named Craftberry test world",
+      "action": "deleteIfUniquelyStored",
+      "text": "craftberry test",
+      "x": 0.5,
+      "endX": 0.4675,
+      "endY": 0.61
+    },
+    {
+      "name": "Collapse the Worlds storage category",
+      "action": "tapRecognizedRow",
+      "text": "Worlds",
+      "x": 0.85
+    },
+    {
+      "name": "Wait for Storage categories after world deletion",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Expand the Resource Packs storage category",
+      "action": "tap",
+      "x": 0.85,
+      "y": 0.855
+    },
+    {
+      "name": "Wait for stored resource packs",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Scroll to the expanded Resource Packs list",
+      "action": "drag",
+      "x": 0.5,
+      "y": 0.9,
+      "endX": 0.5,
       "endY": 0.25
     },
     {
-      "name": "Wait for the scrolled resource-pack list",
+      "name": "Delete all imported Emerald Test Sword resource packs",
+      "action": "deleteAllStored",
+      "text": "Emerald Test Sword Res",
+      "x": 0.5,
+      "endX": 0.468
+    },
+    {
+      "name": "Collapse the Resource Packs storage category",
+      "action": "tapRecognizedRow",
+      "text": "source Packs",
+      "x": 0.85
+    },
+    {
+      "name": "Scroll Storage toward Behavior Packs",
+      "action": "drag",
+      "x": 0.5,
+      "y": 0.85,
+      "endX": 0.5,
+      "endY": 0.25
+    },
+    {
+      "name": "Wait for the Behavior Packs storage category",
       "action": "wait",
       "seconds": 2
     },
     {
-      "name": "Deactivate Emerald Test Sword Resources if uniquely active",
-      "action": "removeIfUniquelyActive",
-      "text": "Emerald Test Sword Resources",
-      "x": 0.94
+      "name": "Expand the Behavior Packs storage category",
+      "action": "tapRecognizedRow",
+      "text": "Behavior Packs",
+      "x": 0.85
+    },
+    {
+      "name": "Wait for stored behavior packs",
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "name": "Scroll to the expanded Behavior Packs list",
+      "action": "drag",
+      "x": 0.5,
+      "y": 0.9,
+      "endX": 0.5,
+      "endY": 0.25
+    },
+    {
+      "name": "Delete all imported Emerald Test Sword behavior packs",
+      "action": "deleteAllStored",
+      "text": "Emerald Test Sword Beh",
+      "x": 0.5,
+      "endX": 0.468
     }
   ]
 }

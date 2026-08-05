@@ -1,5 +1,9 @@
 # Craftberry Development Guide
 
+## When live-device iteration is slow, ask the human instead of grinding
+
+If you're troubleshooting something on the physical device where each iteration (edit → build → run → screenshot → inspect) takes minutes, and the underlying problem is one a human could diagnose in seconds by just looking at or poking the device directly (e.g. "why isn't this block visible," "why did this UI end up in this state," "is the world in the state I think it's in") — **stop and ask the user to check directly** rather than continuing to guess-and-iterate. This is especially true once you've already spent several rounds without converging. A live human with eyes on the actual screen is strictly faster than another blind probe-and-screenshot cycle. This was learned the hard way: an hour was spent iterating on `/tp`+`/setblock` coordinates for a crafting table that was never visible on screen, when the actual cause (teleporting into open air, then falling before the screenshot) was found by the user in a couple of minutes of direct, hands-on troubleshooting.
+
 ## Workflow
 
 ### Required after every change

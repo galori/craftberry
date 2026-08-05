@@ -128,54 +128,37 @@ it does not by itself mark a Bedrock feature as device-verified. Update
 `CAPABILITIES.md` only after the generated artifact itself passes the relevant
 in-game acceptance checks.
 
-## Deactivating a pack after a test (cleanup)
+## Deleting test worlds and installed packs after a test (cleanup)
 
 Confirmed live on iPhone 16e / Minecraft 26.33:
 
 - From a running world, the pause/menu icon sits at normalized `(0.5325,
-  0.035)` (top-right cluster of three HUD icons). Tapping it opens the
-  pause menu; **Save & Quit** is at `(0.301, 0.7035)` and returns directly
-  to the world list (not the main menu).
-- In **Edit World → Behavior Packs**, the Active tab's row layout is
-  identical to the Available tab's: each row has a **Remove** control at
-  the same fixed column, `x ≈ 0.94`. The first (topmost) row is reliably
-  whichever pack was most recently activated — confirmed by activating a
-  pack and immediately observing it at rank 1 — so removing rank 1 right
-  after your own test activates a pack is safe without needing to read the
-  pack's name.
-- Removing a pack that has ever been active in a "previously played" world
-  raises a **"Hold on!"** confirmation with two buttons: **Copy and
-  continue** (green, makes a world backup first) and **Just continue**
-  (white, at `(0.5, 0.704)` in this layout). Use **Just continue** for a
-  disposable test world.
-- **Resource Packs** does *not* insert newly auto-activated dependency
-  packs at a predictable rank — confirmed live: an old "Azure Resources"
-  and "Mirror Test … Resources" sat at ranks 1–2 while multiple
-  "Emerald Test Sword Resources" duplicates (one per prior test run) were
-  scattered at ranks 3, 5, and 6. Don't assume rank 1 (or any fixed rank)
-  here. Instead, locate the target row by recognized text: take a
-  screenshot, run Vision OCR, and only act if the target string appears in
-  exactly one `VNRecognizedTextObservation` — its `boundingBox` gives the
-  row's normalized center (`1 - (origin.y + height/2)` converts Vision's
-  bottom-left-origin box to `XCUICoordinate`'s top-left-origin offset), and
-  the Remove column is the same fixed `x` as Behavior Packs. Treat zero or
-  multiple matches as "skip, don't guess" — this uniqueness check is scoped
-  to whatever is currently scrolled into view, not the whole underlying
-  list, so it only becomes reliably effective at removing *this run's*
-  pack once any pre-existing duplicates of the same name are cleared once
-  by hand.
-- Removing a resource pack still depended on by an *active* behavior pack
-  shows a different, single-button **"Required dependency"** dialog
-  ("This pack is required by another pack that is applied, so it can't be
-  removed" / **Go back**) instead of the "Hold on!" confirmation — confirmed
-  live when attempting to remove a resource pack whose behavior pack was
-  never deactivated. This is Minecraft's own safety net: even if the
-  OCR-uniqueness check above picks a stale entry instead of the intended
-  one, removal is refused rather than breaking a pack still in use.
-- No control was found to fully delete a pack from Minecraft's installed
-  library (as opposed to deactivating it for one world) after checking the
-  Available tab and the pack row's own controls. Treat this as unsolved,
-  not merely unautomated — fully uninstalling remains a manual step.
+  0.035)`. **Save & Quit** at `(0.301, 0.7035)` returns to the world list.
+  Back out to the main menu, open **Settings**, scroll its sidebar, and open
+  **Storage**.
+- Storage can permanently delete worlds, Resource Packs, and Behavior Packs.
+  Expand each category with its far-right disclosure arrow; tapping the
+  header center merely selects it and is not a reliable expand action.
+- Locate destructive targets by an explicit test-only OCR substring. A unique
+  world uses `craftberry test`; generated pack cleanup uses
+  `Emerald Test Sword Res` and `Emerald Test Sword Beh`. Never delete an
+  unlabeled row or guess when OCR cannot find the intended target.
+- Selecting a row reveals a centered action bar whose trash column is stable
+  at `x ≈ 0.468`, but its Y position changes with scrolling and Storage's
+  post-deletion reflow. Do not derive trash Y from the selected row with a
+  fixed offset. `StorageTrashControlLocator` detects the light trash tile
+  bracketed by dark action-bar cells in the post-selection screenshot.
+- Tapping trash opens **Delete 1 item permanently?**; **Delete** is at
+  `(0.5, 0.635)` in the calibrated landscape layout. After confirmation,
+  require the matching visible OCR-row count to decrease before recording a
+  successful deletion or continuing a delete-all loop.
+- Deleting the world first removes active-pack references. Resource Packs can
+  then be deleted before Behavior Packs without triggering the required-
+  dependency guard. Each deletion can move the following category below the
+  fold, so scroll again after every category reflow.
+- Cleanup is teardown hygiene, not the acceptance signal. Unexpected Storage
+  state is logged with retained screenshots and must not mask a successful
+  crafting assertion or replace its original failure.
 
 ## Deleting a downloaded file from Files (cleanup)
 

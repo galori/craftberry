@@ -8,3 +8,6 @@ xcuserdata/
 Config/Secrets.xcconfig
 *.mcaddon
 *.mcpack
+.scratch/*
+result.json
+stdout.processed.tif
