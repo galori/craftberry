@@ -23,7 +23,7 @@ Commands:
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
   minecraft-e2e
-          Run the full Craftberry-to-Minecraft emerald-sword acceptance test,
+          Run the full Craftberry-to-Minecraft redstone-tool-set acceptance test,
           then clean Minecraft's generated packs and test world via AFC.
 
 Set DEVICE_ID=<xcode-device-id> when more than one physical iPhone is connected.
@@ -209,9 +209,9 @@ minecraft_e2e_on_device() {
 
     local timestamp
     timestamp="$(date +%Y%m%d-%H%M%S)"
-    local result_path="$OUTPUT_DIR/MinecraftEmeraldSwordE2EUITests-$timestamp.xcresult"
+    local result_path="$OUTPUT_DIR/MinecraftRedstoneToolSetE2EUITests-$timestamp.xcresult"
 
-    echo "Running full Minecraft emerald-sword E2E on device $device_id"
+    echo "Running full Minecraft redstone-tool-set E2E on device $device_id"
     echo "The XCTest teardown terminates $MINECRAFT_BUNDLE_ID before Mac-side AFC cleanup runs."
 
     set +e
@@ -223,7 +223,7 @@ minecraft_e2e_on_device() {
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
-        -only-testing:CraftberryUITests/MinecraftEmeraldSwordE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted \
+        -only-testing:CraftberryUITests/MinecraftEmeraldSwordE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe \
         test
     local test_status=$?
     set -e

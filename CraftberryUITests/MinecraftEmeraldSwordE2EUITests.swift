@@ -12,6 +12,33 @@ import XCTest
 final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
     private let minecraftBundleID = "com.mojang.minecraftpe"
 
+    private struct DeviceScenario {
+        let launchArgument: String
+        let prompt: String
+        let projectName: String
+        let expectedCraftedItemName: String
+        let behaviorPackName: String
+        let resourcePackName: String
+    }
+
+    private let emeraldSwordScenario = DeviceScenario(
+        launchArgument: "--ui-testing-emerald-sword",
+        prompt: "Create an Emerald Test Sword crafted from emeralds",
+        projectName: "Emerald Test Sword",
+        expectedCraftedItemName: "Emerald Test Sword",
+        behaviorPackName: "Emerald Test Sword Behavior",
+        resourcePackName: "Emerald Test Sword Resources"
+    )
+
+    private let redstoneToolSetScenario = DeviceScenario(
+        launchArgument: "--ui-testing-redstone-tool-set",
+        prompt: "Generate a redstone tool set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Pickaxe",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources"
+    )
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
@@ -72,11 +99,11 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         XCTAssertEqual(stackingWarningStep.y, 0.705)
         XCTAssertEqual(
             configuration.steps.first { $0.name == "Confirm the behavior pack is active" }?.text,
-            "Emerald Test Sword Behavior"
+            "$EXPECTED_BEHAVIOR_PACK"
         )
         XCTAssertEqual(
             configuration.steps.first { $0.name == "Confirm the dependent resource pack is active" }?.text,
-            "Emerald Test Sword Resources"
+            "$EXPECTED_RESOURCE_PACK"
         )
 
         let playIndex = try XCTUnwrap(
@@ -104,6 +131,22 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
+        try runDeviceAcceptance(scenario: emeraldSwordScenario, craftingSteps: nil)
+        #endif
+    }
+
+    func testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try runDeviceAcceptance(scenario: redstoneToolSetScenario, craftingSteps: redstonePickaxeCraftingSteps)
+        #endif
+    }
+
+    private func runDeviceAcceptance(
+        scenario: DeviceScenario,
+        craftingSteps: [MinecraftDeviceE2EStep]?
+    ) throws {
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
             throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
@@ -112,7 +155,7 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         let craftberry = XCUIApplication()
         craftberry.launchArguments = [
             "--ui-testing",
-            "--ui-testing-emerald-sword",
+            scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
         ]
         craftberry.launch()
@@ -121,7 +164,7 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         let prompt = craftberry.textViews["craftberry.prompt"]
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.tap()
-        prompt.typeText("Create an Emerald Test Sword crafted from emeralds")
+        prompt.typeText(scenario.prompt)
 
         // TextEditor keeps the software keyboard up on the physical iPhone,
         // where it covers the Generate button in landscape. Briefly
@@ -133,8 +176,8 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         craftberry.buttons["craftberry.generate"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.ready", in: craftberry, timeout: 8))
         XCTAssertTrue(
-            craftberry.staticTexts["Emerald Test Sword"].waitForExistence(timeout: 2),
-            "The deterministic device fixture did not generate the expected nonstandard-material sword."
+            craftberry.staticTexts[scenario.projectName].waitForExistence(timeout: 2),
+            "The deterministic device fixture did not generate \(scenario.projectName)."
         )
 
         craftberry.buttons["craftberry.build"].tap()
@@ -164,7 +207,7 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
             "Minecraft did not open after exporting the .mcaddon from Craftberry."
         )
         Thread.sleep(forTimeInterval: 5)
-        attach("Minecraft after importing Craftberry's Emerald Test Sword")
+        attach("Minecraft after importing Craftberry's \(scenario.projectName)")
         XCTAssertFalse(
             recognizedText().localizedCaseInsensitiveContains("Failed to import"),
             "Minecraft rejected Craftberry's exported add-on. Inspect the import screenshot and Content Log before calibrating world steps."
@@ -181,21 +224,95 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
             "Minecraft did not return to the foreground after the post-import cold launch."
         )
         Thread.sleep(forTimeInterval: 8)
-        attach("Minecraft cold launch after importing Craftberry's Emerald Test Sword")
+        attach("Minecraft cold launch after importing Craftberry's \(scenario.projectName)")
 
-        for step in configuration.steps {
-            try execute(step, in: minecraft, expectedSwordName: configuration.expectedSwordName)
+        let steps: [MinecraftDeviceE2EStep]
+        if let craftingSteps {
+            let craftingTableIndex = try XCTUnwrap(
+                configuration.steps.firstIndex { $0.name == "Confirm the crafting table interface is open" }
+            )
+            steps = Array(configuration.steps.prefix(through: craftingTableIndex)) + craftingSteps
+        } else {
+            steps = configuration.steps
         }
-        #endif
+        for step in steps {
+            try execute(step, in: minecraft, scenario: scenario, expectedSwordName: configuration.expectedSwordName)
+        }
+    }
+
+    /// The tool-set compiler first turns four redstone dust into a Redstone
+    /// Ingot, then its pickaxe recipe requires three ingots and two sticks.
+    /// These coordinates share the calibrated crafting-table screen from the
+    /// Emerald Sword flow above; only the recipe-specific portion differs.
+    private var redstonePickaxeCraftingSteps: [MinecraftDeviceE2EStep] {
+        [
+            step("Search Creative inventory for redstone", .tap, x: 0.29, y: 0.155),
+            step("Type redstone search", .keyText, text: "redstone"),
+            step("Wait for redstone search results", .wait, seconds: 4),
+            step("Pick first redstone stack", .tap, x: 0.309, y: 0.25),
+            step("Place redstone in top-left ingot slot", .tap, x: 0.594, y: 0.16),
+            step("Pick second redstone stack", .tap, x: 0.309, y: 0.25),
+            step("Place redstone in top-center ingot slot", .tap, x: 0.708, y: 0.16),
+            step("Pick third redstone stack", .tap, x: 0.309, y: 0.25),
+            step("Place redstone in middle-left ingot slot", .tap, x: 0.594, y: 0.275),
+            step("Pick fourth redstone stack", .tap, x: 0.309, y: 0.25),
+            step("Place redstone in middle-center ingot slot", .tap, x: 0.708, y: 0.275),
+            step("Wait for Redstone Ingot output", .wait, seconds: 4),
+            step("Take Redstone Ingot output", .tap, x: 0.708, y: 0.75),
+            step("Confirm crafted Redstone Ingot", .ocr, text: "Redstone Ingot"),
+            step("Put Redstone Ingot in inventory", .tap, x: 0.611, y: 0.91),
+            step("Clear redstone search", .tap, x: 0.463, y: 0.155),
+            step("Search Creative inventory for Redstone Ingot", .tap, x: 0.29, y: 0.155),
+            step("Type Redstone Ingot search", .keyText, text: "Redstone Ingot"),
+            step("Wait for Redstone Ingot search results", .wait, seconds: 4),
+            step("Pick first Redstone Ingot stack", .tap, x: 0.309, y: 0.25),
+            step("Place Redstone Ingot in top-left pickaxe slot", .tap, x: 0.594, y: 0.16),
+            step("Pick second Redstone Ingot stack", .tap, x: 0.309, y: 0.25),
+            step("Place Redstone Ingot in top-center pickaxe slot", .tap, x: 0.708, y: 0.16),
+            step("Pick third Redstone Ingot stack", .tap, x: 0.309, y: 0.25),
+            step("Place Redstone Ingot in top-right pickaxe slot", .tap, x: 0.822, y: 0.16),
+            step("Clear Redstone Ingot search", .tap, x: 0.463, y: 0.155),
+            step("Search Creative inventory for stick", .tap, x: 0.29, y: 0.155),
+            step("Type stick search", .keyText, text: "stick"),
+            step("Wait for stick search results", .wait, seconds: 4),
+            step("Pick first stick stack", .tap, x: 0.253, y: 0.25),
+            step("Place stick in middle-center pickaxe slot", .tap, x: 0.708, y: 0.275),
+            step("Pick second stick stack", .tap, x: 0.253, y: 0.25),
+            step("Place stick in bottom-center pickaxe slot", .tap, x: 0.708, y: 0.395),
+            step("Wait for Redstone Pickaxe output", .wait, seconds: 4),
+            step("Take Redstone Pickaxe output", .tap, x: 0.708, y: 0.75),
+            step("Confirm crafted Redstone Pickaxe", .ocr, text: "$EXPECTED_CRAFTED_ITEM_NAME"),
+            step("Put crafted Redstone Pickaxe in hotbar", .tap, x: 0.611, y: 0.91),
+            step("Close crafting interface", .tap, x: 0.947, y: 0.065)
+        ]
+    }
+
+    private func step(
+        _ name: String,
+        _ action: MinecraftDeviceE2EStep.Action,
+        x: CGFloat? = nil,
+        y: CGFloat? = nil,
+        seconds: TimeInterval? = nil,
+        text: String? = nil
+    ) -> MinecraftDeviceE2EStep {
+        MinecraftDeviceE2EStep(name: name, action: action, x: x, y: y, endX: nil, endY: nil, seconds: seconds, text: text)
     }
 
     private func execute(
         _ step: MinecraftDeviceE2EStep,
         in minecraft: XCUIApplication,
+        scenario: DeviceScenario,
         expectedSwordName: String
     ) throws {
         if step.action == .ocr {
-            let expected = step.text == "$EXPECTED_SWORD_NAME" ? expectedSwordName : step.text
+            let expected: String?
+            switch step.text {
+            case "$EXPECTED_SWORD_NAME": expected = expectedSwordName
+            case "$EXPECTED_BEHAVIOR_PACK": expected = scenario.behaviorPackName
+            case "$EXPECTED_RESOURCE_PACK": expected = scenario.resourcePackName
+            case "$EXPECTED_CRAFTED_ITEM_NAME": expected = scenario.expectedCraftedItemName
+            default: expected = step.text
+            }
             guard let expected, !expected.isEmpty else {
                 throw ConfigurationError.missingText(step.name)
             }

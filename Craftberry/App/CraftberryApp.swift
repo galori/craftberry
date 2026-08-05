@@ -49,16 +49,30 @@ private struct UITestingLLMClient: LLMClient {
     func generateProject(from prompt: String) async throws -> ProjectGeneration {
         try await Task.sleep(nanoseconds: 2_000_000_000)
         let usesEmerald = ProcessInfo.processInfo.arguments.contains("--ui-testing-emerald-sword")
+        let usesRedstoneToolSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-tool-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
-        let project = try AddOnProject.sword(
-            displayName: usesEmerald ? "Emerald Test Sword" : "Cyan Test Sword",
-            color: usesEmerald ? .green : .cyan,
-            attackBonus: 14,
-            durability: 500,
-            craftingIngredient: usesEmerald ? "minecraft:emerald" : "minecraft:diamond",
-            originalPrompt: prompt,
-            identity: usesFreshPackIdentity ? .generate() : fixedUITestingIdentity
-        )
+        let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
+        let project: AddOnProject
+        if usesRedstoneToolSet {
+            project = try AddOnProject.materialToolSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else {
+            project = try AddOnProject.sword(
+                displayName: usesEmerald ? "Emerald Test Sword" : "Cyan Test Sword",
+                color: usesEmerald ? .green : .cyan,
+                attackBonus: 14,
+                durability: 500,
+                craftingIngredient: usesEmerald ? "minecraft:emerald" : "minecraft:diamond",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        }
         return ProjectGeneration(outcome: .ready, message: "Ready", project: project)
     }
 

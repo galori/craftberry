@@ -34,6 +34,27 @@ final class CraftberryUITests: XCTestCase {
         add(attachment)
     }
 
+    func testDeterministicRedstoneToolSetCanBuild() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-redstone-tool-set"]
+        app.launch()
+
+        XCTAssertTrue(waitForElement("craftberry.state.editing", in: app, timeout: 8))
+
+        let prompt = app.textViews["craftberry.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText("Generate a redstone tool set crafted from redstone")
+
+        app.buttons["craftberry.generate"].tap()
+        XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
+        XCTAssertTrue(app.staticTexts["Redstone"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["6 items · 6 recipes"].waitForExistence(timeout: 2))
+
+        app.buttons["craftberry.build"].tap()
+        XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 10))
+    }
+
     private func waitForElement(_ identifier: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
         app.descendants(matching: .any)[identifier].waitForExistence(timeout: timeout)
     }

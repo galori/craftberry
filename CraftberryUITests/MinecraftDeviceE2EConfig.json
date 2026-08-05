@@ -286,7 +286,7 @@
     {
       "name": "Confirm the imported behavior pack is available",
       "action": "ocr",
-      "text": "Emerald Test Sword Behavior"
+      "text": "$EXPECTED_BEHAVIOR_PACK"
     },
     {
       "name": "Activate the imported behavior pack",
@@ -329,7 +329,7 @@
     {
       "name": "Confirm the behavior pack is active",
       "action": "ocr",
-      "text": "Emerald Test Sword Behavior"
+      "text": "$EXPECTED_BEHAVIOR_PACK"
     },
     {
       "name": "Open Resource Packs after behavior activation",
@@ -356,7 +356,7 @@
     {
       "name": "Confirm the dependent resource pack is active",
       "action": "ocr",
-      "text": "Emerald Test Sword Resources"
+      "text": "$EXPECTED_RESOURCE_PACK"
     },
     {
       "name": "Scroll the settings sidebar back toward Play",

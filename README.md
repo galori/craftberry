@@ -57,9 +57,9 @@ These two legs run sequentially, not concurrently: starting an iPhone Mirroring 
 
 Direct creative-inventory lookup of the item's localized display name remains a pending device-acceptance check: the inventory grid did not respond to keyboard focus navigation in the initial calibration. The current automated assertion is the imported pack-ID match in the load-time Content Log, alongside the observed correctly rendered item.
 
-### Full physical-device emerald-sword acceptance
+### Full physical-device Minecraft acceptance
 
-`MinecraftEmeraldSwordE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it generates **Emerald Test Sword**, which uses `minecraft:emerald`—a supported but nonstandard vanilla sword material—builds and exports the `.mcaddon`, hands it to Minecraft, creates a fresh uniquely marked Creative world, activates both pack halves for that world, crafts the sword from two emeralds and a stick, and uses OCR to assert its localized name.
+`MinecraftEmeraldSwordE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it enters **“Generate a redstone tool set crafted from redstone”**, builds and exports the `.mcaddon`, hands it to Minecraft, creates a fresh uniquely marked Creative world, activates both pack halves for that world, crafts a Redstone Ingot from redstone, then crafts a Redstone Pickaxe and uses OCR to assert its localized name. The existing Emerald Sword acceptance test remains available as a separate physical-device regression test.
 
 Minecraft coordinate UI changes with the device and Minecraft release. The checked-in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) is enabled and calibrated for the dedicated iPhone 16e. Quit iPhone Mirroring, keep rotation lock on, unlock the USB-connected iPhone, and run:
 
