@@ -1,6 +1,6 @@
 # Bedrock Capability Matrix
 
-Status as of 2026-08-02. “Automated” means deterministic local XCTest coverage. “Device” requires an exported artifact imported into the exact Minecraft release on a physical iPhone with a clean Content Log.
+Status as of 2026-08-04. “Automated” means deterministic local XCTest coverage. “Device” requires an exported artifact imported into the exact Minecraft release on a physical iPhone with a clean Content Log.
 
 ## Active profile
 
@@ -16,7 +16,8 @@ The profile currently carries the format versions and the small vanilla item cat
 |---|---|---|---|---|---|---|
 | Single melee sword | Supported | Typed item, shaped recipe, texture, localization, manifests, packs | Exact assertions derived from current working Bedrock forms; Mojang commit pinned | Yes | Pending | Foundation code complete |
 | Material ingot + matching sword collection | Supported | Typed items, shaped/shapeless recipes, sprites, localization, packs | Pinned fire-charge recipe and diamond-spear item forms | Yes | Pending | Phase 2A code complete |
-| Multi-item collections, tools, armor, food, wearables | Planned | Planned | Required per emitted shape | Planned | Pending | Later Phase 2 |
+| Material ingot + matching tool collection | Supported | Typed sword, pickaxe, axe, shovel, hoe items; shaped/shapeless recipes; sprites; localization; packs | Reuses the pinned item and crafting-table recipe forms from earlier item slices | Yes | Pending | Phase 2B code complete |
+| Armor, food, wearables, broader item traits | Planned | Planned | Required per emitted shape | Planned | Pending | Later Phase 2 |
 | Shapeless, furnace, brewing, smithing transform/trim | Shapeless supported for material ingots | Furnace/brewing/smithing planned | Fire-charge evidence for shapeless only | Yes for shapeless | Pending | Phase 2A |
 | Blocks, ores, crops, material families | Planned | Planned | Required per archetype | Planned | Pending | Phase 3 |
 | Entities, projectiles, spawning, loot, trades | Planned | Planned | Required per archetype | Planned | Pending | Phase 4 |
@@ -41,6 +42,7 @@ The profile currently carries the format versions and the small vanilla item cat
 | `.mcpack`/`.mcaddon` archive tree and deterministic bytes | Automated |
 | No partial filesystem output after semantic validation failure | Automated |
 | Fake-client ready, unsupported, network, validation, build, export-ready flows | Automated on iOS simulator |
+| Material tool set generation through OpenAI structured intent | Automated |
 | Blockception schema lint | Pending |
 | Physical iPhone import, both packs active, load-time Content Log | Verified for a fresh fixture; OCR matched its pack ID during world load. A recipe-conflict warning was present, so a clean Content Log remains pending. |
 | Survival crafting, appearance, combat, durability | Pending |
@@ -53,3 +55,4 @@ The profile currently carries the format versions and the small vanilla item cat
 | 2026-08-02 | Keep Blockception lint pending for the foundation rather than treating it as an authority | The compiler emits only already assertion-covered foundation documents; selective vendoring begins with the next document families |
 | 2026-08-02 | Keep the foundation device status pending | This development environment was not authorized or equipped to mutate Minecraft or physical-device state |
 | 2026-08-02 | Calibrate standalone Minecraft validation tooling on the physical iPhone while retaining the foundation's overall Device status as pending | `minecraft-import.sh` reliably imports a fresh fixture through Safari. `minecraft-mirror-drive.sh` activates it in My World with keyboard focus navigation because Minecraft Ore UI ignores mirrored pointer clicks; OCR matched the fixture pack ID in the load-time Content Log and the custom sword rendered in hand/hotbar. Clean Content Log, inventory-name lookup, survival crafting, combat, and durability remain pending. |
+| 2026-08-04 | Add material tool sets as the next item-family slice before armor/food/blocks | They reuse the already assertion-covered item and crafting-table recipe document families while expanding from one generated item to a coherent multi-item collection. |

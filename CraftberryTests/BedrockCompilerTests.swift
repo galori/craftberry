@@ -7,6 +7,37 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsMaterialToolSetItemsRecipesTexturesAndLocalization() throws {
+        let project = try AddOnProject.materialToolSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "set", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_pickaxe.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_axe.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_shovel.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_hoe.json" })
+
+        let pickaxeRecipe = try json(named: "recipes/azure_a1b2c3_pickaxe_recipe.json", in: behavior)
+        let shapedRecipe = try XCTUnwrap(pickaxeRecipe["minecraft:recipe_shaped"] as? [String: Any])
+        XCTAssertEqual(shapedRecipe["pattern"] as? [String], ["III", " S ", " S "])
+        XCTAssertEqual((shapedRecipe["result"] as? [String: Any])?["item"] as? String, "craftberry:azure_a1b2c3_pickaxe")
+        XCTAssertEqual(shapedRecipe["unlock"] as? [[String: String]], [["item": "craftberry:azure_a1b2c3_ingot"]])
+
+        let textureMap = try json(named: "textures/item_texture.json", in: resources)
+        let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
+        XCTAssertEqual((textureData["azure_a1b2c3_hoe"] as? [String: String])?["textures"], "textures/items/azure_a1b2c3_hoe")
+        let hoeTexture = try XCTUnwrap(resources.first { $0.path == "textures/items/azure_a1b2c3_hoe.png" })
+        XCTAssertEqual(PNGInspector.dimensions(of: hoeTexture.data), .init(width: 32, height: 32))
+
+        let localization = try XCTUnwrap(resources.first { $0.path == "texts/en_US.lang" })
+        XCTAssertTrue(String(decoding: localization.data, as: UTF8.self).contains("item.craftberry:azure_a1b2c3_pickaxe.name=Azure Pickaxe\n"))
+    }
+
     func testCompilerEmitsMaterialSetShapelessAndShapedRecipes() throws {
         let project = try AddOnProject.materialSwordSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "set", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

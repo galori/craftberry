@@ -7,6 +7,33 @@ import XCTest
 #endif
 
 final class AddOnProjectTests: XCTestCase {
+    func testMaterialToolSetCreatesIngotAndFiveTools() throws {
+        let project = try AddOnProject.materialToolSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure tools",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(
+            project.items.map(\.id),
+            [
+                ContentID("azure_a1b2c3_ingot"),
+                ContentID("azure_a1b2c3_sword"),
+                ContentID("azure_a1b2c3_pickaxe"),
+                ContentID("azure_a1b2c3_axe"),
+                ContentID("azure_a1b2c3_shovel"),
+                ContentID("azure_a1b2c3_hoe")
+            ]
+        )
+        XCTAssertEqual(project.items.map(\.displayName), ["Azure Ingot", "Azure Sword", "Azure Pickaxe", "Azure Axe", "Azure Shovel", "Azure Hoe"])
+        XCTAssertEqual(project.shapelessRecipes.first?.ingredients, Array(repeating: .vanilla("minecraft:diamond"), count: 4))
+        XCTAssertEqual(project.recipes.map(\.pattern), [[" I ", " I ", " S "], ["III", " S ", " S "], ["II ", "IS ", " S "], [" I ", " S ", " S "], ["II ", " S ", " S "]])
+        XCTAssertTrue(project.recipes.allSatisfy { $0.unlock == [.generated(ContentID("azure_a1b2c3_ingot"))] })
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
     func testMaterialSwordSetCreatesDerivedItemsAndRecipes() throws {
         let project = try AddOnProject.materialSwordSet(
             materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4,

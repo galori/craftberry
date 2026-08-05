@@ -16,6 +16,9 @@ final class MinecraftCoordinateTouchUITests: XCTestCase {
     }
 
     func testMinecraftReceivesCoordinateTapOnPlay() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This Minecraft coordinate test requires Minecraft installed on a physical iPhone.")
+        #else
         let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
         minecraft.launch()
 
@@ -35,6 +38,7 @@ final class MinecraftCoordinateTouchUITests: XCTestCase {
 
         sleep(2)
         attach("After tapping Minecraft Play")
+        #endif
     }
 
     private func attach(_ name: String) {

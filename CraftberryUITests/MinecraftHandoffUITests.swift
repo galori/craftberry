@@ -32,6 +32,9 @@ final class MinecraftHandoffUITests: XCTestCase {
     }
 
     func testDownloadsAndHandsOffToMinecraft() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This Minecraft handoff test requires Safari, Files, and Minecraft on a physical iPhone.")
+        #else
         // `xcodebuild test`'s TEST_RUNNER_ environment-variable forwarding is
         // reliable for the simulator but does not reach the on-device test
         // runner app, so scripts/minecraft-import.sh writes the real values
@@ -43,6 +46,9 @@ final class MinecraftHandoffUITests: XCTestCase {
             return
         }
         let urlString = config.mcaddonURL
+        guard URL(string: urlString)?.port != 0 else {
+            throw XCTSkip("MinecraftImportConfig.json still contains the placeholder URL; run scripts/minecraft-import.sh to inject a real fixture URL.")
+        }
 
         let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
         safari.terminate()
@@ -86,6 +92,7 @@ final class MinecraftHandoffUITests: XCTestCase {
             minecraft.wait(for: .runningForeground, timeout: 20),
             "Minecraft did not come to the foreground after the handoff; the pack import likely did not complete."
         )
+        #endif
     }
 
     private func openURL(_ urlString: String, in safari: XCUIApplication) throws {

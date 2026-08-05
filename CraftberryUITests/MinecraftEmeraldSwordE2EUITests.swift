@@ -138,16 +138,16 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
 
     func testDeviceConfigurationVerifiesBothPacksAreActiveBeforeWorldLaunch() throws {
         let configuration = try loadConfiguration()
-        let namedSteps = Dictionary(uniqueKeysWithValues: configuration.steps.map { ($0.name, $0) })
 
-        XCTAssertEqual(namedSteps["Accept the add-on stacking warning"]?.x, 0.5)
-        XCTAssertEqual(namedSteps["Accept the add-on stacking warning"]?.y, 0.705)
+        let stackingWarningStep = try XCTUnwrap(configuration.steps.first { $0.name == "Accept the add-on stacking warning" })
+        XCTAssertEqual(stackingWarningStep.x, 0.5)
+        XCTAssertEqual(stackingWarningStep.y, 0.705)
         XCTAssertEqual(
-            namedSteps["Confirm the behavior pack is active"]?.text,
+            configuration.steps.first { $0.name == "Confirm the behavior pack is active" }?.text,
             "Emerald Test Sword Behavior"
         )
         XCTAssertEqual(
-            namedSteps["Confirm the dependent resource pack is active"]?.text,
+            configuration.steps.first { $0.name == "Confirm the dependent resource pack is active" }?.text,
             "Emerald Test Sword Resources"
         )
 
@@ -217,6 +217,9 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
     }
 
     func testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
             throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
@@ -304,6 +307,7 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         for step in configuration.steps {
             try execute(step, in: minecraft, expectedSwordName: configuration.expectedSwordName)
         }
+        #endif
     }
 
     private func execute(

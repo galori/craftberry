@@ -98,7 +98,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         profile: BedrockContentProfile
     ) throws -> (archive: BedrockAddOnArchive, emittedFiles: [String]) {
         let primaryItem = try require(
-            project.items.sorted(by: contentOrder).first,
+            project.items.first,
             profile: profile,
             code: "missing_required_content",
             path: "content.items",

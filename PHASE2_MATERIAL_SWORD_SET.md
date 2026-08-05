@@ -20,4 +20,4 @@ Schema lint remains advisory and is intentionally out of the iOS app. `.lang`, P
 
 ## Deferred and reconsideration triggers
 
-Tools beyond swords, armor, food/fuel, repair/enchantment traits, projectiles, records, placers, furnace/brewing/smithing recipes, blocks/ores/crops, entities, structures, scripting, arbitrary vanilla inputs, custom models, multiple material sets, editing, and user-selected stations remain deferred. Reconsider each only after its closest vanilla sample is pinned, compiler output is assertion-covered, and physical-device acceptance is complete.
+Armor, food/fuel, repair/enchantment traits, projectiles, records, placers, furnace/brewing/smithing recipes, blocks/ores/crops, entities, structures, scripting, arbitrary vanilla inputs, custom models, multiple material sets, editing, and user-selected stations remain deferred. Material tool sets moved into the next item-family slice after this record was written. Reconsider each remaining area only after its closest vanilla sample is pinned, compiler output is assertion-covered, and physical-device acceptance is complete.
