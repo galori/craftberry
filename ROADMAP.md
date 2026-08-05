@@ -57,7 +57,7 @@ It validates the complete graph before filesystem writes, emits typed `Encodable
 
 ## Incremental delivery
 
-1. **Foundation and sword parity.** Introduce the semantic project, stable identity, typed references/documents, profile resources, compilation reports and sidecars; port the sword; add fake-client state tests. Code is implemented. Physical-device acceptance remains pending.
+1. **Foundation and sword parity.** Introduce the semantic project, stable identity, typed references/documents, profile resources, compilation reports and sidecars; port the sword; add fake-client state tests. Code is implemented. Physical-device import, activation, Creative crafting, localized-name OCR, and in-hand selection passed for the generated Emerald Test Sword; clean Content Log and Survival checks remain pending.
 2. **Material sword set (Phase 2A).** A named ingot plus matching sword, typed shapeless and shaped recipes, two original sprites, a pinned ten-input vanilla catalog, and schema-v2 sidecars are implemented. Device acceptance remains pending; see `PHASE2_MATERIAL_SWORD_SET.md`.
 3. **General items and stable recipes.** Material tool sets are implemented for sword, pickaxe, axe, shovel, and hoe variants generated from one named ingot. Continue with broader weapons, armor, wearables, food, fuel, repair/enchantment traits, throwable/projectile items, records, placers, and every stable recipe form in the profile.
 3. **Materials, blocks, crops, and ores.** Add blocks, states/permutations, placement and geometry, light/mining behavior, drops, terrain textures, features, and bounded whole-family archetypes.
