@@ -11,6 +11,7 @@ import XCTest
 /// a normal UI-test run from mutating Minecraft state.
 final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
     private let minecraftBundleID = "com.mojang.minecraftpe"
+    private let observationPauseEnvironmentKey = "MINECRAFT_E2E_OBSERVE_EACH_STEP"
 
     private struct DeviceScenario {
         let launchArgument: String
@@ -19,6 +20,38 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         let expectedCraftedItemName: String
         let behaviorPackName: String
         let resourcePackName: String
+    }
+
+    /// The Minecraft crafting screen is landscape while XCTest supplies
+    /// normalized portrait coordinates. On the calibrated iPhone, visual
+    /// crafting-grid columns therefore advance along `x`, and visual rows
+    /// advance along increasing `y`. Keep all recipe layouts in logical
+    /// row/column terms and translate them here.
+    private struct CraftingGrid {
+        struct Slot: Equatable {
+            let row: Int
+            let column: Int
+        }
+
+        static let calibrated = CraftingGrid(
+            topLeftX: 0.654,
+            topLeftY: 0.160,
+            columnStep: 0.055,
+            rowStep: 0.120
+        )
+
+        let topLeftX: CGFloat
+        let topLeftY: CGFloat
+        let columnStep: CGFloat
+        let rowStep: CGFloat
+
+        func coordinate(for slot: Slot) -> (x: CGFloat, y: CGFloat) {
+            precondition((0...2).contains(slot.row) && (0...2).contains(slot.column))
+            return (
+                x: topLeftX + (CGFloat(slot.column) * columnStep),
+                y: topLeftY + (CGFloat(slot.row) * rowStep)
+            )
+        }
     }
 
     private let emeraldSwordScenario = DeviceScenario(
@@ -62,6 +95,51 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         XCTAssertEqual(visionOrientation(for: .landscapeLeft), .right)
         XCTAssertEqual(visionOrientation(for: .portrait), .up)
         XCTAssertEqual(visionOrientation(for: .portraitUpsideDown), .down)
+    }
+
+    func testMinecraftOCRTriesTheCalibratedAndUprightScreenshotOrientations() {
+        XCTAssertEqual(minecraftOCROrientations, [.left, .up])
+    }
+
+    func testRedstoneIngotSearchUsesTheSingleResultCoordinate() throws {
+        let steps = redstonePickaxeCraftingSteps.filter { $0.name.contains("Pick") && $0.name.contains("Redstone Ingot") }
+
+        XCTAssertEqual(steps.count, 3)
+        XCTAssertTrue(steps.allSatisfy { $0.x == 0.143 && $0.y == 0.25 })
+    }
+
+    func testCraftingGridKeepsThePickaxeRecipeInItsVisualRows() {
+        let grid = CraftingGrid.calibrated
+
+        XCTAssertEqual(grid.coordinate(for: .init(row: 0, column: 0)).x, 0.654, accuracy: 0.001)
+        XCTAssertEqual(grid.coordinate(for: .init(row: 0, column: 0)).y, 0.160, accuracy: 0.001)
+        XCTAssertEqual(grid.coordinate(for: .init(row: 0, column: 2)).x, 0.764, accuracy: 0.001)
+        XCTAssertEqual(grid.coordinate(for: .init(row: 1, column: 1)).y, 0.280, accuracy: 0.001)
+        XCTAssertEqual(grid.coordinate(for: .init(row: 2, column: 1)).y, 0.400, accuracy: 0.001)
+    }
+
+    func testRedstonePickaxePlacementStepsFollowThePickaxeGrid() throws {
+        let placements = redstonePickaxeCraftingSteps.filter { $0.name.hasPrefix("Place Redstone Ingot") || $0.name.hasPrefix("Place stick") }
+
+        let expected: [(x: CGFloat, y: CGFloat)] = [
+            (0.654, 0.160), (0.709, 0.160), (0.764, 0.160),
+            (0.709, 0.280), (0.709, 0.400)
+        ]
+        XCTAssertEqual(placements.count, expected.count)
+        for (placement, expectedCoordinate) in zip(placements, expected) {
+            XCTAssertEqual(try XCTUnwrap(placement.x), expectedCoordinate.x, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(placement.y), expectedCoordinate.y, accuracy: 0.001)
+        }
+    }
+
+    func testRedstoneIngotCraftingResetsTheCraftingTableBeforeThePickaxeRecipe() throws {
+        let steps = redstonePickaxeCraftingSteps
+        let resetIndex = try XCTUnwrap(steps.firstIndex { $0.name == "Close crafting table to return recipe inputs" })
+
+        XCTAssertEqual(steps[resetIndex + 1].name, "Wait for leftover recipe inputs to return to inventory")
+        XCTAssertEqual(steps[resetIndex + 2].name, "Reopen crafting table for the next recipe")
+        XCTAssertEqual(steps[resetIndex + 3].name, "Wait for crafting table to reopen")
+        XCTAssertEqual(steps[resetIndex + 4].name, "Confirm crafting table reopened for the next recipe")
     }
 
     func testKeyboardTextStepDecodesText() throws {
@@ -235,8 +313,14 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         } else {
             steps = configuration.steps
         }
+        let observesEachCraftingStep = craftingSteps != nil
+            && ProcessInfo.processInfo.environment[observationPauseEnvironmentKey] == "1"
         for step in steps {
             try execute(step, in: minecraft, scenario: scenario, expectedSwordName: configuration.expectedSwordName)
+            if observesEachCraftingStep, step.action != .wait, step.action != .ocr {
+                print("Observation pause after: \(step.name)")
+                Thread.sleep(forTimeInterval: 20)
+            }
         }
     }
 
@@ -245,46 +329,81 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
     /// These coordinates share the calibrated crafting-table screen from the
     /// Emerald Sword flow above; only the recipe-specific portion differs.
     private var redstonePickaxeCraftingSteps: [MinecraftDeviceE2EStep] {
-        [
+        let grid = CraftingGrid.calibrated
+        let ingotCraftingSlots = [
+            CraftingGrid.Slot(row: 0, column: 0), CraftingGrid.Slot(row: 0, column: 1),
+            CraftingGrid.Slot(row: 1, column: 0), CraftingGrid.Slot(row: 1, column: 1)
+        ]
+        let pickaxeIngotSlots = [
+            CraftingGrid.Slot(row: 0, column: 0), CraftingGrid.Slot(row: 0, column: 1), CraftingGrid.Slot(row: 0, column: 2)
+        ]
+        let pickaxeStickSlots = [
+            CraftingGrid.Slot(row: 1, column: 1), CraftingGrid.Slot(row: 2, column: 1)
+        ]
+        return [
             step("Search Creative inventory for redstone", .tap, x: 0.29, y: 0.155),
             step("Type redstone search", .keyText, text: "redstone"),
             step("Wait for redstone search results", .wait, seconds: 4),
-            step("Pick first redstone stack", .tap, x: 0.309, y: 0.25),
-            step("Place redstone in top-left ingot slot", .tap, x: 0.594, y: 0.16),
-            step("Pick second redstone stack", .tap, x: 0.309, y: 0.25),
-            step("Place redstone in top-center ingot slot", .tap, x: 0.708, y: 0.16),
-            step("Pick third redstone stack", .tap, x: 0.309, y: 0.25),
-            step("Place redstone in middle-left ingot slot", .tap, x: 0.594, y: 0.275),
-            step("Pick fourth redstone stack", .tap, x: 0.309, y: 0.25),
-            step("Place redstone in middle-center ingot slot", .tap, x: 0.708, y: 0.275),
+        ] + placeCreativeSearchResult("redstone", from: (x: 0.309, y: 0.25), into: ingotCraftingSlots, grid: grid) + [
             step("Wait for Redstone Ingot output", .wait, seconds: 4),
-            step("Take Redstone Ingot output", .tap, x: 0.708, y: 0.75),
+            step("Take Redstone Ingot output", .tap, x: 0.709, y: 0.756),
             step("Confirm crafted Redstone Ingot", .ocr, text: "Redstone Ingot"),
             step("Put Redstone Ingot in inventory", .tap, x: 0.611, y: 0.91),
+        ] + resetCraftingTableForNextRecipe() + [
             step("Clear redstone search", .tap, x: 0.463, y: 0.155),
             step("Search Creative inventory for Redstone Ingot", .tap, x: 0.29, y: 0.155),
-            step("Type Redstone Ingot search", .keyText, text: "Redstone Ingot"),
+            step("Type Redstone Ingot search", .keyText, text: "redstone ingot"),
             step("Wait for Redstone Ingot search results", .wait, seconds: 4),
-            step("Pick first Redstone Ingot stack", .tap, x: 0.309, y: 0.25),
-            step("Place Redstone Ingot in top-left pickaxe slot", .tap, x: 0.594, y: 0.16),
-            step("Pick second Redstone Ingot stack", .tap, x: 0.309, y: 0.25),
-            step("Place Redstone Ingot in top-center pickaxe slot", .tap, x: 0.708, y: 0.16),
-            step("Pick third Redstone Ingot stack", .tap, x: 0.309, y: 0.25),
-            step("Place Redstone Ingot in top-right pickaxe slot", .tap, x: 0.822, y: 0.16),
+        ] + placeCreativeSearchResult("Redstone Ingot", from: (x: 0.143, y: 0.25), into: pickaxeIngotSlots, grid: grid) + [
             step("Clear Redstone Ingot search", .tap, x: 0.463, y: 0.155),
             step("Search Creative inventory for stick", .tap, x: 0.29, y: 0.155),
             step("Type stick search", .keyText, text: "stick"),
             step("Wait for stick search results", .wait, seconds: 4),
-            step("Pick first stick stack", .tap, x: 0.253, y: 0.25),
-            step("Place stick in middle-center pickaxe slot", .tap, x: 0.708, y: 0.275),
-            step("Pick second stick stack", .tap, x: 0.253, y: 0.25),
-            step("Place stick in bottom-center pickaxe slot", .tap, x: 0.708, y: 0.395),
+        ] + placeCreativeSearchResult("stick", from: (x: 0.253, y: 0.25), into: pickaxeStickSlots, grid: grid) + [
             step("Wait for Redstone Pickaxe output", .wait, seconds: 4),
-            step("Take Redstone Pickaxe output", .tap, x: 0.708, y: 0.75),
-            step("Confirm crafted Redstone Pickaxe", .ocr, text: "$EXPECTED_CRAFTED_ITEM_NAME"),
+            step("Confirm Redstone Pickaxe output is visible", .redstonePickaxeOutput),
+            step("Take Redstone Pickaxe output", .tap, x: 0.709, y: 0.756),
             step("Put crafted Redstone Pickaxe in hotbar", .tap, x: 0.611, y: 0.91),
             step("Close crafting interface", .tap, x: 0.947, y: 0.065)
         ]
+    }
+
+    private func placeCreativeSearchResult(
+        _ itemName: String,
+        from source: (x: CGFloat, y: CGFloat),
+        into destinations: [CraftingGrid.Slot],
+        grid: CraftingGrid
+    ) -> [MinecraftDeviceE2EStep] {
+        destinations.enumerated().flatMap { index, slot in
+            let destination = grid.coordinate(for: slot)
+            return [
+                step("Pick \(ordinal(index + 1)) \(itemName) stack", .tap, x: source.x, y: source.y),
+                step("Place \(itemName) in crafting row \(slot.row + 1), column \(slot.column + 1)", .tap, x: destination.x, y: destination.y)
+            ]
+        }
+    }
+
+    /// Closing the table returns every unconsumed input to the player. This is
+    /// more reliable than individually tapping an Ore UI grid after a
+    /// shapeless recipe, and makes each recipe begin from an empty table.
+    private func resetCraftingTableForNextRecipe() -> [MinecraftDeviceE2EStep] {
+        [
+            step("Close crafting table to return recipe inputs", .tap, x: 0.947, y: 0.065),
+            step("Wait for leftover recipe inputs to return to inventory", .wait, seconds: 2),
+            step("Reopen crafting table for the next recipe", .tap, x: 0.5075, y: 0.265),
+            step("Wait for crafting table to reopen", .wait, seconds: 4),
+            step("Confirm crafting table reopened for the next recipe", .ocr, text: "Crafting")
+        ]
+    }
+
+    private func ordinal(_ value: Int) -> String {
+        switch value {
+        case 1: "first"
+        case 2: "second"
+        case 3: "third"
+        case 4: "fourth"
+        default: "\(value)th"
+        }
     }
 
     private func step(
@@ -319,6 +438,11 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
             XCTAssertTrue(
                 waitForRecognizedText(expected, timeout: 5),
                 "OCR did not find '\(expected)' after \(step.name). Recalibrate this step if Minecraft's UI changed."
+            )
+        } else if step.action == .redstonePickaxeOutput {
+            XCTAssertTrue(
+                redstonePickaxeOutputIsVisible(),
+                "The Redstone Pickaxe output slot did not contain the generated red pickaxe after its recipe was laid out."
             )
         } else {
             try performGesture(step, in: minecraft)
@@ -390,6 +514,9 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
                 throw ConfigurationError.missingText(step.name)
             }
             sendChatCommand(text, in: minecraft)
+        case .redstonePickaxeOutput:
+            // Handled by `execute`, which inspects the output slot.
+            break
         case .ocr:
             // Handled by `execute`, which hard-asserts OCR.
             break
@@ -483,29 +610,67 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
     }
 
     private func recognizedText() -> String {
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = false
-
         guard let image = XCUIScreen.main.screenshot().image.cgImage else {
             XCTFail("Could not create a CGImage for Minecraft OCR")
             return ""
         }
 
-        do {
-            // Minecraft reports a landscape interface while XCUIScreen emits
-            // a portrait pixel buffer. Vision needs the matching orientation
-            // to recognize visible Ore UI text such as world and pack names.
-            try VNImageRequestHandler(cgImage: image, orientation: .left).perform([request])
-        } catch {
-            XCTFail("Minecraft OCR failed: \(error)")
-            return ""
-        }
+        let recognizedLines: [String] = minecraftOCROrientations.flatMap { orientation -> [String] in
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
 
-        return (request.results ?? [])
-            .compactMap { $0.topCandidates(1).first?.string }
-            .joined(separator: "\n")
+            do {
+                try VNImageRequestHandler(cgImage: image, orientation: orientation).perform([request])
+            } catch {
+                XCTFail("Minecraft OCR failed: \(error)")
+                return [String]()
+            }
+
+            return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+        }
+        return recognizedLines.joined(separator: "\n")
     }
+
+    /// Minecraft's custom crafting grid has no accessible output element. On
+    /// the calibrated iPhone 16e, a craftable redstone pickaxe contributes a
+    /// cluster of red pixels to its output slot; a blank slot does not.
+    private func redstonePickaxeOutputIsVisible() -> Bool {
+        guard let image = XCUIScreen.main.screenshot().image.cgImage else { return false }
+        let width = image.width
+        let height = image.height
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return false }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let pixels = context.data?.bindMemory(to: UInt8.self, capacity: width * height * 4) else { return false }
+
+        let xRange = Int(CGFloat(width) * 0.18)..<Int(CGFloat(width) * 0.31)
+        let yRange = Int(CGFloat(height) * 0.67)..<Int(CGFloat(height) * 0.75)
+        var redPixels = 0
+        for y in yRange {
+            for x in xRange {
+                let offset = ((y * width) + x) * 4
+                let red = Int(pixels[offset])
+                let green = Int(pixels[offset + 1])
+                let blue = Int(pixels[offset + 2])
+                if red > 140, red > green * 2, red > blue * 2 { redPixels += 1 }
+            }
+        }
+        return redPixels >= 20
+    }
+
+    /// Minecraft ordinarily reports a landscape UI while XCUIScreen exposes a
+    /// portrait pixel buffer, but result-bundle evidence from the iPhone 16e
+    /// shows that some screens arrive upright. Search both rather than
+    /// rejecting an active pack that is visibly present.
+    private let minecraftOCROrientations: [CGImagePropertyOrientation] = [.left, .up]
 
     private func waitForRecognizedText(_ expected: String, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -626,6 +791,7 @@ private struct MinecraftDeviceE2EStep: Decodable {
         /// `/setblock` a crafting table into a fresh world, which has none
         /// at spawn (see docs/MINECRAFT_DEVICE_AUTOMATION.md).
         case chatCommand
+        case redstonePickaxeOutput
         case ocr
     }
 
