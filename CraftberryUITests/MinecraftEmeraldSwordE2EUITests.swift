@@ -1,6 +1,5 @@
 import Vision
 import XCTest
-import UIKit
 
 /// Physical-device acceptance for the complete Craftberry-to-Bedrock loop.
 ///
@@ -8,9 +7,8 @@ import UIKit
 /// does not expose accessibility elements, so the in-world portion is driven
 /// by calibrated normalized coordinates from `MinecraftDeviceE2EConfig.json`.
 /// Keep that file disabled until its coordinates have been calibrated against
-/// the target iPhone and the existing creative world (see
-/// docs/MINECRAFT_DEVICE_AUTOMATION.md). This prevents a normal UI-test run
-/// from mutating Minecraft state.
+/// the target iPhone (see docs/MINECRAFT_DEVICE_AUTOMATION.md). This prevents
+/// a normal UI-test run from mutating Minecraft state.
 final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
     private let minecraftBundleID = "com.mojang.minecraftpe"
 
@@ -39,32 +37,6 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         XCTAssertEqual(visionOrientation(for: .portraitUpsideDown), .down)
     }
 
-    func testStorageTrashControlLocatorFindsControlAfterStorageReflows() throws {
-        for expectedY in [CGFloat(0.75), CGFloat(0.89)] {
-            let size = CGSize(width: 1_000, height: 500)
-            let format = UIGraphicsImageRendererFormat()
-            format.opaque = true
-            format.preferredRange = .standard
-            let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
-                UIColor.black.setFill()
-                context.fill(CGRect(origin: .zero, size: size))
-
-                let barHeight = size.height * 0.08
-                let barY = size.height * expectedY - barHeight / 2
-                UIColor(white: 0.25, alpha: 1).setFill()
-                context.fill(CGRect(x: size.width * 0.30, y: barY, width: size.width * 0.40, height: barHeight))
-
-                UIColor(white: 0.78, alpha: 1).setFill()
-                context.fill(CGRect(x: size.width * 0.44, y: barY, width: size.width * 0.056, height: barHeight))
-            }
-
-            let locatedY = try XCTUnwrap(
-                StorageTrashControlLocator.normalizedY(in: image, normalizedX: 0.468)
-            )
-            XCTAssertEqual(locatedY, expectedY, accuracy: 0.01)
-        }
-    }
-
     func testKeyboardTextStepDecodesText() throws {
         let data = Data(
             #"{"name":"Search for emerald","action":"keyText","text":"emerald"}"#.utf8
@@ -76,25 +48,7 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         XCTAssertEqual(step.text, "emerald")
     }
 
-    func testConfigurationDecodesCleanupStepsWhenPresent() throws {
-        let data = Data(#"""
-        {
-          "enabled": false,
-          "expectedSwordName": "Emerald Test Sword",
-          "steps": [],
-          "cleanupSteps": [
-            {"name": "Deactivate the behavior pack", "action": "tap", "x": 0.5, "y": 0.5}
-          ]
-        }
-        """#.utf8)
-
-        let configuration = try JSONDecoder().decode(MinecraftDeviceE2EConfiguration.self, from: data)
-
-        XCTAssertEqual(configuration.cleanupSteps.count, 1)
-        XCTAssertEqual(configuration.cleanupSteps.first?.name, "Deactivate the behavior pack")
-    }
-
-    func testConfigurationDefaultsCleanupStepsToEmptyWhenAbsent() throws {
+    func testConfigurationDecodesWithoutCleanupSteps() throws {
         let data = Data(#"""
         {
           "enabled": false,
@@ -105,35 +59,9 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
 
         let configuration = try JSONDecoder().decode(MinecraftDeviceE2EConfiguration.self, from: data)
 
-        XCTAssertTrue(configuration.cleanupSteps.isEmpty)
-    }
-
-    func testStorageCleanupActionsDecodeTheirLabelsAndTapColumns() throws {
-        let tapData = Data(
-            #"{"name":"Expand Resource Packs","action":"tapRecognizedRow","text":"Resource Packs","x":0.5}"#.utf8
-        )
-        let deleteData = Data(
-            #"{"name":"Delete test pack","action":"deleteIfUniquelyStored","text":"Emerald Test Sword Resources","x":0.5,"endX":0.468}"#.utf8
-        )
-        let deleteAllData = Data(
-            #"{"name":"Delete all test packs","action":"deleteAllStored","text":"Emerald Test Sword Resources","x":0.5,"endX":0.468}"#.utf8
-        )
-
-        let tap = try JSONDecoder().decode(MinecraftDeviceE2EStep.self, from: tapData)
-        let delete = try JSONDecoder().decode(MinecraftDeviceE2EStep.self, from: deleteData)
-        let deleteAll = try JSONDecoder().decode(MinecraftDeviceE2EStep.self, from: deleteAllData)
-
-        XCTAssertEqual(tap.action, .tapRecognizedRow)
-        XCTAssertEqual(tap.text, "Resource Packs")
-        XCTAssertEqual(tap.x, 0.5)
-        XCTAssertEqual(delete.action, .deleteIfUniquelyStored)
-        XCTAssertEqual(delete.text, "Emerald Test Sword Resources")
-        XCTAssertEqual(delete.x, 0.5)
-        XCTAssertEqual(delete.endX, 0.468)
-        XCTAssertEqual(deleteAll.action, .deleteAllStored)
-        XCTAssertEqual(deleteAll.text, "Emerald Test Sword Resources")
-        XCTAssertEqual(deleteAll.x, 0.5)
-        XCTAssertEqual(deleteAll.endX, 0.468)
+        XCTAssertFalse(configuration.enabled)
+        XCTAssertEqual(configuration.expectedSwordName, "Emerald Test Sword")
+        XCTAssertTrue(configuration.steps.isEmpty)
     }
 
     func testDeviceConfigurationVerifiesBothPacksAreActiveBeforeWorldLaunch() throws {
@@ -152,7 +80,7 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         )
 
         let playIndex = try XCTUnwrap(
-            configuration.steps.firstIndex { $0.name == "Launch My World locally in creative mode" }
+            configuration.steps.firstIndex { $0.name == "Launch the craftberry test world locally in creative mode" }
         )
         let behaviorCheckIndex = try XCTUnwrap(
             configuration.steps.firstIndex { $0.name == "Confirm the behavior pack is active" }
@@ -170,50 +98,6 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
             configuration.steps.firstIndex { $0.name == "Close the crafting interface" }
         )
         XCTAssertLessThan(localizedNameCheckIndex, closeCraftingIndex)
-    }
-
-    func testDeviceConfigurationTargetsStorageDisclosureArrowsAndScrollsExpandedPackLists() throws {
-        let configuration = try loadConfiguration()
-        let cleanup = configuration.cleanupSteps
-
-        let expandWorldsIndex = try XCTUnwrap(
-            cleanup.firstIndex { $0.name == "Expand the Worlds storage row" }
-        )
-        XCTAssertEqual(cleanup[expandWorldsIndex].x, 0.85)
-
-        let collapseWorldsIndex = try XCTUnwrap(
-            cleanup.firstIndex { $0.name == "Collapse the Worlds storage category" }
-        )
-        XCTAssertEqual(cleanup[collapseWorldsIndex].x, 0.85)
-
-        let expandResourceIndex = try XCTUnwrap(
-            cleanup.firstIndex { $0.name == "Expand the Resource Packs storage category" }
-        )
-        XCTAssertEqual(cleanup[expandResourceIndex].action, .tap)
-        XCTAssertEqual(cleanup[expandResourceIndex].x, 0.85)
-        XCTAssertEqual(cleanup[expandResourceIndex].y, 0.855)
-        XCTAssertEqual(
-            cleanup[expandResourceIndex + 2].name,
-            "Scroll to the expanded Resource Packs list"
-        )
-        XCTAssertEqual(cleanup[expandResourceIndex + 2].action, .drag)
-
-        let collapseResourceIndex = try XCTUnwrap(
-            cleanup.firstIndex { $0.name == "Collapse the Resource Packs storage category" }
-        )
-        XCTAssertEqual(cleanup[collapseResourceIndex].x, 0.85)
-        XCTAssertEqual(cleanup[collapseResourceIndex].text, "source Packs")
-
-        let expandBehaviorIndex = try XCTUnwrap(
-            cleanup.firstIndex { $0.name == "Expand the Behavior Packs storage category" }
-        )
-        XCTAssertEqual(cleanup[expandBehaviorIndex].action, .tapRecognizedRow)
-        XCTAssertEqual(cleanup[expandBehaviorIndex].x, 0.85)
-        XCTAssertEqual(
-            cleanup[expandBehaviorIndex + 2].name,
-            "Scroll to the expanded Behavior Packs list"
-        )
-        XCTAssertEqual(cleanup[expandBehaviorIndex + 2].action, .drag)
     }
 
     func testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted() throws {
@@ -266,18 +150,13 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
 
         let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
 
-        // Deleting the freshly created world is best-effort device hygiene,
-        // not part of this test's acceptance signal: it must run whether the
-        // test above passes or fails, and a cleanup hiccup must never turn a
-        // successful crafting run into a reported failure (or mask a real
-        // one). Register it as soon as `minecraft` exists so it still runs
-        // if a later assertion throws. Deleting the whole world (rather than
-        // deactivating packs one at a time) already clears every active-pack
-        // reference, so there is nothing pack-specific left to clean up.
+        // Mac-side cleanup runs scripts/minecraft-cleanup.sh from
+        // scripts/ios-device.sh after xcodebuild exits. The on-device test
+        // runner cannot execute that local shell script, but it can ensure
+        // Minecraft is not running before AFC cleanup inspects its files.
         addTeardownBlock { [self] in
-            for step in configuration.cleanupSteps {
-                executeCleanupStep(step, in: minecraft)
-            }
+            minecraft.terminate()
+            attach("Minecraft terminated before AFC cleanup")
         }
 
         XCTAssertTrue(
@@ -329,165 +208,6 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
         }
 
         attach(step.name)
-    }
-
-    /// Runs a post-test cleanup step (deactivating an imported pack) without
-    /// affecting the acceptance test's own pass/fail result. Any failure —
-    /// a missing coordinate, an OCR miss, an unexpected screen — is captured
-    /// as a screenshot and logged only. This is deliberately not the same
-    /// code path as `execute`, which uses hard `XCTAssert`s: cleanup must
-    /// never turn a successful crafting run into a reported failure, or mask
-    /// a real one, per the "not an automated verification step" requirement.
-    private func executeCleanupStep(_ step: MinecraftDeviceE2EStep, in minecraft: XCUIApplication) {
-        do {
-            switch step.action {
-            case .ocr:
-                guard let expected = step.text, !expected.isEmpty else {
-                    attach("Cleanup step '\(step.name)' has no expected OCR text; skipping check")
-                    return
-                }
-                if !waitForRecognizedText(expected, timeout: 5) {
-                    attach("Cleanup step '\(step.name)': OCR did not find '\(expected)' (logged only, not failing the test)")
-                }
-            case .tapRecognizedRow:
-                guard let label = step.text, let tapX = step.x else {
-                    attach("Cleanup step '\(step.name)' is missing text/x; skipping")
-                    return
-                }
-                guard let rowY = uniqueRecognizedRowNormalizedY(matching: label) else {
-                    attach("Cleanup step '\(step.name)': could not uniquely locate '\(label)'; skipping rather than guessing")
-                    return
-                }
-                minecraft.coordinate(withNormalizedOffset: CGVector(dx: tapX, dy: rowY)).tap()
-            case .deleteIfUniquelyStored:
-                guard
-                    let label = step.text,
-                    let rowX = step.x,
-                    let deleteX = step.endX
-                else {
-                    attach("Cleanup step '\(step.name)' is missing text/row/delete coordinates; skipping")
-                    return
-                }
-                guard let rowY = uniqueRecognizedRowNormalizedY(matching: label) else {
-                    attach("Cleanup step '\(step.name)': could not uniquely locate '\(label)'; skipping rather than deleting an unknown entry")
-                    return
-                }
-                minecraft.coordinate(withNormalizedOffset: CGVector(dx: rowX, dy: rowY)).tap()
-                Thread.sleep(forTimeInterval: 2)
-                attach("\(step.name) - selected matched Storage entry")
-                guard let deleteY = StorageTrashControlLocator.normalizedY(
-                    in: XCUIScreen.main.screenshot().image,
-                    normalizedX: deleteX
-                ) else {
-                    attach("Cleanup step '\(step.name)' could not locate the selected trash control; skipping")
-                    return
-                }
-                minecraft.coordinate(withNormalizedOffset: CGVector(dx: deleteX, dy: deleteY)).tap()
-                Thread.sleep(forTimeInterval: 2)
-                minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.635)).tap()
-                Thread.sleep(forTimeInterval: 3)
-                if !waitForRecognizedRowCount(below: 1, matching: label, timeout: 5) {
-                    attach("Cleanup step '\(step.name)' did not remove the matched Storage entry")
-                }
-            case .deleteAllStored:
-                guard
-                    let label = step.text,
-                    let rowX = step.x,
-                    let deleteX = step.endX
-                else {
-                    attach("Cleanup step '\(step.name)' is missing text/row/delete coordinates; skipping")
-                    return
-                }
-
-                // Every generated test pack uses this explicit test-only
-                // display name. Recover from interrupted earlier runs by
-                // deleting matching rows one at a time until none remain.
-                // The cap prevents an OCR/navigation bug from looping
-                // forever or expanding deletion beyond the visible matches.
-                var deletedCount = 0
-                for _ in 0..<12 {
-                    let matchesBeforeDeletion = recognizedRowNormalizedYs(matching: label)
-                    guard let rowY = matchesBeforeDeletion.min() else { break }
-                    minecraft.coordinate(withNormalizedOffset: CGVector(dx: rowX, dy: rowY)).tap()
-                    Thread.sleep(forTimeInterval: 2)
-                    attach("\(step.name) - selected matching Storage entry \(deletedCount + 1)")
-                    guard let deleteY = StorageTrashControlLocator.normalizedY(
-                        in: XCUIScreen.main.screenshot().image,
-                        normalizedX: deleteX
-                    ) else {
-                        attach("Cleanup step '\(step.name)' could not locate the selected trash control; stopping")
-                        break
-                    }
-                    minecraft.coordinate(withNormalizedOffset: CGVector(dx: deleteX, dy: deleteY)).tap()
-                    Thread.sleep(forTimeInterval: 2)
-                    minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.635)).tap()
-                    Thread.sleep(forTimeInterval: 3)
-                    guard waitForRecognizedRowCount(
-                        below: matchesBeforeDeletion.count,
-                        matching: label,
-                        timeout: 5
-                    ) else {
-                        attach("Cleanup step '\(step.name)' did not remove matching Storage entry \(deletedCount + 1); stopping")
-                        break
-                    }
-                    deletedCount += 1
-                }
-
-                if deletedCount == 0 {
-                    attach("Cleanup step '\(step.name)': found no stored pack matching '\(label)'")
-                }
-            default:
-                try performGesture(step, in: minecraft)
-            }
-        } catch {
-            attach("Cleanup step '\(step.name)' failed: \(error) (logged only, not failing the test)")
-        }
-
-        attach("\(step.name) (cleanup)")
-    }
-
-    /// Returns the normalized vertical center of exactly one OCR match.
-    /// Cleanup must never guess: zero or duplicate labels cause the caller to
-    /// skip the mutation and leave screenshot evidence instead.
-    private func uniqueRecognizedRowNormalizedY(matching text: String) -> CGFloat? {
-        let matches = recognizedRowNormalizedYs(matching: text)
-        guard matches.count == 1 else { return nil }
-        return matches[0]
-    }
-
-    private func recognizedRowNormalizedYs(matching text: String) -> [CGFloat] {
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = false
-
-        guard let image = XCUIScreen.main.screenshot().image.cgImage else { return [] }
-        let orientation = visionOrientation(for: XCUIDevice.shared.orientation)
-        guard (try? VNImageRequestHandler(cgImage: image, orientation: orientation).perform([request])) != nil else {
-            return []
-        }
-
-        return (request.results ?? []).compactMap {
-            guard $0.topCandidates(1).first?.string.localizedCaseInsensitiveContains(text) == true else {
-                return nil
-            }
-            let box = $0.boundingBox
-            return 1 - (box.origin.y + box.size.height / 2)
-        }
-    }
-
-    private func waitForRecognizedRowCount(
-        below previousCount: Int,
-        matching text: String,
-        timeout: TimeInterval
-    ) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        repeat {
-            if recognizedRowNormalizedYs(matching: text).count < previousCount {
-                return true
-            }
-            usleep(500_000)
-        } while Date() < deadline
-        return false
     }
 
     private func visionOrientation(for deviceOrientation: UIDeviceOrientation) -> CGImagePropertyOrientation {
@@ -553,9 +273,8 @@ final class MinecraftEmeraldSwordE2EUITests: XCTestCase {
                 throw ConfigurationError.missingText(step.name)
             }
             sendChatCommand(text, in: minecraft)
-        case .ocr, .tapRecognizedRow, .deleteIfUniquelyStored, .deleteAllStored:
-            // Handled by callers (`execute` hard-asserts OCR; `executeCleanupStep`
-            // soft-checks OCR).
+        case .ocr:
+            // Handled by `execute`, which hard-asserts OCR.
             break
         }
     }
@@ -760,10 +479,9 @@ private struct MinecraftDeviceE2EConfiguration: Decodable {
     let enabled: Bool
     let expectedSwordName: String
     let steps: [MinecraftDeviceE2EStep]
-    let cleanupSteps: [MinecraftDeviceE2EStep]
 
     private enum CodingKeys: String, CodingKey {
-        case enabled, expectedSwordName, steps, cleanupSteps
+        case enabled, expectedSwordName, steps
     }
 
     init(from decoder: Decoder) throws {
@@ -771,7 +489,6 @@ private struct MinecraftDeviceE2EConfiguration: Decodable {
         enabled = try container.decode(Bool.self, forKey: .enabled)
         expectedSwordName = try container.decode(String.self, forKey: .expectedSwordName)
         steps = try container.decode([MinecraftDeviceE2EStep].self, forKey: .steps)
-        cleanupSteps = try container.decodeIfPresent([MinecraftDeviceE2EStep].self, forKey: .cleanupSteps) ?? []
     }
 }
 
@@ -793,15 +510,6 @@ private struct MinecraftDeviceE2EStep: Decodable {
         /// at spawn (see docs/MINECRAFT_DEVICE_AUTOMATION.md).
         case chatCommand
         case ocr
-        /// Cleanup-only: taps the row whose OCR label uniquely matches `text`
-        /// at the configured `x` column. Skips when the match is ambiguous.
-        case tapRecognizedRow
-        /// Cleanup-only: uniquely locates a Storage entry, selects it, then
-        /// uses Minecraft's trash and confirmation controls to delete it.
-        case deleteIfUniquelyStored
-        /// Cleanup-only: repeatedly deletes every visible Storage entry whose
-        /// label matches the configured test-pack display name.
-        case deleteAllStored
     }
 
     let name: String
@@ -812,76 +520,6 @@ private struct MinecraftDeviceE2EStep: Decodable {
     let endY: CGFloat?
     let seconds: TimeInterval?
     let text: String?
-}
-
-/// Locates Minecraft Storage's selected trash tile from its rendered pixels.
-/// The tile is light gray and is bracketed horizontally by the dark action
-/// bar, unlike the full-width light category headers and dialog buttons.
-private enum StorageTrashControlLocator {
-    static func normalizedY(in image: UIImage, normalizedX: CGFloat) -> CGFloat? {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        format.preferredRange = .standard
-        let uprightImage = UIGraphicsImageRenderer(size: image.size, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: image.size))
-        }
-
-        guard let cgImage = uprightImage.cgImage else { return nil }
-        let width = cgImage.width
-        let height = cgImage.height
-        guard
-            width > 0,
-            height > 0,
-            cgImage.bitsPerPixel == 32,
-            let pixelData = cgImage.dataProvider?.data,
-            let pixels = CFDataGetBytePtr(pixelData)
-        else { return nil }
-        let bytesPerRow = cgImage.bytesPerRow
-
-        func luminance(atNormalizedX x: CGFloat, row: Int) -> CGFloat {
-            let column = min(width - 1, max(0, Int(x * CGFloat(width - 1))))
-            let offset = row * bytesPerRow + column * 4
-            return (
-                CGFloat(pixels[offset]) * 0.2126
-                    + CGFloat(pixels[offset + 1]) * 0.7152
-                    + CGFloat(pixels[offset + 2]) * 0.0722
-            )
-        }
-
-        let tileSamples = Array(stride(from: normalizedX - 0.022, through: normalizedX + 0.022, by: 0.005))
-        let adjacentSamples = [normalizedX - 0.06, normalizedX + 0.06]
-        var matchingRows: [Int] = []
-
-        for row in Int(CGFloat(height) * 0.15)..<Int(CGFloat(height) * 0.98) {
-            let brightTileFraction = CGFloat(tileSamples.filter {
-                luminance(atNormalizedX: $0, row: row) >= 165
-            }.count) / CGFloat(tileSamples.count)
-            let adjacentIsDark = adjacentSamples.allSatisfy {
-                luminance(atNormalizedX: $0, row: row) <= 120
-            }
-            if brightTileFraction >= 0.5, adjacentIsDark {
-                matchingRows.append(row)
-            }
-        }
-
-        guard !matchingRows.isEmpty else { return nil }
-        let mergeGap = max(2, Int(CGFloat(height) * 0.012))
-        var clusters: [[Int]] = [[matchingRows[0]]]
-        for row in matchingRows.dropFirst() {
-            if row - clusters[clusters.count - 1].last! <= mergeGap {
-                clusters[clusters.count - 1].append(row)
-            } else {
-                clusters.append([row])
-            }
-        }
-
-        guard let cluster = clusters.max(by: { $0.count < $1.count }),
-              let first = cluster.first,
-              let last = cluster.last
-        else { return nil }
-        return CGFloat(first + last) / 2 / CGFloat(height)
-    }
 }
 
 private enum ConfigurationError: LocalizedError {

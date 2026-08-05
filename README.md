@@ -64,13 +64,11 @@ Direct creative-inventory lookup of the item's localized display name remains a 
 Minecraft coordinate UI changes with the device and Minecraft release. The checked-in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) is enabled and calibrated for the dedicated iPhone 16e. Quit iPhone Mirroring, keep rotation lock on, unlock the USB-connected iPhone, and run:
 
 ```sh
-xcodebuild -project Craftberry.xcodeproj -scheme Craftberry -configuration Debug \
-  -destination 'platform=iOS,id=<device-id>' -allowProvisioningUpdates \
-  -only-testing:CraftberryUITests/MinecraftEmeraldSwordE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted test
+scripts/ios-device.sh minecraft-e2e
 ```
 
 The test retains a screenshot after every calibrated action. Recalibrate after any Minecraft UI update. It does not require a prebuilt world or crafting-table fixture: the run creates a fresh world, enables cheats, teleports to a deterministic position, and places its own crafting table.
 
-After the crafting assertion, a teardown block navigates to **Settings → Storage** and permanently deletes the uniquely named test world plus every visible installed Resource Pack and Behavior Pack whose OCR label matches the explicit Emerald Test Sword test names. Cleanup runs whether the acceptance path passes or fails and remains best-effort: unexpected UI or OCR state is retained as screenshot evidence without masking the test result. Pack rows are selected by OCR, but the trash button's Y coordinate is detected from the rendered action bar instead of inferred from the row position; this handles Minecraft reflowing the action bar after scrolling. A deletion is counted only after the matching visible-row count decreases, avoiding false cleanup-success logs.
+After `xcodebuild test` exits, `scripts/ios-device.sh minecraft-e2e` runs `scripts/minecraft-cleanup.sh clean --delete-world --yes`. The XCTest teardown terminates Minecraft first so AFC can read Minecraft's Documents tree reliably, then the Mac-side cleanup deletes Craftberry-generated behavior/resource packs and the `craftberry test` world directly instead of navigating Minecraft's Storage UI.
 
 The core is also exposed as the `CraftberryCore` Swift package target for isolated Swift 6 compiler tests. See [ROADMAP.md](ROADMAP.md) for the active architecture and delivery plan, [CAPABILITIES.md](CAPABILITIES.md) for profile support and verification status, and [PLAN.md](PLAN.md) for the historical sword POC plan.

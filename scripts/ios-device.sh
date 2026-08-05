@@ -5,10 +5,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/Craftberry.xcodeproj"
 SCHEME="Craftberry"
 BUNDLE_ID="com.craftberry.app"
+MINECRAFT_BUNDLE_ID="com.mojang.minecraftpe"
 OUTPUT_DIR="$ROOT_DIR/.build/ios-device"
 DERIVED_DATA="$OUTPUT_DIR/DerivedData"
 PRODUCTS_DIR="$DERIVED_DATA/Build/Products/Debug-iphoneos"
 APP_PATH="$PRODUCTS_DIR/Craftberry.app"
+CLEANUP_SCRIPT="$ROOT_DIR/scripts/minecraft-cleanup.sh"
 
 physical_iphone_filter='[.result.devices[]? | select(.hardwareProperties.platform == "iOS" and .hardwareProperties.deviceType == "iPhone" and .hardwareProperties.reality == "physical" and .connectionProperties.tunnelState == "connected")]'
 
@@ -20,6 +22,9 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
+  minecraft-e2e
+          Run the full Craftberry-to-Minecraft emerald-sword acceptance test,
+          then clean Minecraft's generated packs and test world via AFC.
 
 Set DEVICE_ID=<xcode-device-id> when more than one physical iPhone is connected.
 All build and test output is kept under .build/ios-device.
@@ -155,6 +160,93 @@ test_on_device() {
     echo "Result bundle: $result_path"
 }
 
+terminate_minecraft_on_device() {
+    local device_id="$1"
+    local processes_json="$OUTPUT_DIR/minecraft-processes.json"
+    local processes_log="$OUTPUT_DIR/minecraft-processes.log"
+
+    if ! xcrun devicectl device info processes \
+        --device "$device_id" \
+        --timeout 15 \
+        --json-output "$processes_json" \
+        --log-output "$processes_log" \
+        >/dev/null 2>&1; then
+        echo "warning: could not list device processes before cleanup; continuing to AFC cleanup" >&2
+        return 0
+    fi
+
+    local pids
+    pids="$(jq -r --arg bundle "$MINECRAFT_BUNDLE_ID" '
+        .. | objects
+        | select(
+            ((.bundleIdentifier? // .bundleID? // .applicationIdentifier? // "") == $bundle)
+            or ((.executable? // "") | test("/Minecraft[.]app/Minecraft$|minecraftpe"; "i"))
+        )
+        | (.pid? // .processIdentifier? // empty)
+    ' "$processes_json" | sort -u)"
+
+    if [[ -z "$pids" ]]; then
+        echo "Minecraft is not running."
+        return 0
+    fi
+
+    local pid
+    for pid in $pids; do
+        echo "Terminating Minecraft process $pid before AFC cleanup..."
+        xcrun devicectl device process terminate \
+            --device "$device_id" \
+            --pid "$pid" \
+            --kill \
+            --timeout 15 \
+            >/dev/null
+    done
+}
+
+minecraft_e2e_on_device() {
+    local device_id
+    device_id="$(select_device)"
+    mkdir -p "$OUTPUT_DIR"
+
+    local timestamp
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    local result_path="$OUTPUT_DIR/MinecraftEmeraldSwordE2EUITests-$timestamp.xcresult"
+
+    echo "Running full Minecraft emerald-sword E2E on device $device_id"
+    echo "The XCTest teardown terminates $MINECRAFT_BUNDLE_ID before Mac-side AFC cleanup runs."
+
+    set +e
+    xcodebuild \
+        -project "$PROJECT_PATH" \
+        -scheme "$SCHEME" \
+        -configuration Debug \
+        -destination "platform=iOS,id=$device_id" \
+        -derivedDataPath "$DERIVED_DATA" \
+        -resultBundlePath "$result_path" \
+        -allowProvisioningUpdates \
+        -only-testing:CraftberryUITests/MinecraftEmeraldSwordE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted \
+        test
+    local test_status=$?
+    set -e
+
+    echo "Result bundle: $result_path"
+    terminate_minecraft_on_device "$device_id"
+    echo "Cleaning Minecraft test packs and world via AFC..."
+
+    set +e
+    "$CLEANUP_SCRIPT" clean --delete-world --yes
+    local cleanup_status=$?
+    set -e
+
+    if [[ "$cleanup_status" -ne 0 ]]; then
+        echo "error: Minecraft AFC cleanup failed with status $cleanup_status" >&2
+    fi
+
+    if [[ "$test_status" -ne 0 ]]; then
+        return "$test_status"
+    fi
+    return "$cleanup_status"
+}
+
 main() {
     require_tool jq
     require_tool xcodebuild
@@ -169,6 +261,9 @@ main() {
             ;;
         test)
             test_on_device
+            ;;
+        minecraft-e2e)
+            minecraft_e2e_on_device
             ;;
         -h|--help|help|"")
             usage

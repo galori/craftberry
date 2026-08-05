@@ -214,13 +214,13 @@
       "seconds": 5
     },
     {
-      "name": "Open the My World edit screen",
+      "name": "Open the craftberry test world edit screen",
       "action": "tap",
       "x": 0.9225,
       "y": 0.4513
     },
     {
-      "name": "Wait for My World settings",
+      "name": "Wait for craftberry test world settings",
       "action": "wait",
       "seconds": 2
     },
@@ -380,13 +380,13 @@
       "seconds": 3
     },
     {
-      "name": "Launch My World locally in creative mode",
+      "name": "Launch the craftberry test world locally in creative mode",
       "action": "tap",
       "x": 0.18,
       "y": 0.565
     },
     {
-      "name": "Wait for My World to finish loading",
+      "name": "Wait for the craftberry test world to finish loading",
       "action": "wait",
       "seconds": 45
     },
@@ -538,214 +538,6 @@
       "action": "tap",
       "x": 0.57,
       "y": 0.92
-    }
-  ],
-  "cleanupSteps": [
-    {
-      "name": "Open the pause menu",
-      "action": "tap",
-      "x": 0.5325,
-      "y": 0.035
-    },
-    {
-      "name": "Wait for the pause menu",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Save and quit to the world list",
-      "action": "tap",
-      "x": 0.301,
-      "y": 0.7035
-    },
-    {
-      "name": "Wait for the world list",
-      "action": "wait",
-      "seconds": 5
-    },
-    {
-      "name": "Back out to the main menu",
-      "action": "tap",
-      "x": 0.0375,
-      "y": 0.049
-    },
-    {
-      "name": "Wait for the main menu",
-      "action": "wait",
-      "seconds": 3
-    },
-    {
-      "name": "Open Settings",
-      "action": "tap",
-      "x": 0.5,
-      "y": 0.58
-    },
-    {
-      "name": "Wait for Settings",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Scroll the Settings sidebar toward Storage",
-      "action": "drag",
-      "x": 0.2,
-      "y": 0.88,
-      "endX": 0.2,
-      "endY": 0.2
-    },
-    {
-      "name": "Continue scrolling the Settings sidebar toward Storage",
-      "action": "drag",
-      "x": 0.2,
-      "y": 0.88,
-      "endX": 0.2,
-      "endY": 0.2
-    },
-    {
-      "name": "Finish scrolling the Settings sidebar to Storage",
-      "action": "drag",
-      "x": 0.2,
-      "y": 0.88,
-      "endX": 0.2,
-      "endY": 0.2
-    },
-    {
-      "name": "Wait for the scrolled Settings sidebar",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Open Storage",
-      "action": "tap",
-      "x": 0.075,
-      "y": 0.7035
-    },
-    {
-      "name": "Wait for Storage",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Expand the Worlds storage row",
-      "action": "tap",
-      "x": 0.85,
-      "y": 0.8658
-    },
-    {
-      "name": "Wait for the Worlds row to expand",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Scroll to the expanded Worlds list",
-      "action": "drag",
-      "x": 0.5,
-      "y": 0.9,
-      "endX": 0.5,
-      "endY": 0.15
-    },
-    {
-      "name": "Finish scrolling to the expanded Worlds list",
-      "action": "drag",
-      "x": 0.5,
-      "y": 0.9,
-      "endX": 0.5,
-      "endY": 0.15
-    },
-    {
-      "name": "Wait for the expanded Worlds list",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Delete the uniquely named Craftberry test world",
-      "action": "deleteIfUniquelyStored",
-      "text": "craftberry test",
-      "x": 0.5,
-      "endX": 0.4675,
-      "endY": 0.61
-    },
-    {
-      "name": "Collapse the Worlds storage category",
-      "action": "tapRecognizedRow",
-      "text": "Worlds",
-      "x": 0.85
-    },
-    {
-      "name": "Wait for Storage categories after world deletion",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Expand the Resource Packs storage category",
-      "action": "tap",
-      "x": 0.85,
-      "y": 0.855
-    },
-    {
-      "name": "Wait for stored resource packs",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Scroll to the expanded Resource Packs list",
-      "action": "drag",
-      "x": 0.5,
-      "y": 0.9,
-      "endX": 0.5,
-      "endY": 0.25
-    },
-    {
-      "name": "Delete all imported Emerald Test Sword resource packs",
-      "action": "deleteAllStored",
-      "text": "Emerald Test Sword Res",
-      "x": 0.5,
-      "endX": 0.468
-    },
-    {
-      "name": "Collapse the Resource Packs storage category",
-      "action": "tapRecognizedRow",
-      "text": "source Packs",
-      "x": 0.85
-    },
-    {
-      "name": "Scroll Storage toward Behavior Packs",
-      "action": "drag",
-      "x": 0.5,
-      "y": 0.85,
-      "endX": 0.5,
-      "endY": 0.25
-    },
-    {
-      "name": "Wait for the Behavior Packs storage category",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Expand the Behavior Packs storage category",
-      "action": "tapRecognizedRow",
-      "text": "Behavior Packs",
-      "x": 0.85
-    },
-    {
-      "name": "Wait for stored behavior packs",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Scroll to the expanded Behavior Packs list",
-      "action": "drag",
-      "x": 0.5,
-      "y": 0.9,
-      "endX": 0.5,
-      "endY": 0.25
-    },
-    {
-      "name": "Delete all imported Emerald Test Sword behavior packs",
-      "action": "deleteAllStored",
-      "text": "Emerald Test Sword Beh",
-      "x": 0.5,
-      "endX": 0.468
     }
   ]
 }
