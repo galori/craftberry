@@ -49,6 +49,9 @@ public enum PixelArtTextureRenderer {
         case .axePixelArt: renderAxe(color: resource.color, pixelScale: pixelScale)
         case .shovelPixelArt: renderShovel(color: resource.color, pixelScale: pixelScale)
         case .hoePixelArt: renderHoe(color: resource.color, pixelScale: pixelScale)
+        case .daggerPixelArt: renderDagger(color: resource.color, pixelScale: pixelScale)
+        case .spearPixelArt: renderSpear(color: resource.color, pixelScale: pixelScale)
+        case .hammerPixelArt: renderHammer(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -115,6 +118,18 @@ public enum PixelArtTextureRenderer {
         renderTool(color: color, pixelScale: pixelScale, head: [(9, 5, 14, 3), (20, 8, 4, 3)])
     }
 
+    private static func renderDagger(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderWeapon(color: color, pixelScale: pixelScale, blade: [(14, 6, 4, 10), (13, 9, 6, 5)], handle: [(15, 16, 2, 8), (12, 18, 8, 2)])
+    }
+
+    private static func renderSpear(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderWeapon(color: color, pixelScale: pixelScale, blade: [(14, 3, 4, 7), (13, 7, 6, 4)], handle: [(15, 11, 2, 17)])
+    }
+
+    private static func renderHammer(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderWeapon(color: color, pixelScale: pixelScale, blade: [(9, 5, 14, 5), (11, 10, 10, 3)], handle: [(15, 13, 3, 15)])
+    }
+
     private static func renderTool(color: PixelArtColor, pixelScale: Int, head: [(x: Int, y: Int, width: Int, height: Int)]) -> Data {
         let scale = max(1, pixelScale), side = 32 * scale
         var pixels = Array(repeating: RGBA.transparent, count: side * side)
@@ -134,6 +149,31 @@ public enum PixelArtTextureRenderer {
         fill(16, 10, 1, 17, .hiltHighlight)
         fill(15, 27, 4, 1, .outline)
         for (index, part) in head.enumerated() {
+            fill(part.x, part.y, part.width, part.height, index == 0 ? palette.highlight : palette.main)
+            fill(part.x, part.y + max(0, part.height - 1), part.width, 1, palette.shadow)
+        }
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderWeapon(color: PixelArtColor, pixelScale: Int, blade: [(x: Int, y: Int, width: Int, height: Int)], handle: [(x: Int, y: Int, width: Int, height: Int)]) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        for part in blade + handle {
+            fill(part.x - 1, part.y - 1, part.width + 2, part.height + 2, .outline)
+        }
+        for part in handle {
+            fill(part.x, part.y, part.width, part.height, .hilt)
+            fill(part.x, part.y, max(1, part.width / 2), part.height, .hiltHighlight)
+        }
+        for (index, part) in blade.enumerated() {
             fill(part.x, part.y, part.width, part.height, index == 0 ? palette.highlight : palette.main)
             fill(part.x, part.y + max(0, part.height - 1), part.width, 1, palette.shadow)
         }

@@ -216,6 +216,9 @@ public enum VisualResourceKind: String, Codable, Sendable {
     case axePixelArt
     case shovelPixelArt
     case hoePixelArt
+    case daggerPixelArt
+    case spearPixelArt
+    case hammerPixelArt
 }
 
 public struct VisualResource: Codable, Equatable, Sendable {
@@ -495,11 +498,103 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             content: [.item(ingot)] + tools.map(AddOnContentNode.item) + [.shapelessRecipe(ingotRecipe)] + toolRecipes.map(AddOnContentNode.shapedRecipe) + visuals.map(AddOnContentNode.visualResource)
         )
     }
+
+    public static func materialWeaponSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        attackBonus: Int = 10,
+        durability: Int = 500,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (1...30).contains(attackBonus) else { throw AddOnProjectError.invalidAttackBonus }
+        guard (50...2_000).contains(durability) else { throw AddOnProjectError.invalidDurability }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let ingot = ItemDefinition(
+            id: ingotID,
+            displayName: "\(material) Ingot",
+            menuCategory: .items,
+            menuGroup: "minecraft:itemGroup.name.ingot",
+            traits: ItemTraits(),
+            visualResourceID: ingotID
+        )
+        let weaponSpecs: [MaterialWeaponSpec] = [
+            MaterialWeaponSpec(suffix: "sword", displayName: "\(material) Sword", menuGroup: "minecraft:itemGroup.name.sword", visualKind: .swordPixelArt, pattern: [" I ", " I ", " S "], attackBonus: attackBonus),
+            MaterialWeaponSpec(suffix: "dagger", displayName: "\(material) Dagger", menuGroup: "minecraft:itemGroup.name.sword", visualKind: .daggerPixelArt, pattern: [" I ", " S "], attackBonus: max(1, attackBonus - 3)),
+            MaterialWeaponSpec(suffix: "spear", displayName: "\(material) Spear", menuGroup: "minecraft:itemGroup.name.sword", visualKind: .spearPixelArt, pattern: ["  I", " S ", "S  "], attackBonus: max(1, attackBonus - 1)),
+            MaterialWeaponSpec(suffix: "hammer", displayName: "\(material) Hammer", menuGroup: "minecraft:itemGroup.name.sword", visualKind: .hammerPixelArt, pattern: ["III", " S ", " S "], attackBonus: min(30, attackBonus + 3))
+        ]
+        let weapons = weaponSpecs.map { spec in
+            let id = ContentID("\(stem)_\(spec.suffix)")
+            return ItemDefinition(
+                id: id,
+                displayName: spec.displayName,
+                menuCategory: .equipment,
+                menuGroup: spec.menuGroup,
+                traits: ItemTraits(
+                    combat: CombatTrait(attackBonus: spec.attackBonus),
+                    durability: DurabilityTrait(maximum: durability),
+                    handEquipped: true,
+                    maximumStackSize: 1
+                ),
+                visualResourceID: id
+            )
+        }
+        let ingotRecipe = ShapelessRecipeDefinition(
+            id: ContentID("\(stem)_ingot_recipe"),
+            tags: ["crafting_table"],
+            ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount),
+            result: RecipeResult(item: .generated(ingotID), count: 1),
+            unlock: [.vanilla(sourceItem)]
+        )
+        let weaponRecipes = zip(weaponSpecs, weapons).map { spec, item in
+            ShapedRecipeDefinition(
+                id: ContentID("\(item.id.rawValue)_recipe"),
+                tags: ["crafting_table"],
+                pattern: spec.pattern,
+                ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")],
+                result: RecipeResult(item: .generated(item.id), count: 1),
+                unlock: [.generated(ingotID)]
+            )
+        }
+        let visuals = [VisualResource(id: ingotID, kind: .ingotPixelArt, color: color)] + zip(weaponSpecs, weapons).map { spec, item in
+            VisualResource(id: item.id, kind: spec.visualKind, color: color)
+        }
+        return AddOnProject(
+            id: identity.projectID,
+            namespace: identity.namespace,
+            displayName: material,
+            packUUIDs: identity.packUUIDs,
+            buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
+            targetProfileID: profile.id,
+            originalPrompt: originalPrompt,
+            content: [.item(ingot)] + weapons.map(AddOnContentNode.item) + [.shapelessRecipe(ingotRecipe)] + weaponRecipes.map(AddOnContentNode.shapedRecipe) + visuals.map(AddOnContentNode.visualResource)
+        )
+    }
 }
 
 private extension String { var nonEmpty: String? { isEmpty ? nil : self } }
 
 private struct MaterialToolSpec {
+    let suffix: String
+    let displayName: String
+    let menuGroup: String
+    let visualKind: VisualResourceKind
+    let pattern: [String]
+    let attackBonus: Int
+}
+
+private struct MaterialWeaponSpec {
     let suffix: String
     let displayName: String
     let menuGroup: String

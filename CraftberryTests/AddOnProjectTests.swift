@@ -7,6 +7,33 @@ import XCTest
 #endif
 
 final class AddOnProjectTests: XCTestCase {
+    func testMaterialWeaponSetCreatesIngotAndMeleeWeapons() throws {
+        let project = try AddOnProject.materialWeaponSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure weapons",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(
+            project.items.map(\.id),
+            [
+                ContentID("azure_a1b2c3_ingot"),
+                ContentID("azure_a1b2c3_sword"),
+                ContentID("azure_a1b2c3_dagger"),
+                ContentID("azure_a1b2c3_spear"),
+                ContentID("azure_a1b2c3_hammer")
+            ]
+        )
+        XCTAssertEqual(project.items.map(\.displayName), ["Azure Ingot", "Azure Sword", "Azure Dagger", "Azure Spear", "Azure Hammer"])
+        XCTAssertEqual(project.shapelessRecipes.first?.ingredients, Array(repeating: .vanilla("minecraft:diamond"), count: 4))
+        XCTAssertEqual(project.recipes.map(\.pattern), [[" I ", " I ", " S "], [" I ", " S "], ["  I", " S ", "S  "], ["III", " S ", " S "]])
+        XCTAssertEqual(project.items.first { $0.id == ContentID("azure_a1b2c3_dagger") }?.traits.combat?.attackBonus, 7)
+        XCTAssertEqual(project.items.first { $0.id == ContentID("azure_a1b2c3_hammer") }?.traits.combat?.attackBonus, 13)
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
     func testMaterialToolSetCreatesIngotAndFiveTools() throws {
         let project = try AddOnProject.materialToolSet(
             materialName: "Azure",
