@@ -51,10 +51,21 @@ private struct UITestingLLMClient: LLMClient {
         let usesEmerald = ProcessInfo.processInfo.arguments.contains("--ui-testing-emerald-sword")
         let usesRedstoneToolSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-tool-set")
         let usesRedstoneWeaponSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-weapon-set")
+        let usesRedstoneArmorSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-armor-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
-        if usesRedstoneWeaponSet {
+        if usesRedstoneArmorSet {
+            project = try AddOnProject.materialArmorSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                shortDescription: "A redstone armor kit with a custom ingot and four armor recipes.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneWeaponSet {
             project = try AddOnProject.materialWeaponSet(
                 materialName: "Redstone",
                 color: .red,

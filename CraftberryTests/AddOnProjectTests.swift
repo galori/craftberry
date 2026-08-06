@@ -43,6 +43,87 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(book.rows.first { $0.item.displayName == "Azure Hammer" }?.summary, "3 Azure Ingot + 2 Stick -> Azure Hammer")
     }
 
+    func testMaterialArmorSetCreatesIngotAndArmorPieces() throws {
+        let project = try AddOnProject.materialArmorSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure armor",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(
+            project.items.map(\.id),
+            [
+                ContentID("azure_a1b2c3_ingot"),
+                ContentID("azure_a1b2c3_helmet"),
+                ContentID("azure_a1b2c3_chestplate"),
+                ContentID("azure_a1b2c3_leggings"),
+                ContentID("azure_a1b2c3_boots")
+            ]
+        )
+        XCTAssertEqual(project.items.map(\.displayName), ["Azure Ingot", "Azure Helmet", "Azure Chestplate", "Azure Leggings", "Azure Boots"])
+        XCTAssertEqual(project.shapelessRecipes.first?.ingredients, Array(repeating: .vanilla("minecraft:diamond"), count: 4))
+        XCTAssertEqual(project.recipes.map(\.pattern), [["III", "I I"], ["I I", "III", "III"], ["III", "I I", "I I"], ["I I", "I I"]])
+        // Default total protection (15) splits by the vanilla 3:8:6:3 ratio, matching iron's tier.
+        XCTAssertEqual(project.items.compactMap { $0.traits.armor?.protection }, [2, 6, 5, 2])
+        XCTAssertEqual(project.items.compactMap { $0.traits.armor?.slot }, [.head, .chest, .legs, .feet])
+        let leggings = try XCTUnwrap(project.items.first { $0.id == ContentID("azure_a1b2c3_leggings") })
+        let helmet = try XCTUnwrap(project.items.first { $0.id == ContentID("azure_a1b2c3_helmet") })
+        XCTAssertNotEqual(leggings.traits.armor?.layerResourceID, helmet.traits.armor?.layerResourceID)
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
+    func testMaterialArmorSetWithMaximumProtectionMatchesDiamondTier() throws {
+        let project = try AddOnProject.materialArmorSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            protection: 20,
+            originalPrompt: "Azure armor",
+            identity: testIdentity()
+        )
+        XCTAssertEqual(project.items.compactMap { $0.traits.armor?.protection }, [3, 8, 6, 3])
+    }
+
+    func testRecipeBookRowsCoverMaterialArmorSetIncludingIngotRecipe() throws {
+        let project = try AddOnProject.materialArmorSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "Azure armor", identity: testIdentity())
+        let book = RecipeBook(project: project)
+
+        XCTAssertEqual(book.rows.map { $0.item.displayName }, ["Azure Ingot", "Azure Helmet", "Azure Chestplate", "Azure Leggings", "Azure Boots"])
+        XCTAssertEqual(book.rows.first?.summary, "4 Diamond -> Azure Ingot")
+        XCTAssertEqual(book.rows.first { $0.item.displayName == "Azure Helmet" }?.summary, "5 Azure Ingot -> Azure Helmet")
+    }
+
+    func testMaterialArmorSetRejectsProtectionOutsideSupportedRange() throws {
+        XCTAssertThrowsError(try AddOnProject.materialArmorSet(protection: 3, originalPrompt: "armor", identity: testIdentity())) {
+            XCTAssertEqual($0 as? AddOnProjectError, .invalidArmorProtection)
+        }
+        XCTAssertThrowsError(try AddOnProject.materialArmorSet(protection: 21, originalPrompt: "armor", identity: testIdentity())) {
+            XCTAssertEqual($0 as? AddOnProjectError, .invalidArmorProtection)
+        }
+    }
+
+    func testProjectValidationRejectsUnsupportedArmorTrait() throws {
+        let project = try AddOnProject.materialArmorSet(originalPrompt: "armor", identity: testIdentity())
+        let profile = BedrockContentProfile(
+            id: BedrockContentProfile.current.id,
+            sampleVersion: BedrockContentProfile.current.sampleVersion,
+            sourceCommit: BedrockContentProfile.current.sourceCommit,
+            minimumEngineVersion: BedrockContentProfile.current.minimumEngineVersion,
+            manifestFormatVersion: BedrockContentProfile.current.manifestFormatVersion,
+            itemFormatVersion: BedrockContentProfile.current.itemFormatVersion,
+            recipeFormatVersion: BedrockContentProfile.current.recipeFormatVersion,
+            supportedItemTraits: [.durability],
+            vanillaItemIdentifiers: BedrockContentProfile.current.vanillaItemIdentifiers,
+            vanillaItemTags: BedrockContentProfile.current.vanillaItemTags
+        )
+
+        let report = AddOnProjectValidator.validate(project, profile: profile)
+
+        XCTAssertTrue(report.errors.contains { $0.code == "unsupported_item_trait" })
+    }
+
     func testMaterialToolSetCreatesIngotAndFiveTools() throws {
         let project = try AddOnProject.materialToolSet(
             materialName: "Azure",

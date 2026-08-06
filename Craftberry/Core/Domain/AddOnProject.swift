@@ -109,22 +109,71 @@ public struct DurabilityTrait: Codable, Equatable, Sendable {
     }
 }
 
+public enum ArmorSlot: String, Codable, Equatable, Sendable, CaseIterable {
+    case head, chest, legs, feet
+
+    public var bedrockSlot: String {
+        switch self {
+        case .head: "slot.armor.head"
+        case .chest: "slot.armor.chest"
+        case .legs: "slot.armor.legs"
+        case .feet: "slot.armor.feet"
+        }
+    }
+
+    public var geometry: String {
+        switch self {
+        case .head: "geometry.humanoid.armor.helmet"
+        case .chest: "geometry.humanoid.armor.chestplate"
+        case .legs: "geometry.humanoid.armor.leggings"
+        case .feet: "geometry.humanoid.armor.boots"
+        }
+    }
+
+    public var layerVariable: String {
+        switch self {
+        case .head: "variable.helmet_layer_visible"
+        case .chest: "variable.chest_layer_visible"
+        case .legs: "variable.leg_layer_visible"
+        case .feet: "variable.boot_layer_visible"
+        }
+    }
+
+    /// Mirrors vanilla: leggings sample the second armor-layer texture; every other slot samples the first.
+    public var usesSecondLayer: Bool { self == .legs }
+}
+
+public struct ArmorTrait: Codable, Equatable, Sendable {
+    public let slot: ArmorSlot
+    public let protection: Int
+    public let layerResourceID: ContentID
+
+    public init(slot: ArmorSlot, protection: Int, layerResourceID: ContentID) {
+        self.slot = slot
+        self.protection = protection
+        self.layerResourceID = layerResourceID
+    }
+}
+
 public struct ItemTraits: Codable, Equatable, Sendable {
     public let combat: CombatTrait?
     public let durability: DurabilityTrait?
     public let handEquipped: Bool
     public let maximumStackSize: Int
+    public let armor: ArmorTrait?
 
     public init(
         combat: CombatTrait? = nil,
         durability: DurabilityTrait? = nil,
         handEquipped: Bool = false,
-        maximumStackSize: Int = 64
+        maximumStackSize: Int = 64,
+        armor: ArmorTrait? = nil
     ) {
         self.combat = combat
         self.durability = durability
         self.handEquipped = handEquipped
         self.maximumStackSize = maximumStackSize
+        self.armor = armor
     }
 }
 
@@ -219,6 +268,12 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case daggerPixelArt
     case spearPixelArt
     case hammerPixelArt
+    case helmetPixelArt
+    case chestplatePixelArt
+    case leggingsPixelArt
+    case bootsPixelArt
+    case armorLayerOne
+    case armorLayerTwo
 }
 
 public struct VisualResource: Codable, Equatable, Sendable {
@@ -631,6 +686,105 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         )
     }
 
+    public static func materialArmorSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        protection: Int = 15,
+        durability: Int = 500,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (4...20).contains(protection) else { throw AddOnProjectError.invalidArmorProtection }
+        guard (50...2_000).contains(durability) else { throw AddOnProjectError.invalidDurability }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let ingot = ItemDefinition(
+            id: ingotID,
+            displayName: "\(material) Ingot",
+            menuCategory: .items,
+            menuGroup: "minecraft:itemGroup.name.ingot",
+            traits: ItemTraits(),
+            visualResourceID: ingotID
+        )
+
+        // Distributes the requested total protection across pieces using vanilla's ratio
+        // (helmet 3 : chestplate 8 : leggings 6 : boots 3, out of a total of 20).
+        func distributedProtection(_ ratio: Int) -> Int {
+            max(0, Int((Double(protection) * Double(ratio) / 20).rounded()))
+        }
+
+        let layerOneID = ContentID("\(stem)_armor_layer_1")
+        let layerTwoID = ContentID("\(stem)_armor_layer_2")
+
+        let armorSpecs: [MaterialArmorSpec] = [
+            MaterialArmorSpec(suffix: "helmet", displayName: "\(material) Helmet", menuGroup: "minecraft:itemGroup.name.helmet", visualKind: .helmetPixelArt, pattern: ["III", "I I"], slot: .head, protection: distributedProtection(3), layerResourceID: layerOneID),
+            MaterialArmorSpec(suffix: "chestplate", displayName: "\(material) Chestplate", menuGroup: "minecraft:itemGroup.name.chestplate", visualKind: .chestplatePixelArt, pattern: ["I I", "III", "III"], slot: .chest, protection: distributedProtection(8), layerResourceID: layerOneID),
+            MaterialArmorSpec(suffix: "leggings", displayName: "\(material) Leggings", menuGroup: "minecraft:itemGroup.name.leggings", visualKind: .leggingsPixelArt, pattern: ["III", "I I", "I I"], slot: .legs, protection: distributedProtection(6), layerResourceID: layerTwoID),
+            MaterialArmorSpec(suffix: "boots", displayName: "\(material) Boots", menuGroup: "minecraft:itemGroup.name.boots", visualKind: .bootsPixelArt, pattern: ["I I", "I I"], slot: .feet, protection: distributedProtection(3), layerResourceID: layerOneID)
+        ]
+        let armorPieces = armorSpecs.map { spec in
+            let id = ContentID("\(stem)_\(spec.suffix)")
+            return ItemDefinition(
+                id: id,
+                displayName: spec.displayName,
+                menuCategory: .equipment,
+                menuGroup: spec.menuGroup,
+                traits: ItemTraits(
+                    durability: DurabilityTrait(maximum: durability),
+                    handEquipped: false,
+                    maximumStackSize: 1,
+                    armor: ArmorTrait(slot: spec.slot, protection: spec.protection, layerResourceID: spec.layerResourceID)
+                ),
+                visualResourceID: id
+            )
+        }
+        let ingotRecipe = ShapelessRecipeDefinition(
+            id: ContentID("\(stem)_ingot_recipe"),
+            tags: ["crafting_table"],
+            ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount),
+            result: RecipeResult(item: .generated(ingotID), count: 1),
+            unlock: [.vanilla(sourceItem)]
+        )
+        let armorRecipes = zip(armorSpecs, armorPieces).map { spec, item in
+            ShapedRecipeDefinition(
+                id: ContentID("\(item.id.rawValue)_recipe"),
+                tags: ["crafting_table"],
+                pattern: spec.pattern,
+                ingredients: ["I": .generated(ingotID)],
+                result: RecipeResult(item: .generated(item.id), count: 1),
+                unlock: [.generated(ingotID)]
+            )
+        }
+        let iconVisuals = [VisualResource(id: ingotID, kind: .ingotPixelArt, color: color)] + zip(armorSpecs, armorPieces).map { spec, item in
+            VisualResource(id: item.id, kind: spec.visualKind, color: color)
+        }
+        let layerVisuals = [
+            VisualResource(id: layerOneID, kind: .armorLayerOne, color: color),
+            VisualResource(id: layerTwoID, kind: .armorLayerTwo, color: color)
+        ]
+        return AddOnProject(
+            id: identity.projectID,
+            namespace: identity.namespace,
+            displayName: material,
+            shortDescription: shortDescription,
+            packUUIDs: identity.packUUIDs,
+            buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
+            targetProfileID: profile.id,
+            originalPrompt: originalPrompt,
+            content: [.item(ingot)] + armorPieces.map(AddOnContentNode.item) + [.shapelessRecipe(ingotRecipe)] + armorRecipes.map(AddOnContentNode.shapedRecipe) + (iconVisuals + layerVisuals).map(AddOnContentNode.visualResource)
+        )
+    }
+
     private static func normalizedShortDescription(_ description: String?, displayName: String, content: [AddOnContentNode]) -> String {
         let trimmed = description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !trimmed.isEmpty {
@@ -666,12 +820,24 @@ private struct MaterialWeaponSpec {
     let attackBonus: Int
 }
 
+private struct MaterialArmorSpec {
+    let suffix: String
+    let displayName: String
+    let menuGroup: String
+    let visualKind: VisualResourceKind
+    let pattern: [String]
+    let slot: ArmorSlot
+    let protection: Int
+    let layerResourceID: ContentID
+}
+
 public enum AddOnProjectError: LocalizedError, Equatable {
     case emptyDisplayName
     case displayNameTooLong
     case invalidAttackBonus
     case invalidDurability
     case invalidIngredientCount
+    case invalidArmorProtection
     case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
@@ -682,6 +848,7 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .invalidAttackBonus: "Attack bonus must be between 1 and 30."
         case .invalidDurability: "Durability must be between 50 and 2,000."
         case .invalidIngredientCount: "Material recipes need between 1 and 9 source items."
+        case .invalidArmorProtection: "Armor set protection must be between 4 and 20."
         case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."

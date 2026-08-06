@@ -92,6 +92,9 @@ public enum AddOnProjectValidator {
         )
         let itemIDs = Set(project.items.map(\.id))
         let visualResourceIDs = Set(project.visualResources.map(\.id))
+        let visualResourceKinds = project.visualResources.reduce(into: [ContentID: VisualResourceKind]()) { kinds, resource in
+            kinds[resource.id] = resource.kind
+        }
         validateContentIDs(project, issues: &issues)
         for item in project.items {
             let itemPath = "content.items.\(item.id.rawValue)"
@@ -153,6 +156,32 @@ public enum AddOnProjectValidator {
             }
             if item.traits.handEquipped, !profile.supportedItemTraits.contains(.handEquipped) {
                 appendUnsupportedTrait(.handEquipped, itemPath: itemPath, profile: profile, issues: &issues)
+            }
+            if let armor = item.traits.armor {
+                if !(0...20).contains(armor.protection) {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "invalid_armor_protection",
+                            path: "\(itemPath).traits.armor.protection",
+                            message: "Armor protection must be between 0 and 20."
+                        )
+                    )
+                }
+                let layerKind = visualResourceKinds[armor.layerResourceID]
+                if layerKind != .armorLayerOne && layerKind != .armorLayerTwo {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "missing_armor_layer_resource",
+                            path: "\(itemPath).traits.armor.layerResourceID",
+                            message: "Armor item references missing or invalid armor layer resource \(armor.layerResourceID.rawValue)."
+                        )
+                    )
+                }
+                if !profile.supportedItemTraits.contains(.armor) {
+                    appendUnsupportedTrait(.armor, itemPath: itemPath, profile: profile, issues: &issues)
+                }
             }
             if !(1...64).contains(item.traits.maximumStackSize) {
                 issues.append(

@@ -144,6 +144,12 @@ public enum PixelArtTextureRenderer {
         case .daggerPixelArt: renderDagger(color: resource.color, pixelScale: pixelScale)
         case .spearPixelArt: renderSpear(color: resource.color, pixelScale: pixelScale)
         case .hammerPixelArt: renderHammer(color: resource.color, pixelScale: pixelScale)
+        case .helmetPixelArt: renderHelmet(color: resource.color, pixelScale: pixelScale)
+        case .chestplatePixelArt: renderChestplate(color: resource.color, pixelScale: pixelScale)
+        case .leggingsPixelArt: renderLeggings(color: resource.color, pixelScale: pixelScale)
+        case .bootsPixelArt: renderBoots(color: resource.color, pixelScale: pixelScale)
+        case .armorLayerOne: renderArmorLayer(color: resource.color, pixelScale: pixelScale)
+        case .armorLayerTwo: renderArmorLayer(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -248,6 +254,66 @@ public enum PixelArtTextureRenderer {
 
     private static func renderHammer(color: PixelArtColor, pixelScale: Int) -> Data {
         renderWeapon(color: color, pixelScale: pixelScale, blade: [(9, 5, 14, 5), (11, 10, 10, 3)], handle: [(15, 13, 3, 15)])
+    }
+
+    private static func renderHelmet(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderArmorPiece(color: color, pixelScale: pixelScale, parts: [(9, 7, 14, 9), (11, 16, 10, 2)])
+    }
+
+    private static func renderChestplate(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderArmorPiece(color: color, pixelScale: pixelScale, parts: [(9, 6, 14, 17)])
+    }
+
+    private static func renderLeggings(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderArmorPiece(color: color, pixelScale: pixelScale, parts: [(9, 6, 14, 6), (9, 12, 6, 12), (17, 12, 6, 12)])
+    }
+
+    private static func renderBoots(color: PixelArtColor, pixelScale: Int) -> Data {
+        renderArmorPiece(color: color, pixelScale: pixelScale, parts: [(9, 6, 6, 11), (17, 6, 6, 11)])
+    }
+
+    /// A 32x32 inventory icon for an armor piece, drawn as a set of solid parts with a shared outline.
+    /// The first part receives the palette highlight; the rest receive the palette main color; every
+    /// part's bottom row receives the palette shadow, matching the bevel convention `renderTool` uses.
+    private static func renderArmorPiece(color: PixelArtColor, pixelScale: Int, parts: [(x: Int, y: Int, width: Int, height: Int)]) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        for part in parts {
+            fill(part.x - 1, part.y - 1, part.width + 2, part.height + 2, .outline)
+        }
+        for (index, part) in parts.enumerated() {
+            fill(part.x, part.y, part.width, part.height, index == 0 ? palette.highlight : palette.main)
+            fill(part.x, part.y + max(0, part.height - 1), part.width, 1, palette.shadow)
+        }
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    /// A 64x32 worn-armor body texture (Bedrock's fixed armor-layer sheet size), filled with the
+    /// palette so it reads correctly no matter which UV region a given armor piece's geometry samples.
+    private static func renderArmorLayer(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale)
+        let width = 64 * scale, height = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: width * height)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(height, (y + h) * scale) {
+                for column in max(0, x * scale)..<min(width, (x + w) * scale) {
+                    pixels[row * width + column] = color
+                }
+            }
+        }
+        fill(0, 0, 64, 32, palette.main)
+        fill(0, 0, 64, 3, palette.highlight)
+        fill(0, 29, 64, 3, palette.shadow)
+        return PNGEncoder.encode(width: width, height: height, pixels: pixels)
     }
 
     private static func renderTool(color: PixelArtColor, pixelScale: Int, head: [(x: Int, y: Int, width: Int, height: Int)]) -> Data {

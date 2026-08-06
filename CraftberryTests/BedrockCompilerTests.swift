@@ -68,6 +68,69 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(String(decoding: localization.data, as: UTF8.self).contains("item.craftberry:azure_a1b2c3_pickaxe.name=Azure Pickaxe\n"))
     }
 
+    func testCompilerEmitsMaterialArmorSetItemsAttachablesLayersAndLocalization() throws {
+        let project = try AddOnProject.materialArmorSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "armor", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_helmet.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_chestplate.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_leggings.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_boots.json" })
+
+        let helmetItem = try json(named: "items/azure_a1b2c3_helmet.json", in: behavior)
+        let helmetBody = try XCTUnwrap(helmetItem["minecraft:item"] as? [String: Any])
+        let helmetComponents = try XCTUnwrap(helmetBody["components"] as? [String: Any])
+        let wearable = try XCTUnwrap(helmetComponents["minecraft:wearable"] as? [String: Any])
+        XCTAssertEqual(wearable["slot"] as? String, "slot.armor.head")
+        XCTAssertEqual(wearable["protection"] as? Int, 2)
+
+        let bootsRecipe = try json(named: "recipes/azure_a1b2c3_boots_recipe.json", in: behavior)
+        let shapedRecipe = try XCTUnwrap(bootsRecipe["minecraft:recipe_shaped"] as? [String: Any])
+        XCTAssertEqual(shapedRecipe["pattern"] as? [String], ["I I", "I I"])
+        XCTAssertEqual((shapedRecipe["result"] as? [String: Any])?["item"] as? String, "craftberry:azure_a1b2c3_boots")
+        XCTAssertEqual(shapedRecipe["unlock"] as? [[String: String]], [["item": "craftberry:azure_a1b2c3_ingot"]])
+
+        // Pinned to Mojang/bedrock-samples resource_pack/attachables/diamond_helmet.json (921fafb0…): built-in
+        // vanilla material, geometry, and render controller identifiers; only the texture is ours.
+        let attachable = try json(named: "attachables/azure_a1b2c3_helmet.json", in: resources)
+        XCTAssertEqual(attachable["format_version"] as? String, "1.8.0")
+        let attachableBody = try XCTUnwrap(attachable["minecraft:attachable"] as? [String: Any])
+        let description = try XCTUnwrap(attachableBody["description"] as? [String: Any])
+        XCTAssertEqual(description["identifier"] as? String, "craftberry:azure_a1b2c3_helmet")
+        XCTAssertEqual(description["materials"] as? [String: String], ["default": "armor", "enchanted": "armor_enchanted"])
+        XCTAssertEqual((description["textures"] as? [String: String])?["default"], "textures/models/armor/azure_a1b2c3_armor_layer_1")
+        XCTAssertEqual((description["textures"] as? [String: String])?["enchanted"], "textures/misc/enchanted_actor_glint")
+        XCTAssertEqual(description["geometry"] as? [String: String], ["default": "geometry.humanoid.armor.helmet"])
+        XCTAssertEqual((description["scripts"] as? [String: String])?["parent_setup"], "variable.helmet_layer_visible = 0.0;")
+        XCTAssertEqual(description["render_controllers"] as? [String], ["controller.render.armor"])
+
+        let leggingsAttachable = try json(named: "attachables/azure_a1b2c3_leggings.json", in: resources)
+        let leggingsDescription = try XCTUnwrap((leggingsAttachable["minecraft:attachable"] as? [String: Any])?["description"] as? [String: Any])
+        XCTAssertEqual((leggingsDescription["textures"] as? [String: String])?["default"], "textures/models/armor/azure_a1b2c3_armor_layer_2")
+
+        let layerOne = try XCTUnwrap(resources.first { $0.path == "textures/models/armor/azure_a1b2c3_armor_layer_1.png" })
+        XCTAssertEqual(PNGInspector.dimensions(of: layerOne.data), .init(width: 64, height: 32))
+        let layerTwo = try XCTUnwrap(resources.first { $0.path == "textures/models/armor/azure_a1b2c3_armor_layer_2.png" })
+        XCTAssertEqual(PNGInspector.dimensions(of: layerTwo.data), .init(width: 64, height: 32))
+
+        // Armor layers are body textures, not inventory icons — they must not appear in item_texture.json.
+        let textureMap = try json(named: "textures/item_texture.json", in: resources)
+        let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
+        XCTAssertNil(textureData["azure_a1b2c3_armor_layer_1"])
+        XCTAssertEqual((textureData["azure_a1b2c3_helmet"] as? [String: String])?["textures"], "textures/items/azure_a1b2c3_helmet")
+        let helmetIcon = try XCTUnwrap(resources.first { $0.path == "textures/items/azure_a1b2c3_helmet.png" })
+        XCTAssertEqual(PNGInspector.dimensions(of: helmetIcon.data), .init(width: 32, height: 32))
+
+        let localization = try XCTUnwrap(resources.first { $0.path == "texts/en_US.lang" })
+        XCTAssertTrue(String(decoding: localization.data, as: UTF8.self).contains("item.craftberry:azure_a1b2c3_boots.name=Azure Boots\n"))
+    }
+
     func testCompilerEmitsMaterialSetShapelessAndShapedRecipes() throws {
         let project = try AddOnProject.materialSwordSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "set", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

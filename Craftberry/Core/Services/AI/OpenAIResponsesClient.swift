@@ -62,22 +62,24 @@ public struct OpenAIResponsesClient: LLMClient {
 
         switch intent.outcome {
         case .unsupported:
-            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil else { throw LLMClientError.invalidResponse }
+            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil else { throw LLMClientError.invalidResponse }
             return ProjectGeneration(outcome: .unsupported, message: intent.message, project: nil)
         case .ready:
             let shortDescription = intent.shortDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !shortDescription.isEmpty else { throw LLMClientError.invalidResponse }
             let identity = identityGenerator()
             let project: AddOnProject
-            switch (intent.sword, intent.materialSwordSet, intent.materialToolSet, intent.materialWeaponSet) {
-            case let (.some(sword), nil, nil, nil):
+            switch (intent.sword, intent.materialSwordSet, intent.materialToolSet, intent.materialWeaponSet, intent.materialArmorSet) {
+            case let (.some(sword), nil, nil, nil, nil):
                 project = try AddOnProject.sword(displayName: sword.displayName, color: sword.color, attackBonus: sword.attackBonus, durability: sword.durability, craftingIngredient: sword.craftingIngredient.bedrockIdentifier, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, .some(material), nil, nil):
+            case let (nil, .some(material), nil, nil, nil):
                 project = try AddOnProject.materialSwordSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, swordDisplayName: material.swordDisplayName, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, .some(material), nil):
+            case let (nil, nil, .some(material), nil, nil):
                 project = try AddOnProject.materialToolSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, .some(material)):
+            case let (nil, nil, nil, .some(material), nil):
                 project = try AddOnProject.materialWeaponSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
+            case let (nil, nil, nil, nil, .some(material)):
+                project = try AddOnProject.materialArmorSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, protection: material.protection, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
             default: throw LLMClientError.invalidResponse
             }
             let report = AddOnProjectValidator.validate(project, profile: .current)
@@ -106,6 +108,7 @@ private struct ProjectIntentGeneration: Decodable {
     let materialSwordSet: MaterialSwordSetIntent?
     let materialToolSet: MaterialToolSetIntent?
     let materialWeaponSet: MaterialWeaponSetIntent?
+    let materialArmorSet: MaterialArmorSetIntent?
 }
 
 private struct MaterialSwordSetIntent: Decodable {
@@ -133,6 +136,15 @@ private struct MaterialWeaponSetIntent: Decodable {
     let sourceItem: FoundationSwordIngredient
     let sourceCount: Int
     let attackBonus: Int
+    let durability: Int
+}
+
+private struct MaterialArmorSetIntent: Decodable {
+    let materialName: String
+    let color: PixelArtColor
+    let sourceItem: FoundationSwordIngredient
+    let sourceCount: Int
+    let protection: Int
     let durability: Int
 }
 
@@ -216,17 +228,18 @@ private struct OpenAIRequestDocument: Encodable {
     }
 
     private static let instructions = """
-    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, or one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set.
+    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, or one named material ingot plus a matching helmet/chestplate/leggings/boots armor set.
     A material set makes a shapeless ingot from 1 through 9 copies of one supported vanilla material, then a sword from two ingots and a stick. Defaults are Azure, blue, diamond x4, attack 10, durability 500, names "Azure Ingot" and "Azure Sword". Never output Bedrock JSON, identifiers, UUIDs, filenames, code, markdown, or fields outside the schema.
     A material tool set uses the same ingot recipe and additionally crafts pickaxe, axe, shovel, and hoe variants from that ingot and sticks.
     A material weapon set uses the same ingot recipe and additionally crafts dagger, spear, and hammer variants from that ingot and sticks.
+    A material armor set uses the same ingot recipe and additionally crafts a helmet, chestplate, leggings, and boots from that ingot alone (no sticks); protection is the set's total protection (4 through 20, default 15) and is split across the four pieces automatically, so never ask for a per-piece value.
     If unsupported, set all intents and shortDescription to null. If ready, populate exactly one intent and write shortDescription as one short user-facing pack overview sentence.
     """
 
     private static let schema: JSONValue = .object([
         "type": .string("object"),
         "additionalProperties": .bool(false),
-        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet"].map(JSONValue.string)),
+        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet"].map(JSONValue.string)),
         "properties": .object([
             "schemaVersion": .object(["type": .string("integer"), "const": .integer(1)]),
             "outcome": .object([
@@ -316,6 +329,17 @@ private struct OpenAIRequestDocument: Encodable {
                     "sourceItem": .object(["type": .string("string"), "enum": .array(FoundationSwordIngredient.allCases.map { .string($0.rawValue) })]),
                     "sourceCount": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(9)]),
                     "attackBonus": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(30)]),
+                    "durability": .object(["type": .string("integer"), "minimum": .integer(50), "maximum": .integer(2_000)])
+                ])])
+            ])]),
+            "materialArmorSet": .object(["anyOf": .array([
+                .object(["type": .string("null")]),
+                .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["materialName", "color", "sourceItem", "sourceCount", "protection", "durability"].map(JSONValue.string)), "properties": .object([
+                    "materialName": .object(["type": .string("string"), "minLength": .integer(1), "maxLength": .integer(24)]),
+                    "color": .object(["type": .string("string"), "enum": .array(PixelArtColor.allCases.map { .string($0.rawValue) })]),
+                    "sourceItem": .object(["type": .string("string"), "enum": .array(FoundationSwordIngredient.allCases.map { .string($0.rawValue) })]),
+                    "sourceCount": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(9)]),
+                    "protection": .object(["type": .string("integer"), "minimum": .integer(4), "maximum": .integer(20)]),
                     "durability": .object(["type": .string("integer"), "minimum": .integer(50), "maximum": .integer(2_000)])
                 ])])
             ])])

@@ -22,7 +22,7 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|weapon]
+  minecraft-e2e [redstone|emerald|weapon|armor]
           Run a full Craftberry-to-Minecraft acceptance test, defaulting to
           redstone, then clean Minecraft's generated packs and test world via AFC.
 
@@ -219,8 +219,12 @@ minecraft_e2e_on_device() {
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneWeaponSetCanBeImportedActivatedAndCraftedIntoSpear"
             result_name="MinecraftRedstoneWeaponSetE2EUITests"
             ;;
+        armor)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneArmorSetCanBeImportedActivatedAndCraftedIntoBoots"
+            result_name="MinecraftRedstoneArmorSetE2EUITests"
+            ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, or weapon)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, weapon, or armor)." >&2
             exit 1
             ;;
     esac

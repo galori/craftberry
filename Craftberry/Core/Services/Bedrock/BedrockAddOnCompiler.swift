@@ -175,6 +175,9 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                                 maximumDurability: $0.maximum,
                                 damageChance: ItemDocument.DamageChance(min: 100, max: 100)
                             )
+                        },
+                        wearable: item.traits.armor.map {
+                            ItemDocument.Wearable(slot: $0.slot.bedrockSlot, protection: $0.protection)
                         }
                     )
                 )
@@ -293,6 +296,38 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             )
             localizationLines.append(
                 "item.\(identifier(for: item.id, namespace: project.namespace)).name=\(item.displayName)"
+            )
+            if let armor = item.traits.armor {
+                let attachable = AttachableDocument(
+                    formatVersion: "1.8.0",
+                    attachable: AttachableDocument.Attachable(
+                        description: AttachableDocument.Description(
+                            identifier: identifier(for: item.id, namespace: project.namespace),
+                            materials: ["default": "armor", "enchanted": "armor_enchanted"],
+                            textures: [
+                                "default": "textures/models/armor/\(armor.layerResourceID.rawValue)",
+                                "enchanted": "textures/misc/enchanted_actor_glint"
+                            ],
+                            geometry: ["default": armor.slot.geometry],
+                            scripts: AttachableDocument.Scripts(parentSetup: "\(armor.slot.layerVariable) = 0.0;"),
+                            renderControllers: ["controller.render.armor"]
+                        )
+                    )
+                )
+                entries.append(
+                    ZipArchiveEntry(
+                        path: "attachables/\(item.id.rawValue).json",
+                        data: try BedrockDocumentEncoder.encode(attachable)
+                    )
+                )
+            }
+        }
+        for layer in project.visualResources.filter({ $0.kind == .armorLayerOne || $0.kind == .armorLayerTwo }).sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            entries.append(
+                ZipArchiveEntry(
+                    path: "textures/models/armor/\(layer.id.rawValue).png",
+                    data: PixelArtTextureRenderer.render(layer)
+                )
             )
         }
         let textureMap = ItemTextureDocument(

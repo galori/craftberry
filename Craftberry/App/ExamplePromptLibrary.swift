@@ -12,11 +12,11 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// The pool the welcome screen samples three suggestions from.
 ///
 /// Every prompt must stay inside the active capability profile: only materials from
-/// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, and one of
-/// the supported project kinds (single sword, ingot + sword, tool set, weapon set). Add a handful
-/// of prompts here whenever a new capability ships — see AGENTS.md.
+/// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, protection
+/// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
+/// set, armor set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -80,5 +80,14 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "💫", text: "An amethyst weapon set named Prism with a heavy hammer"),
         ExamplePrompt(emoji: "🧨", text: "A redstone weapon set named Fuse with a fast dagger"),
         ExamplePrompt(emoji: "🪶", text: "A quartz weapon set named Featherfall, 8 damage spear")
+    ]
+
+    private static let armorSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🛡️", text: "A netherite armor set named Warden, 20 protection"),
+        ExamplePrompt(emoji: "🥇", text: "A gold armor set from 3 gold ingots, called Radiant"),
+        ExamplePrompt(emoji: "💎", text: "A diamond armor set named Bastion, 900 durability"),
+        ExamplePrompt(emoji: "🧊", text: "An amethyst armor set named Crystalguard, 16 protection"),
+        ExamplePrompt(emoji: "🔩", text: "An iron armor set named Ironclad for early exploring"),
+        ExamplePrompt(emoji: "⚡", text: "A redstone armor set named Pulseguard, 12 protection")
     ]
 }

@@ -12,6 +12,7 @@
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
 		A10000000000000000000037 /* ExamplePromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* ExamplePromptLibrary.swift */; };
 		A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* ExamplePromptLibraryTests.swift */; };
+		A10000000000000000000039 /* PixelArtTextureRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* PixelArtTextureRendererTests.swift */; };
 		A10000000000000000000004 /* ContentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ContentIdentity.swift */; };
 		A10000000000000000000005 /* ProjectGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* ProjectGeneration.swift */; };
 		A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* OpenAIResponsesClient.swift */; };
@@ -70,6 +71,7 @@
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* ExamplePromptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptLibrary.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* ExamplePromptLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptLibraryTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000044 /* PixelArtTextureRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelArtTextureRendererTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* ContentIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentity.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* ProjectGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGeneration.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* OpenAIResponsesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClient.swift; sourceTree = "<group>"; };
@@ -200,6 +202,7 @@
 				A20000000000000000000023 /* OpenAIResponsesClientTests.swift */,
 				A20000000000000000000024 /* CreationViewModelTests.swift */,
 				A20000000000000000000043 /* ExamplePromptLibraryTests.swift */,
+				A20000000000000000000044 /* PixelArtTextureRendererTests.swift */,
 			);
 			path = CraftberryTests;
 			sourceTree = "<group>";
@@ -432,6 +435,7 @@
 				A10000000000000000000019 /* OpenAIResponsesClientTests.swift in Sources */,
 				A10000000000000000000020 /* CreationViewModelTests.swift in Sources */,
 				A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */,
+				A10000000000000000000039 /* PixelArtTextureRendererTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

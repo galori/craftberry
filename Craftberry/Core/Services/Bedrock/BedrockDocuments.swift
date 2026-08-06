@@ -67,6 +67,7 @@ struct ItemDocument: Encodable {
         let handEquipped: HandEquipped
         let damage: Damage?
         let durability: Durability?
+        let wearable: Wearable?
 
         enum CodingKeys: String, CodingKey {
             case displayName = "minecraft:display_name"
@@ -75,6 +76,7 @@ struct ItemDocument: Encodable {
             case handEquipped = "minecraft:hand_equipped"
             case damage = "minecraft:damage"
             case durability = "minecraft:durability"
+            case wearable = "minecraft:wearable"
         }
     }
 
@@ -82,6 +84,11 @@ struct ItemDocument: Encodable {
     struct Icon: Encodable { let textures: [String: String] }
     struct HandEquipped: Encodable { let value: Bool }
     struct Damage: Encodable { let value: Int }
+
+    struct Wearable: Encodable {
+        let slot: String
+        let protection: Int
+    }
 
     struct Durability: Encodable {
         let maximumDurability: Int
@@ -172,6 +179,42 @@ struct ItemTextureDocument: Encodable {
     enum CodingKeys: String, CodingKey {
         case resourcePackName = "resource_pack_name"
         case textureData = "texture_data"
+    }
+}
+
+struct AttachableDocument: Encodable {
+    let formatVersion: String
+    let attachable: Attachable
+
+    struct Attachable: Encodable {
+        let description: Description
+    }
+
+    struct Description: Encodable {
+        let identifier: String
+        let materials: [String: String]
+        let textures: [String: String]
+        let geometry: [String: String]
+        let scripts: Scripts
+        let renderControllers: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case identifier, materials, textures, geometry, scripts
+            case renderControllers = "render_controllers"
+        }
+    }
+
+    struct Scripts: Encodable {
+        let parentSetup: String
+
+        enum CodingKeys: String, CodingKey {
+            case parentSetup = "parent_setup"
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case attachable = "minecraft:attachable"
     }
 }
 

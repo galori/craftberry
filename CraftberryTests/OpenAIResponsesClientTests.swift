@@ -47,6 +47,27 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertEqual(generation.project?.recipes.count, 5)
     }
 
+    func testClientAssemblesMaterialArmorSetFromStructuredIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":null,"materialArmorSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"protection":15,"durability":500}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let identity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { identity })
+
+        let generation = try await client.generateProject(from: "An Azure ingot and matching armor set")
+
+        XCTAssertEqual(generation.project?.items.map(\.displayName), ["Azure Ingot", "Azure Helmet", "Azure Chestplate", "Azure Leggings", "Azure Boots"])
+        XCTAssertEqual(generation.project?.recipes.count, 4)
+        XCTAssertEqual(generation.project?.items.compactMap { $0.traits.armor?.protection }, [2, 6, 5, 2])
+    }
+
     func testClientAssemblesMaterialSwordSetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"swordDisplayName":null,"attackBonus":10,"durability":500},"materialToolSet":null,"materialWeaponSet":null}

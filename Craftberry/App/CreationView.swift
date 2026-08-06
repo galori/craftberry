@@ -550,15 +550,17 @@ private struct ProjectSummary {
     let swordName: String
 
     init?(project: AddOnProject) {
-        guard let item = project.items.first(where: { $0.traits.combat != nil }),
-              let visualResource = project.visualResources.first(where: { $0.id == item.visualResourceID }),
-              let attackBonus = item.traits.combat?.attackBonus,
-              let durability = item.traits.durability?.maximum else {
+        // Prefer a combat item (sword/tool/weapon families) so the hero icon and stats read as
+        // the "main" item; fall back to the first item with a resolvable visual resource for
+        // families with no combat item at all, such as an armor set.
+        guard let item = project.items.first(where: { $0.traits.combat != nil })
+            ?? project.items.first(where: { itemID in project.visualResources.contains { $0.id == itemID.visualResourceID } }),
+              let visualResource = project.visualResources.first(where: { $0.id == item.visualResourceID }) else {
             return nil
         }
         self.visualResource = visualResource
-        self.attackBonus = attackBonus
-        self.durability = durability
+        self.attackBonus = item.traits.combat?.attackBonus ?? 0
+        self.durability = item.traits.durability?.maximum ?? 0
         let materialRecipe = project.shapelessRecipes.first
         ingredient = IngredientSummary(reference: materialRecipe?.ingredients.first ?? project.recipes.first?.ingredients["M"] ?? .vanilla("minecraft:diamond"))
         let itemLabel = project.items.count == 1 ? "item" : "items"

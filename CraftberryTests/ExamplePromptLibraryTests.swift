@@ -44,9 +44,11 @@ final class ExamplePromptLibraryTests: XCTestCase {
         let corpus = ExamplePromptLibrary.all.map { $0.text.lowercased() }
         let toolSets = corpus.filter { $0.contains("tool set") }
         let weaponSets = corpus.filter { $0.contains("weapon set") }
+        let armorSets = corpus.filter { $0.contains("armor set") }
         let ingotSets = corpus.filter { $0.contains("ingot") }
         XCTAssertGreaterThanOrEqual(toolSets.count, 4)
         XCTAssertGreaterThanOrEqual(weaponSets.count, 4)
+        XCTAssertGreaterThanOrEqual(armorSets.count, 4)
         XCTAssertGreaterThanOrEqual(ingotSets.count, 4)
     }
 

@@ -34,6 +34,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         try MinecraftE2EHarness(testCase: self).run(.redstoneWeaponSet)
         #endif
     }
+
+    func testCraftberryRedstoneArmorSetCanBeImportedActivatedAndCraftedIntoBoots() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).run(.redstoneArmorSet)
+        #endif
+    }
 }
 
 extension MinecraftE2EScenario {
@@ -124,6 +132,40 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Redstone Spear"),
+                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        )
+    )
+
+    static let redstoneArmorSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-armor-set",
+        prompt: "Generate a redstone armor set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Boots",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Ingot",
+                    ingredients: [
+                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone Ingot"),
+                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    shouldResetTableAfterPickup: true
+                ),
+                .init(
+                    outputName: "Redstone Boots",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone Boots"),
                     outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
                     shouldResetTableAfterPickup: false
                 )

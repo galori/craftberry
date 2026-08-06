@@ -18,6 +18,7 @@ public enum ItemTraitKind: String, Codable, CaseIterable, Sendable {
     case combat
     case durability
     case handEquipped
+    case armor
 }
 
 public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable {
@@ -67,7 +68,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         manifestFormatVersion: 2,
         itemFormatVersion: "1.21.100",
         recipeFormatVersion: "1.20.10",
-        supportedItemTraits: [.combat, .durability, .handEquipped],
+        supportedItemTraits: [.combat, .durability, .handEquipped, .armor],
         vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
         vanillaItemTags: []
     )
