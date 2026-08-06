@@ -64,6 +64,35 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 10))
     }
 
+    func testShufflingExamplePromptsShowsDifferentSuggestions() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing"]
+        app.launch()
+
+        XCTAssertTrue(waitForElement("craftberry.state.editing", in: app, timeout: 8))
+
+        let before = suggestionLabels(in: app)
+        XCTAssertEqual(before.count, 3)
+
+        app.buttons["craftberry.shuffleSuggestions"].tap()
+
+        let after = suggestionLabels(in: app)
+        XCTAssertEqual(after.count, 3)
+        XCTAssertTrue(Set(before).isDisjoint(with: Set(after)))
+
+        app.buttons["craftberry.suggestion.0"].tap()
+        XCTAssertTrue(app.textViews["craftberry.prompt"].waitForExistence(timeout: 3))
+        XCTAssertFalse((app.textViews["craftberry.prompt"].value as? String ?? "").isEmpty)
+    }
+
+    private func suggestionLabels(in app: XCUIApplication) -> [String] {
+        (0..<3).compactMap { index in
+            let button = app.buttons["craftberry.suggestion.\(index)"]
+            guard button.waitForExistence(timeout: 3) else { return nil }
+            return button.label
+        }
+    }
+
     private func waitForElement(_ identifier: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
         app.descendants(matching: .any)[identifier].waitForExistence(timeout: timeout)
     }

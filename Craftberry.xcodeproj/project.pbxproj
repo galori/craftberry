@@ -10,6 +10,8 @@
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
+		A10000000000000000000037 /* ExamplePromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* ExamplePromptLibrary.swift */; };
+		A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* ExamplePromptLibraryTests.swift */; };
 		A10000000000000000000004 /* ContentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ContentIdentity.swift */; };
 		A10000000000000000000005 /* ProjectGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* ProjectGeneration.swift */; };
 		A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* OpenAIResponsesClient.swift */; };
@@ -66,6 +68,8 @@
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
+		A20000000000000000000042 /* ExamplePromptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptLibrary.swift; sourceTree = "<group>"; };
+		A20000000000000000000043 /* ExamplePromptLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptLibraryTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* ContentIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentity.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* ProjectGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGeneration.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* OpenAIResponsesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClient.swift; sourceTree = "<group>"; };
@@ -159,6 +163,7 @@
 				A20000000000000000000001 /* CraftberryApp.swift */,
 				A20000000000000000000002 /* CreationView.swift */,
 				A20000000000000000000003 /* CreationViewModel.swift */,
+				A20000000000000000000042 /* ExamplePromptLibrary.swift */,
 				A20000000000000000000013 /* Info.plist */,
 			);
 			path = App;
@@ -194,6 +199,7 @@
 				A20000000000000000000022 /* AddOnProjectTests.swift */,
 				A20000000000000000000023 /* OpenAIResponsesClientTests.swift */,
 				A20000000000000000000024 /* CreationViewModelTests.swift */,
+				A20000000000000000000043 /* ExamplePromptLibraryTests.swift */,
 			);
 			path = CraftberryTests;
 			sourceTree = "<group>";
@@ -412,6 +418,7 @@
 				A10000000000000000000017 /* BedrockDocuments.swift in Sources */,
 				A10000000000000000000021 /* GeneratedVanillaItemCatalog.swift in Sources */,
 				A10000000000000000000036 /* RecipeBook.swift in Sources */,
+				A10000000000000000000037 /* ExamplePromptLibrary.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -424,6 +431,7 @@
 				A10000000000000000000018 /* AddOnProjectTests.swift in Sources */,
 				A10000000000000000000019 /* OpenAIResponsesClientTests.swift in Sources */,
 				A10000000000000000000020 /* CreationViewModelTests.swift in Sources */,
+				A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

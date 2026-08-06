@@ -8,6 +8,7 @@ import CraftberryCore
 struct CreationView: View {
     @ObservedObject var viewModel: CreationViewModel
     @State private var shareItem: ShareItem?
+    @State private var suggestions = ExamplePromptLibrary.selection()
 
     var body: some View {
         NavigationStack {
@@ -104,19 +105,31 @@ struct CreationView: View {
                 .padding(.top, 8)
 
             VStack(spacing: 10) {
-                PromptSuggestion("🗡️  A blue sword, 20 damage, crafted from diamonds") {
-                    viewModel.prompt = "A blue sword, 20 damage, crafted from diamonds"
+                ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                    PromptSuggestion(suggestion.displayLabel) {
+                        viewModel.prompt = suggestion.text
+                    }
+                    .accessibilityIdentifier("craftberry.suggestion.\(index)")
                 }
-                PromptSuggestion("✨  A purple sword named Starfall, crafted from amethyst") {
-                    viewModel.prompt = "A purple sword named Starfall, crafted from amethyst"
+
+                Button(action: shuffleSuggestions) {
+                    Label("Shuffle ideas", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.craftberryMuted)
                 }
-                PromptSuggestion("🔥  A red sword with 12 damage, crafted from blaze rods") {
-                    viewModel.prompt = "A red sword with 12 damage, crafted from blaze rods"
-                }
+                .padding(.top, 4)
+                .accessibilityLabel("Show different example prompts")
+                .accessibilityIdentifier("craftberry.shuffleSuggestions")
             }
             .padding(.top, 28)
             .padding(.horizontal, 22)
             Spacer()
+        }
+    }
+
+    private func shuffleSuggestions() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            suggestions = ExamplePromptLibrary.selection(excluding: suggestions)
         }
     }
 
