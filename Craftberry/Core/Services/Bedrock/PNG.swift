@@ -59,6 +59,39 @@ struct RGBA: Equatable {
     static let redstoneHighlight = RGBA(red: 235, green: 84, blue: 56, alpha: 255)
     static let redstoneShadow = RGBA(red: 96, green: 12, blue: 12, alpha: 255)
 
+    static let glowstoneMain = RGBA(red: 232, green: 173, blue: 84, alpha: 255)
+    static let glowstoneHighlight = RGBA(red: 255, green: 232, blue: 156, alpha: 255)
+    static let glowstoneShadow = RGBA(red: 178, green: 118, blue: 42, alpha: 255)
+
+    static let gunpowderMain = RGBA(red: 94, green: 92, blue: 98, alpha: 255)
+    static let gunpowderHighlight = RGBA(red: 140, green: 138, blue: 146, alpha: 255)
+    static let gunpowderShadow = RGBA(red: 52, green: 50, blue: 56, alpha: 255)
+
+    static let sugarMain = RGBA(red: 244, green: 244, blue: 238, alpha: 255)
+    static let sugarHighlight = RGBA(red: 255, green: 255, blue: 255, alpha: 255)
+    static let sugarShadow = RGBA(red: 202, green: 202, blue: 194, alpha: 255)
+
+    static let blazePowderMain = RGBA(red: 235, green: 165, blue: 46, alpha: 255)
+    static let blazePowderHighlight = RGBA(red: 255, green: 214, blue: 120, alpha: 255)
+    static let blazePowderShadow = RGBA(red: 165, green: 96, blue: 22, alpha: 255)
+
+    static let coalMain = RGBA(red: 46, green: 44, blue: 48, alpha: 255)
+    static let coalHighlight = RGBA(red: 88, green: 85, blue: 92, alpha: 255)
+    static let coalShadow = RGBA(red: 20, green: 19, blue: 22, alpha: 255)
+    static let coalGleam = RGBA(red: 152, green: 165, blue: 178, alpha: 255)
+
+    static let rawIronMain = RGBA(red: 216, green: 157, blue: 133, alpha: 255)
+    static let rawIronHighlight = RGBA(red: 245, green: 202, blue: 180, alpha: 255)
+    static let rawIronShadow = RGBA(red: 160, green: 104, blue: 84, alpha: 255)
+
+    static let rawCopperMain = RGBA(red: 214, green: 129, blue: 84, alpha: 255)
+    static let rawCopperHighlight = RGBA(red: 247, green: 176, blue: 128, alpha: 255)
+    static let rawCopperShadow = RGBA(red: 150, green: 79, blue: 46, alpha: 255)
+
+    static let rawGoldMain = RGBA(red: 226, green: 178, blue: 66, alpha: 255)
+    static let rawGoldHighlight = RGBA(red: 255, green: 222, blue: 130, alpha: 255)
+    static let rawGoldShadow = RGBA(red: 163, green: 121, blue: 32, alpha: 255)
+
     static let stickMain = RGBA(red: 158, green: 113, blue: 66, alpha: 255)
     static let stickHighlight = RGBA(red: 199, green: 155, blue: 100, alpha: 255)
     static let stickShadow = RGBA(red: 105, green: 71, blue: 38, alpha: 255)
@@ -88,6 +121,18 @@ enum SwordPalette {
 }
 
 public enum PixelArtTextureRenderer {
+    /// Every vanilla material identifier `renderVanillaMaterial` has hand-authored art for,
+    /// in the same order the switch below defines them. Single source of truth for tooling
+    /// (previews, tests) that needs to enumerate the supported catalog.
+    public static let supportedVanillaMaterialIdentifiers: [String] = [
+        "minecraft:diamond", "minecraft:emerald", "minecraft:amethyst_shard",
+        "minecraft:iron_ingot", "minecraft:gold_ingot", "minecraft:netherite_ingot",
+        "minecraft:lapis_lazuli", "minecraft:quartz", "minecraft:blaze_rod",
+        "minecraft:redstone", "minecraft:glowstone_dust", "minecraft:gunpowder",
+        "minecraft:sugar", "minecraft:blaze_powder", "minecraft:stick",
+        "minecraft:coal", "minecraft:raw_iron", "minecraft:raw_copper", "minecraft:raw_gold",
+    ]
+
     public static func render(_ resource: VisualResource, pixelScale: Int = 1) -> Data {
         switch resource.kind {
         case .swordPixelArt: renderSword(color: resource.color, pixelScale: pixelScale)
@@ -117,7 +162,15 @@ public enum PixelArtTextureRenderer {
         case "quartz": return renderQuartz(pixelScale: pixelScale)
         case "blaze_rod": return renderBlazeRod(pixelScale: pixelScale)
         case "redstone": return renderRedstoneDust(pixelScale: pixelScale)
+        case "glowstone_dust": return renderDust(main: .glowstoneMain, highlight: .glowstoneHighlight, shadow: .glowstoneShadow, pixelScale: pixelScale)
+        case "gunpowder": return renderDust(main: .gunpowderMain, highlight: .gunpowderHighlight, shadow: .gunpowderShadow, pixelScale: pixelScale)
+        case "sugar": return renderDust(main: .sugarMain, highlight: .sugarHighlight, shadow: .sugarShadow, pixelScale: pixelScale)
+        case "blaze_powder": return renderDust(main: .blazePowderMain, highlight: .blazePowderHighlight, shadow: .blazePowderShadow, pixelScale: pixelScale)
         case "stick": return renderStick(pixelScale: pixelScale)
+        case "coal": return renderCoal(pixelScale: pixelScale)
+        case "raw_iron": return renderRawOreChunk(main: .rawIronMain, highlight: .rawIronHighlight, shadow: .rawIronShadow, pixelScale: pixelScale)
+        case "raw_copper": return renderRawOreChunk(main: .rawCopperMain, highlight: .rawCopperHighlight, shadow: .rawCopperShadow, pixelScale: pixelScale)
+        case "raw_gold": return renderRawOreChunk(main: .rawGoldMain, highlight: .rawGoldHighlight, shadow: .rawGoldShadow, pixelScale: pixelScale)
         default: return nil
         }
     }
@@ -316,22 +369,7 @@ public enum PixelArtTextureRenderer {
     }
 
     private static func renderLapisLazuli(pixelScale: Int) -> Data {
-        let scale = max(1, pixelScale), side = 32 * scale
-        var pixels = Array(repeating: RGBA.transparent, count: side * side)
-        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
-            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
-                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
-            }
-        }
-        fill(8, 8, 16, 16, .outline)
-        fill(9, 9, 14, 14, .lapisMain)
-        fill(9, 9, 6, 6, .lapisHighlight)
-        fill(17, 17, 6, 6, .lapisShadow)
-        fill(12, 12, 2, 2, .lapisFleck)
-        fill(18, 10, 2, 2, .lapisFleck)
-        fill(11, 19, 2, 2, .lapisFleck)
-        fill(20, 18, 2, 2, .lapisFleck)
-        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+        renderDust(main: .lapisMain, highlight: .lapisHighlight, shadow: .lapisShadow, pixelScale: pixelScale, flecks: [(24, 10), (21, 12), (15, 16), (9, 23)], fleckColor: .lapisFleck)
     }
 
     private static func renderQuartz(pixelScale: Int) -> Data {
@@ -373,25 +411,64 @@ public enum PixelArtTextureRenderer {
     }
 
     private static func renderRedstoneDust(pixelScale: Int) -> Data {
+        renderDust(main: .redstoneMain, highlight: .redstoneHighlight, shadow: .redstoneShadow, pixelScale: pixelScale)
+    }
+
+    /// Loose granular materials (dyes, powders) share this pile-of-grains silhouette: a
+    /// cluster of rounded clumps scattered along the diagonal, each stamped from an
+    /// outlined circular blob rather than a snapped rectangle, so the icon reads as
+    /// scattered dust instead of a dotted square.
+    private static func renderDust(main: RGBA, highlight: RGBA, shadow: RGBA, pixelScale: Int, flecks: [(x: Int, y: Int)] = [], fleckColor: RGBA = .transparent) -> Data {
         let scale = max(1, pixelScale), side = 32 * scale
         var pixels = Array(repeating: RGBA.transparent, count: side * side)
-        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
-            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
-                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+
+        func set(_ x: Int, _ y: Int, _ color: RGBA) {
+            guard x >= 0, x < 32, y >= 0, y < 32 else { return }
+            for row in (y * scale)..<((y + 1) * scale) {
+                for column in (x * scale)..<((x + 1) * scale) {
+                    pixels[row * side + column] = color
+                }
             }
         }
-        fill(13, 6, 6, 6, .outline)
-        fill(13, 20, 6, 6, .outline)
-        fill(6, 13, 6, 6, .outline)
-        fill(20, 13, 6, 6, .outline)
-        fill(12, 12, 8, 8, .outline)
 
-        fill(14, 7, 4, 4, .redstoneMain)
-        fill(14, 21, 4, 4, .redstoneMain)
-        fill(7, 14, 4, 4, .redstoneMain)
-        fill(21, 14, 4, 4, .redstoneMain)
-        fill(13, 13, 6, 6, .redstoneHighlight)
-        fill(15, 15, 2, 2, .redstoneShadow)
+        func blob(_ cx: Int, _ cy: Int, radius: Double) -> [(x: Int, y: Int)] {
+            let r = Int(radius.rounded(.up))
+            var offsets: [(x: Int, y: Int)] = []
+            for dy in -r...r {
+                for dx in -r...r {
+                    if Double(dx * dx + dy * dy) <= radius * radius {
+                        offsets.append((cx + dx, cy + dy))
+                    }
+                }
+            }
+            return offsets
+        }
+
+        // A pile of six clumps rising diagonally from the bottom-left, mirroring the
+        // silhouette of Minecraft's own dust/powder items rather than a filled square.
+        let clumps: [(x: Int, y: Int, radius: Double, tone: RGBA)] = [
+            (9, 24, 3.4, main),
+            (13, 21, 2.6, shadow),
+            (15, 17, 4.2, main),
+            (19, 18, 2.8, shadow),
+            (20, 13, 3.6, highlight),
+            (24, 10, 2.4, main),
+            (11, 17, 2.0, highlight),
+        ]
+
+        for clump in clumps {
+            for offset in blob(clump.x, clump.y, radius: clump.radius + 1) {
+                set(offset.x, offset.y, .outline)
+            }
+        }
+        for clump in clumps {
+            for offset in blob(clump.x, clump.y, radius: clump.radius) {
+                set(offset.x, offset.y, clump.tone)
+            }
+        }
+        for fleck in flecks {
+            set(fleck.x, fleck.y, fleckColor)
+        }
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 
@@ -413,6 +490,56 @@ public enum PixelArtTextureRenderer {
         fill(9, 23, 2, 2, .stickShadow)
         fill(22, 9, 2, 2, .stickHighlight)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    /// Coal and the raw ores (iron/copper/gold) share this squat, jagged rock silhouette —
+    /// a single solid lump with faceted shading, distinct from the cut-gem and ingot shapes
+    /// used for their refined/smelted forms.
+    private static func renderRawOreChunk(main: RGBA, highlight: RGBA, shadow: RGBA, pixelScale: Int, flecks: [(x: Int, y: Int)] = [], fleckColor: RGBA = .transparent) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        func set(_ x: Int, _ y: Int, _ color: RGBA) {
+            fill(x, y, 1, 1, color)
+        }
+
+        // Jagged rock silhouette, widest through the middle, narrowing to nubs top and bottom.
+        fill(13, 6, 7, 2, .outline)
+        fill(9, 8, 16, 2, .outline)
+        fill(6, 10, 21, 3, .outline)
+        fill(5, 13, 23, 6, .outline)
+        fill(6, 19, 21, 3, .outline)
+        fill(8, 22, 17, 3, .outline)
+        fill(11, 25, 11, 2, .outline)
+
+        // Upper-left facet catches the light.
+        fill(14, 7, 5, 1, highlight)
+        fill(10, 9, 11, 2, highlight)
+        fill(7, 11, 11, 4, highlight)
+        fill(6, 15, 7, 6, highlight)
+
+        // Center mass in the base tone.
+        fill(18, 9, 6, 2, main)
+        fill(18, 11, 10, 4, main)
+        fill(13, 15, 15, 7, main)
+        fill(9, 21, 10, 4, main)
+
+        // Lower-right facet in shadow.
+        fill(22, 15, 6, 7, shadow)
+        fill(19, 21, 8, 4, shadow)
+        fill(9, 23, 15, 2, shadow)
+        fill(12, 25, 8, 1, shadow)
+
+        for fleck in flecks { set(fleck.x, fleck.y, fleckColor) }
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderCoal(pixelScale: Int) -> Data {
+        renderRawOreChunk(main: .coalMain, highlight: .coalHighlight, shadow: .coalShadow, pixelScale: pixelScale, flecks: [(12, 12), (21, 13), (16, 19)], fleckColor: .coalGleam)
     }
 }
 

@@ -209,7 +209,7 @@ public struct ShapelessRecipeDefinition: Codable, Equatable, Sendable {
     }
 }
 
-public enum VisualResourceKind: String, Codable, Sendable {
+public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case swordPixelArt
     case ingotPixelArt
     case pickaxePixelArt

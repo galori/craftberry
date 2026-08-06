@@ -10,6 +10,7 @@ let package = Package(
     targets: [
         .target(name: "CraftberryCore", path: "Craftberry/Core"),
         .testTarget(name: "CraftberryTests", dependencies: ["CraftberryCore"], path: "CraftberryTests"),
-        .executableTarget(name: "MinecraftFixture", dependencies: ["CraftberryCore"], path: "Tools/MinecraftFixture")
+        .executableTarget(name: "MinecraftFixture", dependencies: ["CraftberryCore"], path: "Tools/MinecraftFixture"),
+        .executableTarget(name: "IconPreview", dependencies: ["CraftberryCore"], path: "Tools/IconPreview")
     ]
 )
