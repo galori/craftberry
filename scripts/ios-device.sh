@@ -22,9 +22,9 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e
-          Run the full Craftberry-to-Minecraft redstone-tool-set acceptance test,
-          then clean Minecraft's generated packs and test world via AFC.
+  minecraft-e2e [redstone|emerald]
+          Run a full Craftberry-to-Minecraft acceptance test, defaulting to
+          redstone, then clean Minecraft's generated packs and test world via AFC.
 
 Set DEVICE_ID=<xcode-device-id> when more than one physical iPhone is connected.
 All build and test output is kept under .build/ios-device.
@@ -203,15 +203,33 @@ terminate_minecraft_on_device() {
 }
 
 minecraft_e2e_on_device() {
+    local scenario="${1:-redstone}"
+    local test_selector
+    local result_name
+    case "$scenario" in
+        redstone)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe"
+            result_name="MinecraftRedstoneToolSetE2EUITests"
+            ;;
+        emerald)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted"
+            result_name="MinecraftDeviceEmeraldSwordE2EUITests"
+            ;;
+        *)
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone or emerald)." >&2
+            exit 1
+            ;;
+    esac
+
     local device_id
     device_id="$(select_device)"
     mkdir -p "$OUTPUT_DIR"
 
     local timestamp
     timestamp="$(date +%Y%m%d-%H%M%S)"
-    local result_path="$OUTPUT_DIR/MinecraftRedstoneToolSetE2EUITests-$timestamp.xcresult"
+    local result_path="$OUTPUT_DIR/$result_name-$timestamp.xcresult"
 
-    echo "Running full Minecraft redstone-tool-set E2E on device $device_id"
+    echo "Running full Minecraft $scenario E2E on device $device_id"
     echo "The XCTest teardown terminates $MINECRAFT_BUNDLE_ID before Mac-side AFC cleanup runs."
 
     set +e
@@ -223,7 +241,7 @@ minecraft_e2e_on_device() {
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
-        -only-testing:CraftberryUITests/MinecraftEmeraldSwordE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe \
+        -only-testing:"$test_selector" \
         test
     local test_status=$?
     set -e
@@ -263,7 +281,7 @@ main() {
             test_on_device
             ;;
         minecraft-e2e)
-            minecraft_e2e_on_device
+            minecraft_e2e_on_device "${2:-redstone}"
             ;;
         -h|--help|help|"")
             usage

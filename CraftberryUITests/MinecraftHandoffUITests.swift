@@ -75,7 +75,7 @@ final class MinecraftHandoffUITests: XCTestCase {
         // repeated runs pile up stale downloads — 273 stale items had
         // already accumulated in Downloads from prior manual use before this
         // existed (see `openDownloadedFile` below). Mirrors the same
-        // teardown pattern in MinecraftEmeraldSwordE2EUITests.
+        // teardown pattern in MinecraftDeviceE2EUITests.
         addTeardownBlock { [self] in
             deleteDownloadedFile(matching: fileNameHint)
         }

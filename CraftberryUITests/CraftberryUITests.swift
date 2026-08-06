@@ -49,7 +49,12 @@ final class CraftberryUITests: XCTestCase {
         app.buttons["craftberry.generate"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
         XCTAssertTrue(app.staticTexts["Redstone"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["6 items · 6 recipes"].waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "6 items")).firstMatch.waitForExistence(timeout: 2)
+        )
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "5 recipes")).firstMatch.waitForExistence(timeout: 2)
+        )
 
         app.buttons["craftberry.build"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 10))

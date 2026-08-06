@@ -59,12 +59,13 @@ Direct creative-inventory lookup of the item's localized display name remains a 
 
 ### Full physical-device Minecraft acceptance
 
-`MinecraftEmeraldSwordE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it enters **“Generate a redstone tool set crafted from redstone”**, builds and exports the `.mcaddon`, hands it to Minecraft, creates a fresh uniquely marked Creative world, activates both pack halves for that world, crafts a Redstone Ingot from redstone, then crafts a Redstone Pickaxe and uses OCR to assert its localized name. The existing Emerald Sword acceptance test remains available as a separate physical-device regression test.
+`MinecraftDeviceE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it enters **“Generate a redstone tool set crafted from redstone”**, builds and exports the `.mcaddon`, hands it to Minecraft, creates a fresh uniquely marked Creative world, activates both pack halves for that world, crafts a Redstone Ingot from redstone, then crafts a Redstone Pickaxe and verifies the output slot with a calibrated pixel assertion. The existing Emerald Sword acceptance test remains available as a separate physical-device regression test.
 
 Minecraft coordinate UI changes with the device and Minecraft release. The checked-in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) is enabled and calibrated for the dedicated iPhone 16e. Quit iPhone Mirroring, keep rotation lock on, unlock the USB-connected iPhone, and run:
 
 ```sh
 scripts/ios-device.sh minecraft-e2e
+scripts/ios-device.sh minecraft-e2e emerald
 ```
 
 The test retains a screenshot after every calibrated action. Recalibrate after any Minecraft UI update. It does not require a prebuilt world or crafting-table fixture: the run creates a fresh world, enables cheats, teleports to a deterministic position, and places its own crafting table.
