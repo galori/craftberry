@@ -42,6 +42,7 @@
 		A10000000000000000000033 /* MinecraftCommandKeyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* MinecraftCommandKeyboard.swift */; };
 		A10000000000000000000034 /* MinecraftInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* MinecraftInspection.swift */; };
 		A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* MinecraftE2EHarness.swift */; };
+		A10000000000000000000036 /* RecipeBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* RecipeBook.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,6 +103,7 @@
 		A20000000000000000000038 /* MinecraftCommandKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCommandKeyboard.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* MinecraftInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftInspection.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* MinecraftE2EHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftE2EHarness.swift; sourceTree = "<group>"; };
+		A20000000000000000000041 /* RecipeBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeBook.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +172,7 @@
 				A20000000000000000000019 /* BedrockContentProfile.swift */,
 				A20000000000000000000020 /* AddOnProjectValidation.swift */,
 				A20000000000000000000025 /* GeneratedVanillaItemCatalog.swift */,
+				A20000000000000000000041 /* RecipeBook.swift */,
 			);
 			path = Core/Domain;
 			sourceTree = "<group>";
@@ -408,6 +411,7 @@
 				A10000000000000000000016 /* AddOnProjectValidation.swift in Sources */,
 				A10000000000000000000017 /* BedrockDocuments.swift in Sources */,
 				A10000000000000000000021 /* GeneratedVanillaItemCatalog.swift in Sources */,
+				A10000000000000000000036 /* RecipeBook.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

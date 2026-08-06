@@ -38,7 +38,7 @@ public struct CompilationReport: Codable, Equatable, Sendable {
 public enum AddOnProjectValidator {
     public static func validate(_ project: AddOnProject, profile: BedrockContentProfile) -> CompilationReport {
         var issues: [CompilationIssue] = []
-        if project.schemaVersion != 1 && project.schemaVersion != 2 {
+        if project.schemaVersion != 1 && project.schemaVersion != 2 && project.schemaVersion != AddOnProject.currentSchemaVersion {
             issues.append(
                 CompilationIssue(
                     severity: .error,

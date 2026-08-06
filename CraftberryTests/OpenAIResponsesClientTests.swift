@@ -9,7 +9,7 @@ import XCTest
 final class OpenAIResponsesClientTests: XCTestCase {
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {
         let structuredText = """
-        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500}}
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500}}
         """
         let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
         URLProtocolStub.store.setHandler { request in
@@ -29,7 +29,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
 
     func testClientAssemblesMaterialToolSetFromStructuredIntent() async throws {
         let structuredText = """
-        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","sword":null,"materialSwordSet":null,"materialToolSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500},"materialWeaponSet":null}
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500},"materialWeaponSet":null}
         """
         let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
         URLProtocolStub.store.setHandler { request in
@@ -49,7 +49,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
 
     func testClientAssemblesMaterialSwordSetFromStructuredIntent() async throws {
         let structuredText = """
-        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","sword":null,"materialSwordSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"swordDisplayName":null,"attackBonus":10,"durability":500},"materialToolSet":null,"materialWeaponSet":null}
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"swordDisplayName":null,"attackBonus":10,"durability":500},"materialToolSet":null,"materialWeaponSet":null}
         """
         let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
         URLProtocolStub.store.setHandler { request in
@@ -79,7 +79,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
             )
         )
         let structuredText = """
-        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","sword":{"displayName":"Azure Sword","color":"blue","attackBonus":20,"durability":500,"craftingIngredient":"diamond"}}
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":{"displayName":"Azure Sword","color":"blue","attackBonus":20,"durability":500,"craftingIngredient":"diamond"},"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":null}
         """
         let responseData = try JSONSerialization.data(withJSONObject: [
             "output": [[
@@ -110,6 +110,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
 
         XCTAssertEqual(generation.outcome, .ready)
         XCTAssertEqual(generation.message, "Ready to build.")
+        XCTAssertEqual(generation.project?.shortDescription, "A compact custom pack overview.")
         XCTAssertEqual(generation.project?.id, identity.projectID)
         XCTAssertEqual(generation.project?.packUUIDs, identity.packUUIDs)
         XCTAssertEqual(generation.project?.items.first?.id, ContentID("azure_sword_a1b2c3"))
@@ -162,7 +163,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
 
     private func responseData(attackBonus: Int) throws -> Data {
         let structuredText = """
-        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","sword":{"displayName":"Azure Sword","color":"blue","attackBonus":\(attackBonus),"durability":500,"craftingIngredient":"diamond"}}
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":{"displayName":"Azure Sword","color":"blue","attackBonus":\(attackBonus),"durability":500,"craftingIngredient":"diamond"},"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":null}
         """
         return try JSONSerialization.data(withJSONObject: [
             "output": [[

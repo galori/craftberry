@@ -272,10 +272,13 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
 }
 
 public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
+    public static let currentSchemaVersion = 3
+
     public let schemaVersion: Int
     public let id: UUID
     public let namespace: String
     public let displayName: String
+    public let shortDescription: String
     public let packUUIDs: PackUUIDs
     public let buildVersion: VersionTriplet
     public let targetProfileID: String
@@ -283,10 +286,11 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     public let content: [AddOnContentNode]
 
     public init(
-        schemaVersion: Int = 2,
+        schemaVersion: Int = AddOnProject.currentSchemaVersion,
         id: UUID,
         namespace: String,
         displayName: String,
+        shortDescription: String? = nil,
         packUUIDs: PackUUIDs,
         buildVersion: VersionTriplet,
         targetProfileID: String,
@@ -297,11 +301,49 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         self.id = id
         self.namespace = namespace
         self.displayName = displayName
+        self.shortDescription = Self.normalizedShortDescription(shortDescription, displayName: displayName, content: content)
         self.packUUIDs = packUUIDs
         self.buildVersion = buildVersion
         self.targetProfileID = targetProfileID
         self.originalPrompt = originalPrompt
         self.content = content
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, id, namespace, displayName, shortDescription, packUUIDs, buildVersion, targetProfileID, originalPrompt, content
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+        let displayName = try values.decode(String.self, forKey: .displayName)
+        let content = try values.decode([AddOnContentNode].self, forKey: .content)
+        self.init(
+            schemaVersion: schemaVersion,
+            id: try values.decode(UUID.self, forKey: .id),
+            namespace: try values.decode(String.self, forKey: .namespace),
+            displayName: displayName,
+            shortDescription: try values.decodeIfPresent(String.self, forKey: .shortDescription),
+            packUUIDs: try values.decode(PackUUIDs.self, forKey: .packUUIDs),
+            buildVersion: try values.decode(VersionTriplet.self, forKey: .buildVersion),
+            targetProfileID: try values.decode(String.self, forKey: .targetProfileID),
+            originalPrompt: try values.decode(String.self, forKey: .originalPrompt),
+            content: content
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(schemaVersion, forKey: .schemaVersion)
+        try values.encode(id, forKey: .id)
+        try values.encode(namespace, forKey: .namespace)
+        try values.encode(displayName, forKey: .displayName)
+        try values.encode(shortDescription, forKey: .shortDescription)
+        try values.encode(packUUIDs, forKey: .packUUIDs)
+        try values.encode(buildVersion, forKey: .buildVersion)
+        try values.encode(targetProfileID, forKey: .targetProfileID)
+        try values.encode(originalPrompt, forKey: .originalPrompt)
+        try values.encode(content, forKey: .content)
     }
 
     public var items: [ItemDefinition] {
@@ -323,9 +365,9 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     }
 
     public func migratedToCurrentSchema() throws -> AddOnProject {
-        guard schemaVersion <= 2 else { throw AddOnProjectError.unsupportedProjectSchema(schemaVersion) }
-        guard schemaVersion != 2 else { return self }
-        return AddOnProject(schemaVersion: 2, id: id, namespace: namespace, displayName: displayName, packUUIDs: packUUIDs, buildVersion: buildVersion, targetProfileID: targetProfileID, originalPrompt: originalPrompt, content: content)
+        guard schemaVersion <= Self.currentSchemaVersion else { throw AddOnProjectError.unsupportedProjectSchema(schemaVersion) }
+        guard schemaVersion != Self.currentSchemaVersion else { return self }
+        return AddOnProject(schemaVersion: Self.currentSchemaVersion, id: id, namespace: namespace, displayName: displayName, shortDescription: shortDescription, packUUIDs: packUUIDs, buildVersion: buildVersion, targetProfileID: targetProfileID, originalPrompt: originalPrompt, content: content)
     }
 
     public static func sword(
@@ -334,6 +376,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         attackBonus: Int = 10,
         durability: Int = 500,
         craftingIngredient: String = "minecraft:diamond",
+        shortDescription: String? = nil,
         originalPrompt: String,
         identity: AddOnProjectIdentity = .generate(),
         profile: BedrockContentProfile = .current
@@ -378,6 +421,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             id: identity.projectID,
             namespace: identity.namespace,
             displayName: trimmedName,
+            shortDescription: shortDescription,
             packUUIDs: identity.packUUIDs,
             buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
             targetProfileID: profile.id,
@@ -394,6 +438,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         swordDisplayName: String? = nil,
         attackBonus: Int = 10,
         durability: Int = 500,
+        shortDescription: String? = nil,
         originalPrompt: String,
         identity: AddOnProjectIdentity = .generate(),
         profile: BedrockContentProfile = .current
@@ -412,7 +457,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         let sword = ItemDefinition(id: swordID, displayName: swordDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let swordRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_sword_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(swordID), count: 1), unlock: [.generated(ingotID)])
-        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(sword), .shapelessRecipe(ingotRecipe), .shapedRecipe(swordRecipe), .visualResource(VisualResource(id: ingotID, kind: .ingotPixelArt, color: color)), .visualResource(VisualResource(id: swordID, kind: .swordPixelArt, color: color))])
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(sword), .shapelessRecipe(ingotRecipe), .shapedRecipe(swordRecipe), .visualResource(VisualResource(id: ingotID, kind: .ingotPixelArt, color: color)), .visualResource(VisualResource(id: swordID, kind: .swordPixelArt, color: color))])
     }
 
     public static func materialToolSet(
@@ -422,6 +467,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         sourceCount: Int = 4,
         attackBonus: Int = 10,
         durability: Int = 500,
+        shortDescription: String? = nil,
         originalPrompt: String,
         identity: AddOnProjectIdentity = .generate(),
         profile: BedrockContentProfile = .current
@@ -491,6 +537,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             id: identity.projectID,
             namespace: identity.namespace,
             displayName: material,
+            shortDescription: shortDescription,
             packUUIDs: identity.packUUIDs,
             buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
             targetProfileID: profile.id,
@@ -506,6 +553,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         sourceCount: Int = 4,
         attackBonus: Int = 10,
         durability: Int = 500,
+        shortDescription: String? = nil,
         originalPrompt: String,
         identity: AddOnProjectIdentity = .generate(),
         profile: BedrockContentProfile = .current
@@ -574,12 +622,27 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             id: identity.projectID,
             namespace: identity.namespace,
             displayName: material,
+            shortDescription: shortDescription,
             packUUIDs: identity.packUUIDs,
             buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
             targetProfileID: profile.id,
             originalPrompt: originalPrompt,
             content: [.item(ingot)] + weapons.map(AddOnContentNode.item) + [.shapelessRecipe(ingotRecipe)] + weaponRecipes.map(AddOnContentNode.shapedRecipe) + visuals.map(AddOnContentNode.visualResource)
         )
+    }
+
+    private static func normalizedShortDescription(_ description: String?, displayName: String, content: [AddOnContentNode]) -> String {
+        let trimmed = description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty {
+            return String(trimmed.prefix(180))
+        }
+        let itemCount = content.reduce(0) { count, node in
+            if case .item = node { count + 1 } else { count }
+        }
+        if itemCount > 1 {
+            return "\(displayName) adds \(itemCount) custom items with matching crafting recipes."
+        }
+        return "\(displayName) adds a custom craftable item for Minecraft Bedrock."
     }
 }
 

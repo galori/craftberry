@@ -49,12 +49,16 @@ final class CraftberryUITests: XCTestCase {
         app.buttons["craftberry.generate"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
         XCTAssertTrue(app.staticTexts["Redstone"].waitForExistence(timeout: 2))
-        XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "6 items")).firstMatch.waitForExistence(timeout: 2)
-        )
-        XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "5 recipes")).firstMatch.waitForExistence(timeout: 2)
-        )
+        XCTAssertTrue(waitForElement("craftberry.recipeBook", in: app, timeout: 2))
+        XCTAssertTrue(app.staticTexts["6"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Items"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Recipes"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Redstone Sword"].waitForExistence(timeout: 2))
+        app.staticTexts["Redstone Sword"].tap()
+        XCTAssertTrue(waitForElement("craftberry.recipeDetail.redstone_uitest_sword", in: app, timeout: 3))
+        XCTAssertTrue(app.staticTexts["2 Redstone Ingot + Stick -> Redstone Sword"].waitForExistence(timeout: 2))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 3))
 
         app.buttons["craftberry.build"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 10))

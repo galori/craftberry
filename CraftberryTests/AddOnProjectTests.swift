@@ -34,6 +34,15 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
     }
 
+    func testRecipeBookRowsCoverMaterialWeaponSetIncludingIngotRecipe() throws {
+        let project = try AddOnProject.materialWeaponSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "Azure weapons", identity: testIdentity())
+        let book = RecipeBook(project: project)
+
+        XCTAssertEqual(book.rows.map { $0.item.displayName }, ["Azure Ingot", "Azure Sword", "Azure Dagger", "Azure Spear", "Azure Hammer"])
+        XCTAssertEqual(book.rows.first?.summary, "4 Diamond -> Azure Ingot")
+        XCTAssertEqual(book.rows.first { $0.item.displayName == "Azure Hammer" }?.summary, "3 Azure Ingot + 2 Stick -> Azure Hammer")
+    }
+
     func testMaterialToolSetCreatesIngotAndFiveTools() throws {
         let project = try AddOnProject.materialToolSet(
             materialName: "Azure",
@@ -61,13 +70,22 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
     }
 
+    func testRecipeBookRowsCoverMaterialToolSet() throws {
+        let project = try AddOnProject.materialToolSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "Azure tools", identity: testIdentity())
+        let book = RecipeBook(project: project)
+
+        XCTAssertEqual(book.rows.count, 6)
+        XCTAssertEqual(book.rows.first { $0.item.displayName == "Azure Pickaxe" }?.recipe?.gridReferences().compactMap { $0 }.count, 5)
+        XCTAssertEqual(book.rows.first { $0.item.displayName == "Azure Shovel" }?.summary, "Azure Ingot + 2 Stick -> Azure Shovel")
+    }
+
     func testMaterialSwordSetCreatesDerivedItemsAndRecipes() throws {
         let project = try AddOnProject.materialSwordSet(
             materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4,
             originalPrompt: "Azure diamond material set", identity: testIdentity()
         )
 
-        XCTAssertEqual(project.schemaVersion, 2)
+        XCTAssertEqual(project.schemaVersion, 3)
         XCTAssertEqual(project.items.map(\.id), [ContentID("azure_a1b2c3_ingot"), ContentID("azure_a1b2c3_sword")])
         XCTAssertEqual(project.items.first?.displayName, "Azure Ingot")
         XCTAssertEqual(project.items.first?.traits, ItemTraits())
@@ -75,6 +93,13 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(project.recipes.first?.pattern, [" I ", " I ", " S "])
         XCTAssertEqual(project.recipes.first?.ingredients["I"], .generated(ContentID("azure_a1b2c3_ingot")))
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
+    func testRecipeBookRowsCoverMaterialSwordSet() throws {
+        let project = try AddOnProject.materialSwordSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "Azure diamond material set", identity: testIdentity())
+        let book = RecipeBook(project: project)
+
+        XCTAssertEqual(book.rows.map(\.summary), ["4 Diamond -> Azure Ingot", "2 Azure Ingot + Stick -> Azure Sword"])
     }
 
     func testMaterialSetRejectsInvalidShapelessIngredientCount() throws {
@@ -99,14 +124,57 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(project.recipes.first?.ingredients["M"], .vanilla("minecraft:emerald"))
     }
 
+    func testRecipeBookRowsCoverSingleSword() throws {
+        let project = try AddOnProject.sword(displayName: "Emerald Test Sword", craftingIngredient: "minecraft:emerald", originalPrompt: "An emerald sword", identity: testIdentity())
+        let book = RecipeBook(project: project)
+
+        XCTAssertEqual(book.rows.count, 1)
+        XCTAssertEqual(book.rows.first?.summary, "2 Emerald + Stick -> Emerald Test Sword")
+        XCTAssertEqual(book.rows.first?.recipe?.gridReferences().compactMap { $0 }.count, 3)
+    }
+
     func testV1ProjectMigratesWithoutChangingIdentity() throws {
         let project = try makeSwordProject()
         let v1 = AddOnProject(schemaVersion: 1, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content)
         let migrated = try v1.migratedToCurrentSchema()
-        XCTAssertEqual(migrated.schemaVersion, 2)
+        XCTAssertEqual(migrated.schemaVersion, 3)
         XCTAssertEqual(migrated.id, v1.id)
         XCTAssertEqual(migrated.packUUIDs, v1.packUUIDs)
         XCTAssertEqual(migrated.content, v1.content)
+        XCTAssertFalse(migrated.shortDescription.isEmpty)
+    }
+
+    func testProjectStoresAndRoundTripsShortDescription() throws {
+        let project = try AddOnProject.sword(
+            displayName: "Azure Sword",
+            shortDescription: "A bright custom sword tuned for quick cave runs.",
+            originalPrompt: "A blue diamond sword",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(project.schemaVersion, 3)
+        XCTAssertEqual(project.shortDescription, "A bright custom sword tuned for quick cave runs.")
+
+        let sidecar = try JSONEncoder().encode(project)
+        XCTAssertEqual(try JSONDecoder().decode(AddOnProject.self, from: sidecar), project)
+    }
+
+    func testV1AndV2ProjectsDecodeWithFallbackShortDescription() throws {
+        let project = try AddOnProject.materialToolSet(originalPrompt: "Azure tools", identity: testIdentity())
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(project)) as? [String: Any])
+        object["shortDescription"] = nil
+
+        object["schemaVersion"] = 1
+        let v1Data = try JSONSerialization.data(withJSONObject: object)
+        let v1 = try JSONDecoder().decode(AddOnProject.self, from: v1Data)
+        XCTAssertEqual(v1.schemaVersion, 1)
+        XCTAssertEqual(v1.shortDescription, "Azure adds 6 custom items with matching crafting recipes.")
+
+        object["schemaVersion"] = 2
+        let v2Data = try JSONSerialization.data(withJSONObject: object)
+        let v2 = try JSONDecoder().decode(AddOnProject.self, from: v2Data)
+        XCTAssertEqual(v2.schemaVersion, 2)
+        XCTAssertEqual(v2.shortDescription, "Azure adds 6 custom items with matching crafting recipes.")
     }
     func testSwordArchetypeRejectsInvalidSemanticTraits() {
         XCTAssertThrowsError(
@@ -529,7 +597,7 @@ final class AddOnProjectTests: XCTestCase {
             vanillaItemTags: BedrockContentProfile.current.vanillaItemTags
         )
         let invalidProject = AddOnProject(
-            schemaVersion: 3,
+            schemaVersion: AddOnProject.currentSchemaVersion + 1,
             id: project.id,
             namespace: project.namespace,
             displayName: project.displayName,

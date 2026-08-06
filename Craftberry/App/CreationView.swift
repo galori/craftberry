@@ -170,7 +170,8 @@ struct CreationView: View {
 
     @ViewBuilder
     private func resultCard(_ project: AddOnProject, result: BedrockCompilationResult?) -> some View {
-        if let summary = ProjectSummary(project: project) {
+        let book = RecipeBook(project: project)
+        if let summary = ProjectSummary(project: project), !book.rows.isEmpty {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
@@ -201,13 +202,13 @@ struct CreationView: View {
                         Text(project.displayName)
                             .font(.system(size: 26, weight: .heavy, design: .rounded))
                             .foregroundStyle(.white)
-                        Text(result == nil ? summary.collectionDescription : result!.artifact.fileName)
+                        Text(project.shortDescription)
                             .font(.subheadline)
                             .foregroundStyle(Color.craftberryMuted)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
-                    Text("NEW")
+                    Text(result == nil ? "NEW" : "BUILT")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(Color.craftberryGold)
                         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -215,16 +216,13 @@ struct CreationView: View {
                 }
 
                 HStack(spacing: 10) {
-                    StatTile(value: "+\(summary.attackBonus)", label: "Damage", color: .craftberryOrange)
-                    StatTile(value: summary.ingredient.displayName, label: "Recipe", color: .craftberryBlue)
-                    StatTile(value: "\(summary.durability)", label: "Durability", color: .craftberryGold)
+                    StatTile(value: "\(project.items.count)", label: project.items.count == 1 ? "Item" : "Items", color: .craftberryOrange)
+                    StatTile(value: "\(project.recipes.count + project.shapelessRecipes.count)", label: "Recipes", color: .craftberryBlue)
+                    StatTile(value: result?.artifact.fileName ?? "Ready", label: "Build", color: .craftberryGold)
                 }
 
-                if summary.isMaterialSet {
-                    MaterialSetRecipePreview(ingredient: summary.ingredient, sourceCount: summary.sourceCount, ingotName: summary.ingotName, swordName: summary.swordName)
-                } else {
-                    CraftingRecipePreview(ingredient: summary.ingredient)
-                }
+                RecipeBookList(project: project, rows: book.rows)
+                    .accessibilityIdentifier("craftberry.recipeBook")
 
                 if let result {
                     Button {
@@ -368,6 +366,150 @@ private struct StatTile: View {
     }
 }
 
+private struct RecipeBookList: View {
+    let project: AddOnProject
+    let rows: [RecipeBookRow]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("What's included")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+
+            VStack(spacing: 10) {
+                ForEach(rows) { row in
+                    NavigationLink {
+                        RecipeDetailView(project: project, row: row)
+                    } label: {
+                        HStack(spacing: 12) {
+                            ItemIcon(visualResource: row.visualResource, size: 42)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(row.item.displayName)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.white)
+                                Text("\(row.categoryLabel) · \(row.summary)")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.craftberryMuted)
+                                    .lineLimit(2)
+                            }
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Color.craftberryMuted)
+                        }
+                        .padding(12)
+                        .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .accessibilityIdentifier("craftberry.recipeBook.item.\(row.item.id.rawValue)")
+                }
+            }
+        }
+    }
+}
+
+private struct RecipeDetailView: View {
+    let project: AddOnProject
+    let row: RecipeBookRow
+
+    private var itemsByID: [ContentID: ItemDefinition] {
+        Dictionary(uniqueKeysWithValues: project.items.map { ($0.id, $0) })
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 14) {
+                    ItemIcon(visualResource: row.visualResource, size: 86)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(row.item.displayName)
+                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text(row.categoryLabel)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.craftberryGold)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    StatTile(value: row.item.traits.combat.map { "+\($0.attackBonus)" } ?? "\(row.item.traits.maximumStackSize)", label: row.item.traits.combat == nil ? "Stack" : "Damage", color: .craftberryOrange)
+                    StatTile(value: row.item.traits.durability.map { "\($0.maximum)" } ?? "None", label: "Durability", color: .craftberryBlue)
+                }
+
+                if let recipe = row.recipe {
+                    RecipeGrid(recipe: recipe, itemsByID: itemsByID)
+                    Text(row.summary)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.craftberryMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("No crafting recipe is defined for this item.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.craftberryMuted)
+                }
+            }
+            .padding(24)
+        }
+        .background(Color.craftberryBackground.ignoresSafeArea())
+        .navigationTitle("Recipe")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("craftberry.recipeDetail.\(row.item.id.rawValue)")
+    }
+}
+
+private struct RecipeGrid: View {
+    let recipe: RecipeBookRecipe
+    let itemsByID: [ContentID: ItemDefinition]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recipe")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 3), spacing: 8) {
+                ForEach(Array(recipe.gridReferences().enumerated()), id: \.offset) { _, reference in
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.craftberryRecipeSlot)
+                        .frame(width: 58, height: 58)
+                        .overlay {
+                            if let reference {
+                                IngredientLabelGlyph(ingredient: IngredientLabel(reference: reference, itemsByID: itemsByID))
+                            }
+                        }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(14)
+        .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct ItemIcon: View {
+    let visualResource: VisualResource?
+    let size: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.craftberryRecipeSlot)
+            .frame(width: size, height: size)
+            .overlay {
+                if let visualResource,
+                   let image = UIImage(data: PixelArtTextureRenderer.render(visualResource, pixelScale: 4)) {
+                    Image(uiImage: image)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(size * 0.13)
+                } else {
+                    Image(systemName: "cube.fill")
+                        .foregroundStyle(Color.craftberryMuted)
+                }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
 private struct ProjectSummary {
     let visualResource: VisualResource
     let attackBonus: Int
@@ -398,6 +540,61 @@ private struct ProjectSummary {
         sourceCount = materialRecipe?.ingredients.count ?? 2
         ingotName = project.items.first(where: { $0.id != item.id })?.displayName ?? "Material"
         swordName = item.displayName
+    }
+}
+
+private struct IngredientLabelGlyph: View {
+    let ingredient: IngredientLabel
+
+    var body: some View {
+        switch ingredient.path {
+        case "stick":
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.craftberryStick)
+                .frame(width: 7, height: 31)
+                .rotationEffect(.degrees(38))
+        case "blaze_rod":
+            Capsule()
+                .fill(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
+                .frame(width: 12, height: 32)
+                .rotationEffect(.degrees(38))
+        case "redstone":
+            Image(systemName: "sparkles")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.red)
+        case "quartz":
+            Image(systemName: "triangle.fill")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .rotationEffect(.degrees(180))
+        case "amethyst_shard":
+            Image(systemName: "triangle.fill")
+                .font(.title2)
+                .foregroundStyle(.purple)
+                .rotationEffect(.degrees(180))
+        case "iron_ingot", "gold_ingot", "netherite_ingot":
+            RoundedRectangle(cornerRadius: 3)
+                .fill(ingredient.color)
+                .frame(width: 29, height: 15)
+                .rotationEffect(.degrees(-8))
+        case "lapis_lazuli":
+            Circle()
+                .fill(.blue)
+                .frame(width: 22, height: 22)
+        case "emerald":
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.green)
+                .frame(width: 22, height: 22)
+                .rotationEffect(.degrees(45))
+        case "diamond":
+            Image(systemName: "diamond.fill")
+                .font(.title2)
+                .foregroundStyle(Color.craftberryBlue)
+        default:
+            Image(systemName: "cube.fill")
+                .font(.title2)
+                .foregroundStyle(Color.craftberryMuted)
+        }
     }
 }
 
@@ -668,6 +865,24 @@ private extension Color {
 }
 
 private extension IngredientSummary {
+    var color: Color {
+        switch path {
+        case "diamond": .craftberryBlue
+        case "emerald": .green
+        case "iron_ingot": .gray
+        case "gold_ingot": .craftberryGold
+        case "netherite_ingot": .purple
+        case "amethyst_shard": .purple
+        case "blaze_rod": .orange
+        case "redstone": .red
+        case "lapis_lazuli": .blue
+        case "quartz": .white
+        default: .craftberryMuted
+        }
+    }
+}
+
+private extension IngredientLabel {
     var color: Color {
         switch path {
         case "diamond": .craftberryBlue

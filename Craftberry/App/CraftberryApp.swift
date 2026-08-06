@@ -60,6 +60,7 @@ private struct UITestingLLMClient: LLMClient {
                 color: .red,
                 sourceItem: "minecraft:redstone",
                 sourceCount: 4,
+                shortDescription: "A redstone melee kit with a custom ingot and four weapon recipes.",
                 originalPrompt: prompt,
                 identity: identity
             )
@@ -69,6 +70,7 @@ private struct UITestingLLMClient: LLMClient {
                 color: .red,
                 sourceItem: "minecraft:redstone",
                 sourceCount: 4,
+                shortDescription: "A redstone tool kit with a custom ingot and five matching tools.",
                 originalPrompt: prompt,
                 identity: identity
             )
@@ -79,6 +81,7 @@ private struct UITestingLLMClient: LLMClient {
                 attackBonus: 14,
                 durability: 500,
                 craftingIngredient: usesEmerald ? "minecraft:emerald" : "minecraft:diamond",
+                shortDescription: usesEmerald ? "A test emerald sword with a craftable Bedrock recipe." : "A cyan test sword with a craftable diamond recipe.",
                 originalPrompt: prompt,
                 identity: identity
             )
