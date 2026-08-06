@@ -15,6 +15,53 @@ struct RGBA: Equatable {
     static let outline = RGBA(red: 20, green: 24, blue: 34, alpha: 255)
     static let hilt = RGBA(red: 121, green: 75, blue: 43, alpha: 255)
     static let hiltHighlight = RGBA(red: 177, green: 122, blue: 73, alpha: 255)
+
+    static let diamondMain = RGBA(red: 93, green: 219, blue: 213, alpha: 255)
+    static let diamondHighlight = RGBA(red: 199, green: 255, blue: 250, alpha: 255)
+    static let diamondShadow = RGBA(red: 45, green: 143, blue: 140, alpha: 255)
+
+    static let emeraldMain = RGBA(red: 47, green: 189, blue: 91, alpha: 255)
+    static let emeraldHighlight = RGBA(red: 141, green: 238, blue: 166, alpha: 255)
+    static let emeraldShadow = RGBA(red: 22, green: 110, blue: 52, alpha: 255)
+
+    static let ironMain = RGBA(red: 216, green: 216, blue: 207, alpha: 255)
+    static let ironHighlight = RGBA(red: 245, green: 245, blue: 240, alpha: 255)
+    static let ironShadow = RGBA(red: 150, green: 150, blue: 141, alpha: 255)
+
+    static let goldMain = RGBA(red: 249, green: 219, blue: 76, alpha: 255)
+    static let goldHighlight = RGBA(red: 255, green: 244, blue: 168, alpha: 255)
+    static let goldShadow = RGBA(red: 178, green: 140, blue: 24, alpha: 255)
+
+    static let netheriteMain = RGBA(red: 78, green: 68, blue: 71, alpha: 255)
+    static let netheriteHighlight = RGBA(red: 130, green: 117, blue: 120, alpha: 255)
+    static let netheriteShadow = RGBA(red: 41, green: 34, blue: 36, alpha: 255)
+
+    static let lapisMain = RGBA(red: 33, green: 69, blue: 156, alpha: 255)
+    static let lapisHighlight = RGBA(red: 90, green: 130, blue: 224, alpha: 255)
+    static let lapisShadow = RGBA(red: 18, green: 38, blue: 92, alpha: 255)
+    static let lapisFleck = RGBA(red: 220, green: 197, blue: 84, alpha: 255)
+
+    static let quartzMain = RGBA(red: 233, green: 227, blue: 219, alpha: 255)
+    static let quartzHighlight = RGBA(red: 255, green: 255, blue: 252, alpha: 255)
+    static let quartzShadow = RGBA(red: 176, green: 168, blue: 158, alpha: 255)
+    static let quartzVein = RGBA(red: 200, green: 150, blue: 120, alpha: 255)
+
+    static let amethystMain = RGBA(red: 138, green: 88, blue: 210, alpha: 255)
+    static let amethystHighlight = RGBA(red: 205, green: 172, blue: 250, alpha: 255)
+    static let amethystShadow = RGBA(red: 79, green: 45, blue: 133, alpha: 255)
+
+    static let blazeMain = RGBA(red: 240, green: 178, blue: 42, alpha: 255)
+    static let blazeHighlight = RGBA(red: 255, green: 224, blue: 128, alpha: 255)
+    static let blazeShadow = RGBA(red: 173, green: 96, blue: 20, alpha: 255)
+    static let blazeCore = RGBA(red: 255, green: 246, blue: 200, alpha: 255)
+
+    static let redstoneMain = RGBA(red: 176, green: 24, blue: 20, alpha: 255)
+    static let redstoneHighlight = RGBA(red: 235, green: 84, blue: 56, alpha: 255)
+    static let redstoneShadow = RGBA(red: 96, green: 12, blue: 12, alpha: 255)
+
+    static let stickMain = RGBA(red: 158, green: 113, blue: 66, alpha: 255)
+    static let stickHighlight = RGBA(red: 199, green: 155, blue: 100, alpha: 255)
+    static let stickShadow = RGBA(red: 105, green: 71, blue: 38, alpha: 255)
 }
 
 enum SwordPalette {
@@ -52,6 +99,26 @@ public enum PixelArtTextureRenderer {
         case .daggerPixelArt: renderDagger(color: resource.color, pixelScale: pixelScale)
         case .spearPixelArt: renderSpear(color: resource.color, pixelScale: pixelScale)
         case .hammerPixelArt: renderHammer(color: resource.color, pixelScale: pixelScale)
+        }
+    }
+
+    /// Renders original pixel art for a vanilla material identifier (e.g. "minecraft:diamond").
+    /// Returns nil for identifiers outside the supported vanilla material catalog.
+    public static func renderVanillaMaterial(identifier: String, pixelScale: Int = 1) -> Data? {
+        let path = identifier.split(separator: ":").last.map(String.init) ?? identifier
+        switch path {
+        case "diamond": return renderGem(main: .diamondMain, highlight: .diamondHighlight, shadow: .diamondShadow, pixelScale: pixelScale)
+        case "emerald": return renderGem(main: .emeraldMain, highlight: .emeraldHighlight, shadow: .emeraldShadow, pixelScale: pixelScale)
+        case "amethyst_shard": return renderAmethystShard(pixelScale: pixelScale)
+        case "iron_ingot": return renderVanillaIngot(main: .ironMain, highlight: .ironHighlight, shadow: .ironShadow, pixelScale: pixelScale)
+        case "gold_ingot": return renderVanillaIngot(main: .goldMain, highlight: .goldHighlight, shadow: .goldShadow, pixelScale: pixelScale)
+        case "netherite_ingot": return renderVanillaIngot(main: .netheriteMain, highlight: .netheriteHighlight, shadow: .netheriteShadow, pixelScale: pixelScale)
+        case "lapis_lazuli": return renderLapisLazuli(pixelScale: pixelScale)
+        case "quartz": return renderQuartz(pixelScale: pixelScale)
+        case "blaze_rod": return renderBlazeRod(pixelScale: pixelScale)
+        case "redstone": return renderRedstoneDust(pixelScale: pixelScale)
+        case "stick": return renderStick(pixelScale: pixelScale)
+        default: return nil
         }
     }
 
@@ -177,6 +244,174 @@ public enum PixelArtTextureRenderer {
             fill(part.x, part.y, part.width, part.height, index == 0 ? palette.highlight : palette.main)
             fill(part.x, part.y + max(0, part.height - 1), part.width, 1, palette.shadow)
         }
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderGem(main: RGBA, highlight: RGBA, shadow: RGBA, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(14, 6, 4, 2, .outline)
+        fill(11, 8, 10, 2, .outline)
+        fill(8, 10, 16, 4, .outline)
+        fill(8, 14, 16, 6, .outline)
+        fill(10, 20, 12, 4, .outline)
+        fill(13, 24, 6, 2, .outline)
+
+        fill(15, 7, 2, 1, highlight)
+        fill(12, 9, 8, 1, highlight)
+        fill(9, 11, 7, 3, highlight)
+        fill(16, 11, 7, 3, main)
+        fill(9, 15, 7, 5, main)
+        fill(16, 15, 7, 5, shadow)
+        fill(11, 21, 10, 3, shadow)
+        fill(14, 25, 4, 1, shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderAmethystShard(pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(9, 24, 14, 4, .outline)
+        fill(11, 25, 10, 2, .amethystShadow)
+
+        fill(14, 6, 4, 2, .outline)
+        fill(13, 8, 6, 16, .outline)
+        fill(14, 8, 2, 3, .amethystHighlight)
+        fill(14, 11, 2, 10, .amethystMain)
+        fill(16, 8, 2, 13, .amethystShadow)
+
+        fill(8, 14, 3, 2, .outline)
+        fill(7, 16, 5, 8, .outline)
+        fill(8, 17, 2, 6, .amethystHighlight)
+        fill(10, 17, 1, 6, .amethystShadow)
+
+        fill(21, 14, 3, 2, .outline)
+        fill(20, 16, 5, 8, .outline)
+        fill(21, 17, 2, 6, .amethystMain)
+        fill(23, 17, 1, 6, .amethystShadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderVanillaIngot(main: RGBA, highlight: RGBA, shadow: RGBA, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(7, 11, 18, 10, .outline); fill(9, 9, 14, 2, .outline); fill(9, 21, 14, 2, .outline)
+        fill(9, 11, 14, 8, main); fill(11, 10, 10, 2, highlight); fill(11, 19, 10, 2, shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderLapisLazuli(pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(8, 8, 16, 16, .outline)
+        fill(9, 9, 14, 14, .lapisMain)
+        fill(9, 9, 6, 6, .lapisHighlight)
+        fill(17, 17, 6, 6, .lapisShadow)
+        fill(12, 12, 2, 2, .lapisFleck)
+        fill(18, 10, 2, 2, .lapisFleck)
+        fill(11, 19, 2, 2, .lapisFleck)
+        fill(20, 18, 2, 2, .lapisFleck)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderQuartz(pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(13, 5, 6, 3, .outline)
+        fill(11, 8, 10, 16, .outline)
+        fill(9, 22, 14, 4, .outline)
+
+        fill(13, 8, 3, 4, .quartzHighlight)
+        fill(13, 12, 3, 10, .quartzMain)
+        fill(17, 8, 3, 14, .quartzShadow)
+        fill(15, 14, 1, 8, .quartzVein)
+        fill(10, 23, 12, 2, .quartzShadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderBlazeRod(pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(13, 4, 6, 24, .outline)
+        fill(14, 5, 4, 22, .blazeMain)
+        fill(14, 5, 2, 22, .blazeHighlight)
+        fill(16, 5, 2, 22, .blazeShadow)
+        fill(14, 9, 4, 2, .blazeCore)
+        fill(14, 15, 4, 2, .blazeCore)
+        fill(14, 21, 4, 2, .blazeCore)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderRedstoneDust(pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(13, 6, 6, 6, .outline)
+        fill(13, 20, 6, 6, .outline)
+        fill(6, 13, 6, 6, .outline)
+        fill(20, 13, 6, 6, .outline)
+        fill(12, 12, 8, 8, .outline)
+
+        fill(14, 7, 4, 4, .redstoneMain)
+        fill(14, 21, 4, 4, .redstoneMain)
+        fill(7, 14, 4, 4, .redstoneMain)
+        fill(21, 14, 4, 4, .redstoneMain)
+        fill(13, 13, 6, 6, .redstoneHighlight)
+        fill(15, 15, 2, 2, .redstoneShadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderStick(pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        let segments: [(x: Int, y: Int)] = [(9, 23), (11, 21), (13, 19), (15, 17), (17, 15), (19, 13), (21, 11), (23, 9)]
+        for segment in segments {
+            fill(segment.x - 1, segment.y - 1, 5, 5, .outline)
+        }
+        for segment in segments {
+            fill(segment.x, segment.y, 3, 3, .stickMain)
+        }
+        fill(9, 23, 2, 2, .stickShadow)
+        fill(22, 9, 2, 2, .stickHighlight)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 }

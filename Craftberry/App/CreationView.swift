@@ -428,6 +428,10 @@ private struct RecipeDetailView: View {
         Dictionary(uniqueKeysWithValues: project.items.map { ($0.id, $0) })
     }
 
+    private var visualResourcesByID: [ContentID: VisualResource] {
+        Dictionary(uniqueKeysWithValues: project.visualResources.map { ($0.id, $0) })
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -449,7 +453,7 @@ private struct RecipeDetailView: View {
                 }
 
                 if let recipe = row.recipe {
-                    RecipeGrid(recipe: recipe, itemsByID: itemsByID)
+                    RecipeGrid(recipe: recipe, itemsByID: itemsByID, visualResourcesByID: visualResourcesByID)
                     Text(row.summary)
                         .font(.subheadline)
                         .foregroundStyle(Color.craftberryMuted)
@@ -472,6 +476,7 @@ private struct RecipeDetailView: View {
 private struct RecipeGrid: View {
     let recipe: RecipeBookRecipe
     let itemsByID: [ContentID: ItemDefinition]
+    let visualResourcesByID: [ContentID: VisualResource]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -486,7 +491,17 @@ private struct RecipeGrid: View {
                         .frame(width: 58, height: 58)
                         .overlay {
                             if let reference {
-                                IngredientLabelGlyph(ingredient: IngredientLabel(reference: reference, itemsByID: itemsByID))
+                                if case .generated(let id) = reference,
+                                   let visualResource = itemsByID[id].flatMap({ visualResourcesByID[$0.visualResourceID] }),
+                                   let image = UIImage(data: PixelArtTextureRenderer.render(visualResource, pixelScale: 4)) {
+                                    Image(uiImage: image)
+                                        .interpolation(.none)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .padding(8)
+                                } else {
+                                    IngredientLabelGlyph(ingredient: IngredientLabel(reference: reference, itemsByID: itemsByID))
+                                }
                             }
                         }
                 }
@@ -560,50 +575,14 @@ private struct IngredientLabelGlyph: View {
     let ingredient: IngredientLabel
 
     var body: some View {
-        switch ingredient.path {
-        case "stick":
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color.craftberryStick)
-                .frame(width: 7, height: 31)
-                .rotationEffect(.degrees(38))
-        case "blaze_rod":
-            Capsule()
-                .fill(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
-                .frame(width: 12, height: 32)
-                .rotationEffect(.degrees(38))
-        case "redstone":
-            Image(systemName: "sparkles")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.red)
-        case "quartz":
-            Image(systemName: "triangle.fill")
-                .font(.title2)
-                .foregroundStyle(.white)
-                .rotationEffect(.degrees(180))
-        case "amethyst_shard":
-            Image(systemName: "triangle.fill")
-                .font(.title2)
-                .foregroundStyle(.purple)
-                .rotationEffect(.degrees(180))
-        case "iron_ingot", "gold_ingot", "netherite_ingot":
-            RoundedRectangle(cornerRadius: 3)
-                .fill(ingredient.color)
-                .frame(width: 29, height: 15)
-                .rotationEffect(.degrees(-8))
-        case "lapis_lazuli":
-            Circle()
-                .fill(.blue)
-                .frame(width: 22, height: 22)
-        case "emerald":
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.green)
-                .frame(width: 22, height: 22)
-                .rotationEffect(.degrees(45))
-        case "diamond":
-            Image(systemName: "diamond.fill")
-                .font(.title2)
-                .foregroundStyle(Color.craftberryBlue)
-        default:
+        if let data = PixelArtTextureRenderer.renderVanillaMaterial(identifier: ingredient.identifier, pixelScale: 4),
+           let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .interpolation(.none)
+                .resizable()
+                .scaledToFit()
+                .padding(4)
+        } else {
             Image(systemName: "cube.fill")
                 .font(.title2)
                 .foregroundStyle(Color.craftberryMuted)
@@ -878,24 +857,6 @@ private extension Color {
 }
 
 private extension IngredientSummary {
-    var color: Color {
-        switch path {
-        case "diamond": .craftberryBlue
-        case "emerald": .green
-        case "iron_ingot": .gray
-        case "gold_ingot": .craftberryGold
-        case "netherite_ingot": .purple
-        case "amethyst_shard": .purple
-        case "blaze_rod": .orange
-        case "redstone": .red
-        case "lapis_lazuli": .blue
-        case "quartz": .white
-        default: .craftberryMuted
-        }
-    }
-}
-
-private extension IngredientLabel {
     var color: Color {
         switch path {
         case "diamond": .craftberryBlue
