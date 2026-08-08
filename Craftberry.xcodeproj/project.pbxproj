@@ -46,6 +46,7 @@
 		A10000000000000000000034 /* MinecraftInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* MinecraftInspection.swift */; };
 		A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* MinecraftE2EHarness.swift */; };
 		A10000000000000000000040 /* MinecraftStepExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* MinecraftStepExecutor.swift */; };
+		A10000000000000000000041 /* MinecraftDebuggerConsole.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000046 /* MinecraftDebuggerConsole.swift */; };
 		A10000000000000000000036 /* RecipeBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* RecipeBook.swift */; };
 /* End PBXBuildFile section */
 
@@ -111,6 +112,7 @@
 		A20000000000000000000039 /* MinecraftInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftInspection.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* MinecraftE2EHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftE2EHarness.swift; sourceTree = "<group>"; };
 		A20000000000000000000045 /* MinecraftStepExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftStepExecutor.swift; sourceTree = "<group>"; };
+		A20000000000000000000046 /* MinecraftDebuggerConsole.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftDebuggerConsole.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* RecipeBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeBook.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -235,6 +237,7 @@
 				A20000000000000000000039 /* MinecraftInspection.swift */,
 				A20000000000000000000040 /* MinecraftE2EHarness.swift */,
 				A20000000000000000000045 /* MinecraftStepExecutor.swift */,
+				A20000000000000000000046 /* MinecraftDebuggerConsole.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -459,6 +462,7 @@
 				A10000000000000000000034 /* MinecraftInspection.swift in Sources */,
 				A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */,
 				A10000000000000000000040 /* MinecraftStepExecutor.swift in Sources */,
+				A10000000000000000000041 /* MinecraftDebuggerConsole.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

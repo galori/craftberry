@@ -147,6 +147,65 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(result.step, step)
     }
 
+    func testDebuggerConsoleRunCurrentStepExecutesOnceAndPreventsDuplicateExecution() {
+        let console = makeDebuggerConsole()
+        let step = MinecraftPhasedStep(id: "config:1", name: "Wait", action: .wait(seconds: 0))
+
+        XCTAssertNil(console.beforeStep(step), "Nothing ran the step during the checkpoint, so the harness should be told to run it itself.")
+        XCTAssertFalse(console.isCurrentStepExecuted)
+
+        let first = console.runCurrentStep()
+        XCTAssertEqual(first?.succeeded, true)
+        XCTAssertTrue(console.isCurrentStepExecuted)
+
+        XCTAssertNil(console.runCurrentStep(), "Running an already-executed step again must be a no-op.")
+    }
+
+    func testDebuggerConsoleSkipCurrentStepMarksExecutedWithoutRunningIt() {
+        let console = makeDebuggerConsole()
+        let step = MinecraftPhasedStep(id: "config:1", name: "Long wait", action: .wait(seconds: 999))
+        _ = console.beforeStep(step)
+
+        console.skipCurrentStep()
+
+        XCTAssertTrue(console.isCurrentStepExecuted)
+        XCTAssertEqual(console.lastResult?.succeeded, true)
+        XCTAssertNil(console.runCurrentStep(), "A skipped step must not also run.")
+    }
+
+    func testDebuggerConsoleResetsExecutionStateForEachNewStep() {
+        let console = makeDebuggerConsole()
+        let first = MinecraftPhasedStep(id: "config:1", name: "First", action: .wait(seconds: 0))
+        _ = console.beforeStep(first)
+        console.skipCurrentStep()
+        XCTAssertTrue(console.isCurrentStepExecuted)
+
+        let second = MinecraftPhasedStep(id: "config:2", name: "Second", action: .wait(seconds: 0))
+        XCTAssertNil(console.beforeStep(second), "A fresh step must not inherit the previous step's executed state.")
+        XCTAssertEqual(console.currentStep?.id, second.id)
+        XCTAssertFalse(console.isCurrentStepExecuted)
+    }
+
+    func testDebuggerConsoleAdHocWaitDoesNotAdvanceTheCurrentStep() {
+        let console = makeDebuggerConsole()
+        let step = MinecraftPhasedStep(id: "config:1", name: "Wait", action: .wait(seconds: 0))
+        _ = console.beforeStep(step)
+
+        console.wait(0)
+
+        XCTAssertFalse(console.isCurrentStepExecuted, "An arbitrary console command must not mark the planned step as executed.")
+        XCTAssertNotNil(console.runCurrentStep(), "The planned step must still be runnable after an ad hoc command.")
+    }
+
+    private func makeDebuggerConsole() -> MinecraftDebuggerConsole {
+        MinecraftDebuggerConsole(
+            app: XCUIApplication(),
+            executor: MinecraftStepExecutor(),
+            resolve: { $0 },
+            onScreenshot: { "" }
+        )
+    }
+
     func testPixelExpectationMatchesSyntheticPositiveAndNegativeImages() throws {
         let inspector = MinecraftPixelInspector()
         let expectation = MinecraftPixelExpectation.redCluster(xRange: 0.2...0.3, yRange: 0.2...0.3, minimumCount: 4)

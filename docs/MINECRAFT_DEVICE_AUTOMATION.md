@@ -148,6 +148,73 @@ Confirmed live on iPhone 16e / Minecraft 26.33:
   installed Craftberry-generated packs, and any active references from the
   configured cleanup world.
 
+## Interactive calibration: the LLDB debugger console
+
+`MinecraftDeviceE2EUITests` and `MinecraftE2EHarness` execute every step
+through `MinecraftStepExecutor`, which runs gestures/keyboard input/chat
+commands/OCR/pixel checks against Minecraft and returns a
+`MinecraftStepResult` instead of failing the test itself. Around each step,
+`MinecraftE2EHarness` calls `MinecraftDebuggerConsole.beforeStep`/`afterStep`,
+which hit `@inline(never)` checkpoint methods — this is this harness's
+`binding.irb`: a place to stop mid-run and drive Minecraft from the debugger
+rather than only diagnosing from a completed run's screenshots afterward.
+
+### Breaking into a run
+
+1. Run the target scenario through Xcode (or `xcodebuild test`) with the
+   iPhone connected over USB, same as any other `MinecraftDeviceE2EUITests`
+   run.
+2. Set an Xcode breakpoint on `MinecraftDebuggerConsole.beforeStepCheckpoint`
+   (before a step runs) or `.afterStepCheckpoint` (after it ran, whether
+   automatically or manually). Both are private methods, so add the
+   breakpoint by symbol name (`Debug > Breakpoints > Symbolic Breakpoint...`)
+   rather than clicking a gutter.
+3. When the breakpoint hits, the run is paused mid-test with Minecraft in
+   whatever state it was just in. Use the LLDB console (Xcode's Debug Area)
+   to inspect and act.
+
+### Commands, from LLDB's `expr` prompt
+
+`MinecraftDebuggerConsole.current` holds the console for the run currently
+paused at a checkpoint:
+
+```
+(lldb) expr MinecraftDebuggerConsole.current?.currentStep
+(lldb) expr MinecraftDebuggerConsole.current?.recognizedText()
+(lldb) expr MinecraftDebuggerConsole.current?.screenshot()
+(lldb) expr MinecraftDebuggerConsole.current?.tap(0.5, 0.443)
+(lldb) expr MinecraftDebuggerConsole.current?.drag(0.5, 0.8, 0.5, 0.3)
+(lldb) expr MinecraftDebuggerConsole.current?.swipeUp()
+(lldb) expr MinecraftDebuggerConsole.current?.keyboardText("emerald")
+(lldb) expr MinecraftDebuggerConsole.current?.numericKeyboardText("100")
+(lldb) expr MinecraftDebuggerConsole.current?.chatCommand("/tp @s 1 2 3")
+(lldb) expr MinecraftDebuggerConsole.current?.wait(2)
+(lldb) expr MinecraftDebuggerConsole.current?.runCurrentStep()
+(lldb) expr MinecraftDebuggerConsole.current?.skipCurrentStep()
+(lldb) continue
+```
+
+- `tap`/`drag`/`swipeUp`/`keyboardText`/`numericKeyboardText`/`chatCommand`
+  are ad hoc: they run through the same `MinecraftStepExecutor` as planned
+  steps, but never mark `currentStep` as executed — use them to explore or
+  nudge past a stuck screen without disturbing the plan.
+- `runCurrentStep()` runs the step the harness is paused on. Once run, `continue`
+  will not run it again — `beforeStep` sees `isCurrentStepExecuted` and skips
+  straight to the next step.
+- `skipCurrentStep()` marks the current step done without running it (useful
+  when you've already gotten Minecraft into the step's target state by hand).
+- `screenshot()` attaches to the Xcode test report (visible after the run
+  ends or via the live Test navigator) since the on-device process has no
+  direct path back to files on the Mac.
+
+### When to reach for this vs. the plain XCTest run
+
+Use the debugger console when calibrating new steps or diagnosing a step that
+fails inconsistently — anywhere you'd otherwise be guessing from a completed
+run's attached screenshots. For scenarios that are already calibrated, run
+the plain `xcodebuild test` path with no breakpoints; the harness behaves
+identically either way.
+
 ## Deleting a downloaded file from Files (cleanup)
 
 Confirmed live: a file downloaded via Safari into Files' Downloads location

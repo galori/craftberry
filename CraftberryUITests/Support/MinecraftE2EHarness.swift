@@ -78,16 +78,29 @@ final class MinecraftE2EHarness {
         Thread.sleep(forTimeInterval: 8)
         testCase.attachScreenshot("Minecraft cold launch after importing Craftberry's \(scenario.projectName)")
 
+        let console = MinecraftDebuggerConsole(
+            app: minecraft,
+            executor: executor,
+            resolve: { self.resolved($0, scenario: scenario) },
+            onScreenshot: { [testCase] in
+                let label = "Debugger console checkpoint screenshot"
+                testCase.attachScreenshot(label)
+                return "Attached to the Xcode test report as '\(label)'."
+            }
+        )
+        MinecraftDebuggerConsole.current = console
+        testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }
+
         let phasedConfigSteps = configuration.steps.phased(as: .config)
         for (index, step) in phasedConfigSteps.enumerated() {
-            run(step, in: minecraft, scenario: scenario)
+            run(step, using: console)
             observeIfRequested(afterStep: step.name, index: index + 1, total: phasedConfigSteps.count, phase: "config")
         }
 
         let craftingSteps = compiler.compile(scenario.craftingPlan)
         let phasedCraftingSteps = craftingSteps.phased(as: .crafting)
         for (index, step) in phasedCraftingSteps.enumerated() {
-            run(step, in: minecraft, scenario: scenario)
+            run(step, using: console)
             if !craftingSteps[index].isPassiveObservation {
                 observeIfRequested(afterStep: step.name, index: index + 1, total: phasedCraftingSteps.count, phase: "crafting")
             }
@@ -128,11 +141,16 @@ final class MinecraftE2EHarness {
         )
     }
 
-    /// Runs one phased step through `MinecraftStepExecutor`, attaches the normal per-step
-    /// screenshot, and converts a failed result into an XCTest failure — matching the executor's
-    /// pre-extraction behavior of recording a failure and continuing rather than aborting the run.
-    private func run(_ step: MinecraftPhasedStep, in minecraft: XCUIApplication, scenario: MinecraftE2EScenario) {
-        let result = executor.execute(step, in: minecraft, resolve: { self.resolved($0, scenario: scenario) })
+    /// Runs one phased step via the debugger console's before/after checkpoints, attaches the
+    /// normal per-step screenshot, and converts a failed result into an XCTest failure — matching
+    /// the pre-extraction behavior of recording a failure and continuing rather than aborting the
+    /// run. `beforeStep` hits an `@inline(never)` checkpoint a human/agent can break on; if they
+    /// ran or skipped the step from LLDB while paused there, its result comes back from
+    /// `beforeStep` and `runCurrentStep` here is a no-op.
+    private func run(_ step: MinecraftPhasedStep, using console: MinecraftDebuggerConsole) {
+        let result = console.beforeStep(step) ?? console.runCurrentStep()
+            ?? .failure(step, reason: "Step '\(step.name)' (\(step.id)) produced no result.")
+        console.afterStep(result)
         testCase.attachScreenshot(step.name)
         if !result.succeeded {
             XCTFail(result.failureReason ?? "Step '\(step.name)' (\(step.id)) failed with no reason.")
