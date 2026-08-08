@@ -494,7 +494,7 @@ cmd_tap() {
     if [[ $# -ne 2 ]]; then echo "error: tap requires <x> <y>" >&2; exit 1; fi
     local x="$1" y="$2"
     local req
-    req="$(python3 -c "import json; print(json.dumps({'command':'tap','x':float(sys.argv[1]),'y':float(sys.argv[2])}))" "$x" "$y")"
+    req="$(python3 -c "import json, sys; print(json.dumps({'command':'tap','x':float(sys.argv[1]),'y':float(sys.argv[2])}))" "$x" "$y")"
     cmd_simple "$req" "tap"
 }
 
