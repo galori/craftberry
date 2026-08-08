@@ -92,7 +92,12 @@ find_world_dir_names() {
         dir="$AFC_BASE/minecraftWorlds/$name"
         local level_file
         if level_file="$(afc_get_to_temp "$dir/levelname.txt" "levelname-$name.txt")"; then
-            if [[ "$(cat "$level_file")" == "$WORLD_NAME" ]]; then
+            # Substring match, not exact: the E2E config appends the marker text to
+            # whatever's already in the name field (e.g. "New World" + " craftberry test"),
+            # but when that field is empty to start, the level name is literally the
+            # marker itself (" craftberry test", leading space and all) — an exact-equality
+            # check silently never matches that case and leaks the world every run.
+            if [[ "$(cat "$level_file")" == *"$WORLD_NAME"* ]]; then
                 printf '%s\n' "$name"
             fi
         fi

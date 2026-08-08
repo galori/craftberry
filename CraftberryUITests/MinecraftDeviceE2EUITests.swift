@@ -44,6 +44,18 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
     }
 }
 
+/// Where each recipe's output lands in the hotbar.
+///
+/// Taking an output drops it into the lowest-numbered free slot, so the slot a recipe should tap is
+/// a consequence of what the run has already put there — not a free choice. The first recipe of a
+/// scenario always crafts into an empty hotbar. A scenario that resets the crafting table between
+/// recipes then returns that recipe's four part-used ingredient stacks to slots 2...5, so its second
+/// recipe lands in slot 6. Derived rather than measured per recipe, because a stale hand-measured
+/// coordinate silently taps a neighbouring slot and reads the wrong item's name.
+private let layout = MinecraftCalibratedLayout()
+private let firstCraftSlot = layout.hotbarSlot(1)
+private let slotAfterIngredientsReturn = layout.hotbarSlot(6)
+
 extension MinecraftE2EScenario {
     static let emeraldSword = MinecraftE2EScenario(
         launchArgument: "--ui-testing-emerald-sword",
@@ -62,11 +74,11 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("$EXPECTED_CRAFTED_ITEM_NAME"),
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: false
                 )
             ],
-            finalHotbarTap: MinecraftCoordinate(x: 0.57, y: 0.92)
+            finalHotbarTap: firstCraftSlot
         )
     )
 
@@ -86,7 +98,7 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Redstone Ingot"),
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
                 .init(
@@ -97,7 +109,7 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: .pixels(.redstonePickaxeOutput),
                     afterPickupVerification: nil,
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],
@@ -121,7 +133,7 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Redstone Ingot"),
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
                 .init(
@@ -132,7 +144,7 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Redstone Spear"),
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],
@@ -156,7 +168,7 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Redstone Ingot"),
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
                 .init(
@@ -166,7 +178,7 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Redstone Boots"),
-                    outputDestination: MinecraftCoordinate(x: 0.611, y: 0.91),
+                    outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],

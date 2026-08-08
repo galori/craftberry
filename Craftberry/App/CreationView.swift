@@ -9,6 +9,7 @@ struct CreationView: View {
     @ObservedObject var viewModel: CreationViewModel
     @State private var shareItem: ShareItem?
     @State private var suggestions = ExamplePromptLibrary.selection()
+    @FocusState private var isPromptFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,13 @@ struct CreationView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { isPromptFocused = false }
+                        .accessibilityIdentifier("craftberry.dismissKeyboard")
+                }
+            }
         }
         .preferredColorScheme(.dark)
         .sheet(item: $shareItem) { item in
@@ -298,6 +306,7 @@ struct CreationView: View {
                         .frame(minHeight: 48, maxHeight: 92)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 3)
+                        .focused($isPromptFocused)
                         .accessibilityLabel("Add-on description")
                         .accessibilityIdentifier("craftberry.prompt")
                 }

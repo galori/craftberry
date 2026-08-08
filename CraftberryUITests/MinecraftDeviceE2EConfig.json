@@ -53,8 +53,8 @@
     {
       "name": "Toggle Creative game mode",
       "action": "tap",
-      "x": 0.8095,
-      "y": 0.4567
+      "x": 0.8,
+      "y": 0.454
     },
     {
       "name": "Wait for the Creative-mode achievements notice",
@@ -62,18 +62,7 @@
       "seconds": 2
     },
     {
-      "name": "Open the Advanced tab",
-      "action": "tap",
-      "x": 0.09,
-      "y": 0.968
-    },
-    {
-      "name": "Wait for the Advanced form",
-      "action": "wait",
-      "seconds": 2
-    },
-    {
-      "name": "Scroll the sidebar down toward Cheats",
+      "name": "Scroll the sidebar down to reveal Cheats, Advanced, Resource packs, and Behavior packs",
       "action": "drag",
       "x": 0.15,
       "y": 0.88,
@@ -81,7 +70,7 @@
       "endY": 0.2
     },
     {
-      "name": "Finish scrolling the sidebar down toward Cheats",
+      "name": "Finish scrolling the sidebar down to reveal the pack and cheat tabs",
       "action": "drag",
       "x": 0.15,
       "y": 0.88,
@@ -96,8 +85,8 @@
     {
       "name": "Open the Cheats tab",
       "action": "tap",
-      "x": 0.1775,
-      "y": 0.6006
+      "x": 0.15,
+      "y": 0.569
     },
     {
       "name": "Wait for the Cheats form",
@@ -107,8 +96,8 @@
     {
       "name": "Activate Cheats (needed for the fresh-world /tp and /setblock commands)",
       "action": "tap",
-      "x": 0.931,
-      "y": 0.1753
+      "x": 0.91,
+      "y": 0.168
     },
     {
       "name": "Wait for Cheats to enable",
@@ -116,10 +105,10 @@
       "seconds": 1
     },
     {
-      "name": "Return to the Advanced tab for the World seed field",
+      "name": "Open the Advanced tab for the World seed field",
       "action": "tap",
-      "x": 0.09,
-      "y": 0.397
+      "x": 0.15,
+      "y": 0.364
     },
     {
       "name": "Wait for the Advanced form",
@@ -215,24 +204,16 @@
     {
       "name": "Open the craftberry test world edit screen",
       "action": "tap",
-      "x": 0.9225,
-      "y": 0.4513
+      "x": 0.2315,
+      "y": 0.6829
     },
     {
       "name": "Wait for craftberry test world settings",
       "action": "wait",
-      "seconds": 2
+      "seconds": 3
     },
     {
-      "name": "Scroll the settings sidebar toward pack controls",
-      "action": "drag",
-      "x": 0.2,
-      "y": 0.88,
-      "endX": 0.2,
-      "endY": 0.2
-    },
-    {
-      "name": "Finish scrolling the settings sidebar to pack controls",
+      "name": "Scroll the settings sidebar down to reveal Resource packs and Behavior packs",
       "action": "drag",
       "x": 0.2,
       "y": 0.88,
@@ -247,24 +228,13 @@
     {
       "name": "Open Behavior Packs",
       "action": "tap",
-      "x": 0.2,
-      "y": 0.81
-    },
-    {
-      "name": "Wait before retrying Behavior Packs navigation",
-      "action": "wait",
-      "seconds": 1
-    },
-    {
-      "name": "Retry opening Behavior Packs",
-      "action": "tap",
-      "x": 0.2,
-      "y": 0.81
+      "x": 0.15,
+      "y": 0.774
     },
     {
       "name": "Wait for Behavior Packs to finish rendering",
       "action": "wait",
-      "seconds": 5
+      "seconds": 3
     },
     {
       "name": "Confirm the Behavior Packs screen is open",
@@ -274,8 +244,8 @@
     {
       "name": "Open Available Behavior Packs",
       "action": "tap",
-      "x": 0.82,
-      "y": 0.38
+      "x": 0.8,
+      "y": 0.167
     },
     {
       "name": "Wait for available behavior packs",
@@ -290,8 +260,8 @@
     {
       "name": "Activate the imported behavior pack",
       "action": "tap",
-      "x": 0.94,
-      "y": 0.295
+      "x": 0.915,
+      "y": 0.331
     },
     {
       "name": "Wait for Minecraft's add-on stacking warning",
@@ -307,7 +277,7 @@
       "name": "Accept the add-on stacking warning",
       "action": "tap",
       "x": 0.5,
-      "y": 0.705
+      "y": 0.703
     },
     {
       "name": "Wait for behavior and dependent resource activation",
@@ -317,8 +287,8 @@
     {
       "name": "Open Active Behavior Packs",
       "action": "tap",
-      "x": 0.51,
-      "y": 0.17
+      "x": 0.505,
+      "y": 0.167
     },
     {
       "name": "Wait for active behavior packs",
@@ -333,19 +303,19 @@
     {
       "name": "Open Resource Packs after behavior activation",
       "action": "tap",
-      "x": 0.2,
-      "y": 0.7
+      "x": 0.15,
+      "y": 0.671
     },
     {
       "name": "Wait for Resource Packs after behavior activation",
       "action": "wait",
-      "seconds": 5
+      "seconds": 3
     },
     {
       "name": "Open Active Resource Packs",
       "action": "tap",
-      "x": 0.51,
-      "y": 0.17
+      "x": 0.505,
+      "y": 0.167
     },
     {
       "name": "Wait for active resource packs",

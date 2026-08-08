@@ -3,10 +3,31 @@ import CoreGraphics
 struct MinecraftCalibratedLayout {
     let creativeSearchField = MinecraftCoordinate(x: 0.29, y: 0.155)
     let creativeSearchClearButton = MinecraftCoordinate(x: 0.463, y: 0.155)
-    let craftingOutput = MinecraftCoordinate(x: 0.709, y: 0.756)
-    let stagingHotbarSlot = MinecraftCoordinate(x: 0.611, y: 0.91)
-    let closeCraftingTable = MinecraftCoordinate(x: 0.947, y: 0.065)
+    // Measured centre of the output slot, whose plate spans x 0.673...0.724 and y 0.651...0.762.
+    // The previous y of 0.756 sat about six pixels inside the slot's edge: it took the first
+    // recipe's output and then missed the second's, leaving the finished item sitting in the slot
+    // while the run carried on as though it had been collected.
+    let craftingOutput = MinecraftCoordinate(x: 0.6981, y: 0.7064)
+    // Measured centre of the close button, whose plate spans x 0.896...0.951 and y 0.022...0.120.
+    // The previous 0.947 sat about nine pixels inside the right edge and missed intermittently —
+    // confirmed live, where the tap left the crafting table open and so left the finished recipe's
+    // leftover stacks in the grid, corrupting the next recipe rather than failing outright.
+    let closeCraftingTable = MinecraftCoordinate(x: 0.9232, y: 0.0709)
     let reopenCraftingTable = MinecraftCoordinate(x: 0.5075, y: 0.265)
+
+    /// A hotbar slot, numbered 1...9 from the left.
+    ///
+    /// Taking a crafting output drops it into the lowest-numbered free slot, and Minecraft renders
+    /// an item's name only in the tooltip raised by tapping the slot it landed in — so a recipe has
+    /// to know its slot exactly. Hand-computing those coordinates per recipe is what produced the
+    /// bug this replaces: a stack of leftover ingredients returned to the hotbar on the table
+    /// close, the assumed slot was two places off, and the tap raised a "Redstone Dust" tooltip
+    /// instead of the crafted item's. Row centre and a 0.0555 pitch — the same step the crafting
+    /// grid's columns use — are both measured off a device screenshot.
+    func hotbarSlot(_ slot: Int) -> MinecraftCoordinate {
+        precondition((1...9).contains(slot), "Minecraft's hotbar has nine slots.")
+        return MinecraftCoordinate(x: 0.2775 + (CGFloat(slot - 1) * 0.0555), y: 0.8701)
+    }
 
     func creativeResult(column: Int) -> MinecraftCoordinate {
         precondition((1...4).contains(column), "Only calibrated first-row Creative result columns may be used.")

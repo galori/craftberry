@@ -1,5 +1,13 @@
 import Foundation
 
+/// TEMPORARY — remove once the crafted-item destination is understood.
+///
+/// Pauses either side of the final recipe's output tap so an operator watching the device can
+/// report what Minecraft actually does. The harness's `MINECRAFT_E2E_OBSERVE_EACH_STEP` pause
+/// cannot be used here: host environment variables do not reach the on-device test runner.
+private let observeBeforeFinalTake: TimeInterval = 60
+private let observeAfterFinalTake: TimeInterval = 45
+
 struct MinecraftCraftingPlanCompiler {
     var layout = MinecraftCalibratedLayout()
 
@@ -43,11 +51,27 @@ struct MinecraftCraftingPlanCompiler {
         if let verification = recipe.beforePickupVerification {
             steps.append(step(for: verification, name: "Confirm \(recipe.outputName) output is visible"))
         }
+        if isLastRecipe {
+            steps.append(MinecraftStep(name: "PAUSE — look at the device now", action: .wait(seconds: observeBeforeFinalTake)))
+        }
         steps.append(.tap("Take \(recipe.outputName) output", layout.craftingOutput))
+        if isLastRecipe {
+            steps.append(MinecraftStep(name: "PAUSE — the take just happened", action: .wait(seconds: observeAfterFinalTake)))
+        }
+        // Taking the output drops it straight into the hotbar, and Minecraft renders an item's name
+        // only in the tooltip raised by tapping that hotbar slot — nothing on the crafting screen
+        // spells the name out. So the name assertion has to come after the hotbar tap, not before
+        // it, or it always reads a screen with no name on it. The tooltip fades after about a
+        // second, hence no wait in between.
+        steps.append(.tap("Select \(recipe.outputName) in the hotbar", recipe.outputDestination))
         if let verification = recipe.afterPickupVerification {
             steps.append(step(for: verification, name: "Confirm crafted \(recipe.outputName)"))
+            // While the tooltip is up it swallows the next tap: confirmed live that closing the
+            // crafting table immediately after reading the tooltip only dismissed the tooltip, left
+            // the table open, and so left the previous recipe's leftover stacks sitting in the grid
+            // to corrupt the next recipe. Let it fade before anything else is tapped.
+            steps.append(MinecraftStep(name: "Wait for the \(recipe.outputName) tooltip to fade", action: .wait(seconds: 2)))
         }
-        steps.append(.tap("Put \(recipe.outputName) in inventory", recipe.outputDestination))
 
         if recipe.shouldResetTableAfterPickup {
             steps += resetCraftingTableSteps()

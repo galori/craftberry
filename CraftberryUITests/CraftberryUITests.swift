@@ -16,6 +16,7 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.tap()
         prompt.typeText("A cyan sword, 14 damage, crafted from diamonds")
+        dismissKeyboardIfPresent(in: app)
 
         app.buttons["craftberry.generate"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.generating", in: app, timeout: 3))
@@ -45,6 +46,7 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.tap()
         prompt.typeText("Generate a redstone tool set crafted from redstone")
+        dismissKeyboardIfPresent(in: app)
 
         app.buttons["craftberry.generate"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
@@ -95,5 +97,13 @@ final class CraftberryUITests: XCTestCase {
 
     private func waitForElement(_ identifier: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
         app.descendants(matching: .any)[identifier].waitForExistence(timeout: timeout)
+    }
+
+    /// The keyboard's Done accessory button sits directly above the software keyboard, which
+    /// otherwise overlaps and intercepts taps intended for the Generate button underneath it.
+    private func dismissKeyboardIfPresent(in app: XCUIApplication) {
+        let doneButton = app.buttons["craftberry.dismissKeyboard"]
+        guard doneButton.waitForExistence(timeout: 2) else { return }
+        doneButton.tap()
     }
 }
