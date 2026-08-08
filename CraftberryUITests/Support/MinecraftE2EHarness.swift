@@ -6,12 +6,14 @@ final class MinecraftE2EHarness {
     private let observationPauseEnvironmentKey = "MINECRAFT_E2E_OBSERVE_EACH_STEP"
     private let observationPauseSecondsEnvironmentKey = "MINECRAFT_E2E_OBSERVE_SECONDS"
     private let compiler = MinecraftCraftingPlanCompiler()
-    private let commandKeyboard = MinecraftCommandKeyboard()
     private let ocr = MinecraftOCRInspector()
-    private let pixels = MinecraftPixelInspector()
+    private let executor: MinecraftStepExecutor
 
     init(testCase: XCTestCase) {
         self.testCase = testCase
+        self.executor = MinecraftStepExecutor(onIntermediateScreenshot: { [testCase] name in
+            testCase.attachScreenshot(name)
+        })
     }
 
     func run(_ scenario: MinecraftE2EScenario) throws {
@@ -76,16 +78,18 @@ final class MinecraftE2EHarness {
         Thread.sleep(forTimeInterval: 8)
         testCase.attachScreenshot("Minecraft cold launch after importing Craftberry's \(scenario.projectName)")
 
-        for (index, step) in configuration.steps.enumerated() {
-            try execute(step, in: minecraft, scenario: scenario)
-            observeIfRequested(afterStep: step.name, index: index + 1, total: configuration.steps.count, phase: "config")
+        let phasedConfigSteps = configuration.steps.phased(as: .config)
+        for (index, step) in phasedConfigSteps.enumerated() {
+            run(step, in: minecraft, scenario: scenario)
+            observeIfRequested(afterStep: step.name, index: index + 1, total: phasedConfigSteps.count, phase: "config")
         }
 
         let craftingSteps = compiler.compile(scenario.craftingPlan)
-        for (index, step) in craftingSteps.enumerated() {
-            try execute(step, in: minecraft, scenario: scenario)
-            if !step.isPassiveObservation {
-                observeIfRequested(afterStep: step.name, index: index + 1, total: craftingSteps.count, phase: "crafting")
+        let phasedCraftingSteps = craftingSteps.phased(as: .crafting)
+        for (index, step) in phasedCraftingSteps.enumerated() {
+            run(step, in: minecraft, scenario: scenario)
+            if !craftingSteps[index].isPassiveObservation {
+                observeIfRequested(afterStep: step.name, index: index + 1, total: phasedCraftingSteps.count, phase: "crafting")
             }
         }
     }
@@ -124,79 +128,15 @@ final class MinecraftE2EHarness {
         )
     }
 
-    private func execute(_ step: MinecraftStep, in minecraft: XCUIApplication, scenario: MinecraftE2EScenario) throws {
-        switch step.action {
-        case .wait(let seconds):
-            Thread.sleep(forTimeInterval: seconds)
-        case .tap(let x, let y):
-            minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap()
-        case .drag(let x, let y, let endX, let endY):
-            let start = minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y))
-            let end = minecraft.coordinate(withNormalizedOffset: CGVector(dx: endX, dy: endY))
-            // A fast synthesized flick (the previous plain press-then-drag) reads to Minecraft's
-            // custom UI engine as a swipe-to-go-back gesture on some screens (confirmed live: it
-            // silently bounced the Edit World pack-settings screen back to the world list instead
-            // of scrolling). Slow velocity plus a brief hold at the end makes it land as a
-            // deliberate scroll instead.
-            start.press(forDuration: 0.2, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
-        case .swipeUp:
-            minecraft.swipeUp()
-        case .typeText(let text):
-            minecraft.typeText(text)
-        case .keyboardText(let text):
-            for character in text {
-                minecraft.keyboardKey(String(character)).tap()
-            }
-            minecraft.buttons["Done"].tap()
-        case .numericKeyboardText(let text):
-            let numericPlane = minecraft.keyboardKey("numbers")
-            XCTAssertTrue(
-                numericPlane.waitForExistence(timeout: 3),
-                "Could not find the keyboard's numeric-plane switch, so \(step.name) would type into the letters plane."
-            )
-            numericPlane.tap()
-            for character in text {
-                minecraft.keyboardKey(String(character)).tap()
-            }
-            minecraft.buttons["Done"].tap()
-        case .chatCommand(let text):
-            sendChatCommand(text, in: minecraft)
-        case .assertText(let rawExpected):
-            let expected = resolved(rawExpected, scenario: scenario)
-            XCTAssertTrue(
-                ocr.waitForRecognizedText(expected, timeout: 5),
-                "OCR did not find '\(expected)' after \(step.name). Recalibrate this step if Minecraft's UI changed."
-            )
-        case .assertPixels(let expectation):
-            XCTAssertTrue(
-                pixels.matches(expectation),
-                "The expected pixel cluster was not visible after \(step.name)."
-            )
-        }
+    /// Runs one phased step through `MinecraftStepExecutor`, attaches the normal per-step
+    /// screenshot, and converts a failed result into an XCTest failure — matching the executor's
+    /// pre-extraction behavior of recording a failure and continuing rather than aborting the run.
+    private func run(_ step: MinecraftPhasedStep, in minecraft: XCUIApplication, scenario: MinecraftE2EScenario) {
+        let result = executor.execute(step, in: minecraft, resolve: { self.resolved($0, scenario: scenario) })
         testCase.attachScreenshot(step.name)
-    }
-
-    private func sendChatCommand(_ text: String, in minecraft: XCUIApplication) {
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.0325)).tap()
-        Thread.sleep(forTimeInterval: 2)
-        testCase.attachScreenshot("Chat screen after tapping the chat button")
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.495, dy: 0.935)).tap()
-        Thread.sleep(forTimeInterval: 2)
-        testCase.attachScreenshot("Chat screen after focusing the command input field")
-        // The command keyboard drives raw key elements, so a missing keyboard here fails deep inside
-        // key lookup with no indication of which tap missed. Check it up front instead.
-        XCTAssertTrue(
-            minecraft.keyboards.element.waitForExistence(timeout: 5),
-            "The on-screen keyboard did not appear after focusing Minecraft's chat input, so the command could not be typed. Recalibrate the chat-input tap against the attached chat screenshots."
-        )
-        // Per-key taps rather than typeText: Minecraft's chat field is custom-drawn and never reports
-        // keyboard focus to the accessibility layer, so typeText fails with "Neither element nor any
-        // descendant has keyboard focus" even while the software keyboard is plainly up.
-        commandKeyboard.type(text, in: minecraft)
-        Thread.sleep(forTimeInterval: 1)
-        testCase.attachScreenshot("Chat input after typing the command")
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.9275, dy: 0.434)).tap()
-        Thread.sleep(forTimeInterval: 2)
+        if !result.succeeded {
+            XCTFail(result.failureReason ?? "Step '\(step.name)' (\(step.id)) failed with no reason.")
+        }
     }
 
     private func tapMinecraftShareDestination(in app: XCUIApplication) throws {

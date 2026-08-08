@@ -109,6 +109,44 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(events.contains(.coordinate(0.6225, 0.630)))
     }
 
+    func testPhasedStepsGetStableRunLocalIDsStartingAtOnePerPhase() {
+        let steps = [
+            MinecraftStep(name: "First", action: .wait(seconds: 1)),
+            MinecraftStep(name: "Second", action: .swipeUp),
+            MinecraftStep(name: "Third", action: .typeText("hi"))
+        ]
+
+        let configSteps = steps.phased(as: .config)
+        let craftingSteps = steps.phased(as: .crafting)
+
+        XCTAssertEqual(configSteps.map(\.id), ["config:1", "config:2", "config:3"])
+        XCTAssertEqual(craftingSteps.map(\.id), ["crafting:1", "crafting:2", "crafting:3"])
+        XCTAssertEqual(configSteps.map(\.name), steps.map(\.name))
+        XCTAssertEqual(configSteps.map(\.action), steps.map(\.action))
+    }
+
+    func testStepResultCarriesFailureReasonOnlyWhenFailed() {
+        let step = MinecraftPhasedStep(id: "config:1", name: "Tap something", action: .swipeUp)
+
+        let success = MinecraftStepResult.success(step)
+        XCTAssertTrue(success.succeeded)
+        XCTAssertNil(success.failureReason)
+
+        let failure = MinecraftStepResult.failure(step, reason: "did not land")
+        XCTAssertFalse(failure.succeeded)
+        XCTAssertEqual(failure.failureReason, "did not land")
+    }
+
+    func testExecutorRunsAWaitStepWithoutRequiringAnyAppInteraction() {
+        let executor = MinecraftStepExecutor()
+        let step = MinecraftPhasedStep(id: "config:1", name: "Brief wait", action: .wait(seconds: 0))
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.step, step)
+    }
+
     func testPixelExpectationMatchesSyntheticPositiveAndNegativeImages() throws {
         let inspector = MinecraftPixelInspector()
         let expectation = MinecraftPixelExpectation.redCluster(xRange: 0.2...0.3, yRange: 0.2...0.3, minimumCount: 4)
