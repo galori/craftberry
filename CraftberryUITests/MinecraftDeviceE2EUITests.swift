@@ -177,7 +177,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Boots"),
+                    afterPickupVerification: .text("Redstone"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
