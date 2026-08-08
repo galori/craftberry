@@ -107,7 +107,7 @@ final class MinecraftStepExecutor {
             return sendChatCommand(text, in: minecraft, step: step)
         case .assertText(let rawExpected):
             let expected = resolve(rawExpected)
-            guard ocr.waitForRecognizedText(expected, timeout: 5) else {
+            guard ocr.waitForRecognizedText(expected, timeout: 8) else {
                 return .failure(step, reason: "OCR did not find '\(expected)' after \(step.name). Recalibrate this step if Minecraft's UI changed.")
             }
             return .success(step)

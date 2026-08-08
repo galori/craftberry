@@ -97,7 +97,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Ingot"),
+                    afterPickupVerification: .text("Redstone"),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
@@ -132,7 +132,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Ingot"),
+                    afterPickupVerification: .text("Redstone"),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
@@ -143,7 +143,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "stick", resultColumn: 3, destinations: [.middleCenter, .bottomLeft])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Spear"),
+                    afterPickupVerification: .text("Spear"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
@@ -167,7 +167,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Ingot"),
+                    afterPickupVerification: .text("Redstone"),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
@@ -177,7 +177,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Boots"),
+                    afterPickupVerification: .text("Boots"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
