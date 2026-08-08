@@ -72,4 +72,24 @@ The test retains a screenshot after every calibrated action. Recalibrate after a
 
 After `xcodebuild test` exits, `scripts/ios-device.sh minecraft-e2e` runs `scripts/minecraft-cleanup.sh clean --delete-world --yes`. The XCTest teardown terminates Minecraft first so AFC can read Minecraft's Documents tree reliably, then the Mac-side cleanup deletes Craftberry-generated behavior/resource packs and the `craftberry test` world directly instead of navigating Minecraft's Storage UI.
 
+### Interactive calibration (agent and LLDB)
+
+For step-by-step calibration without timed pauses, the same plan is exposed
+through two interactive frontends that share the automatic Craftberry
+export/import and post-import cold launch:
+
+- **Agent JSON controller** (`scripts/minecraft-calibrate.sh`): a resumable
+  USB-only controller on `127.0.0.1:8765` via `iproxy`. See
+  `docs/MINECRAFT_DEVICE_AUTOMATION.md` for the full CLI lifecycle
+  (`start`, `status`, `list-steps`, `observe`, `step`, `run-until`,
+  `mark-complete`, `select-step`, ad hoc `tap`/`drag`/etc., `stop`).
+
+- **LLDB debugger console** (Xcode breakpoints on
+  `MinecraftDebuggerConsole.beforeStepCheckpoint` / `afterStepCheckpoint`):
+  drive the run from the Debug Area while paused. Also documented in
+  `docs/MINECRAFT_DEVICE_AUTOMATION.md`.
+
+Both replace the temporary `MINECRAFT_E2E_OBSERVE_*` pauses and the
+60/45-second crafting observation sleeps, which have been removed.
+
 The core is also exposed as the `CraftberryCore` Swift package target for isolated Swift 6 compiler tests. See [ROADMAP.md](ROADMAP.md) for the active architecture and delivery plan, [CAPABILITIES.md](CAPABILITIES.md) for profile support and verification status, and [PLAN.md](PLAN.md) for the historical sword POC plan.

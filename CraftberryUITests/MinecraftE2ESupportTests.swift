@@ -206,6 +206,251 @@ final class MinecraftE2ESupportTests: XCTestCase {
         )
     }
 
+    private func makeTestSteps(count: Int) -> [MinecraftPhasedStep] {
+        (1...count).map { i in
+            let phase = i <= 3 ? "config" : "crafting"
+            return MinecraftPhasedStep(id: "\(phase):\(i)", name: "Step \(i)", action: .wait(seconds: 0))
+        }
+    }
+
+    private func makeController(
+        steps: [MinecraftPhasedStep],
+        failOnIds: Set<String> = [],
+        screenshot: String? = "fake_base64",
+        ocr: String? = "fake ocr"
+    ) -> MinecraftCalibrationController {
+        MinecraftCalibrationController(
+            scenarioId: "--ui-testing-test",
+            allSteps: steps,
+            executePlanned: { step in
+                if failOnIds.contains(step.id) || failOnIds.contains(step.name) {
+                    return .failure(step, reason: "injected failure for \(step.id)")
+                }
+                return .success(step)
+            },
+            executeAdHoc: { action in
+                let adHoc = MinecraftPhasedStep(id: "calibration:adhoc", name: "Ad hoc", action: action)
+                if failOnIds.contains("adHoc") {
+                    return .failure(adHoc, reason: "ad hoc failure")
+                }
+                return .success(adHoc)
+            },
+            screenshotBase64Provider: { screenshot },
+            recognizedTextProvider: { ocr }
+        )
+    }
+
+    // MARK: - Calibration protocol
+
+    func testCalibrationProtocolCodingRoundTrips() throws {
+        let request = MinecraftCalibrationRequest(command: "tap", target: "config:12", x: 0.5, y: 0.443, text: "hello", seconds: 1.5, ocr: true)
+        let data = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(MinecraftCalibrationRequest.self, from: data)
+        XCTAssertEqual(request, decoded)
+
+        let response = MinecraftCalibrationResponse(
+            success: true,
+            scenario: "--ui-testing-emerald-sword",
+            phase: "config",
+            cursor: "config:3",
+            completedCount: 2,
+            totalCount: 10,
+            currentStep: MinecraftCalibrationStepInfo(id: "config:3", name: "Tap", action: "tap(0.5, 0.443)"),
+            nextStep: MinecraftCalibrationStepInfo(id: "config:4", name: "Wait", action: "wait(2.0)"),
+            lastResult: MinecraftCalibrationResultInfo(stepId: "config:2", stepName: "Prev", succeeded: true),
+            steps: [MinecraftCalibrationStepInfo(id: "config:1", name: "First", action: "wait(1.0)")],
+            screenshotBase64: "abc123",
+            recognizedText: "hello"
+        )
+        let rData = try JSONEncoder().encode(response)
+        let rDecoded = try JSONDecoder().decode(MinecraftCalibrationResponse.self, from: rData)
+        XCTAssertEqual(response, rDecoded)
+    }
+
+    func testCalibrationCursorAdvancementOnSuccess() {
+        let steps = makeTestSteps(count: 4)
+        let controller = makeController(steps: steps)
+
+        XCTAssertEqual(controller.cursor, 0)
+        XCTAssertEqual(controller.handle(MinecraftCalibrationRequest(command: "status")).cursor, "config:1")
+
+        let first = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertTrue(first.success)
+        XCTAssertEqual(controller.cursor, 1)
+        XCTAssertEqual(first.cursor, "config:2")
+        XCTAssertEqual(first.completedCount, 1)
+
+        let second = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertTrue(second.success)
+        XCTAssertEqual(controller.cursor, 2)
+    }
+
+    func testCalibrationFailureRetention() {
+        let steps = makeTestSteps(count: 3)
+        // Make second step fail
+        let controller = makeController(steps: steps, failOnIds: ["config:2"])
+
+        let first = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertTrue(first.success)
+        XCTAssertEqual(controller.cursor, 1)
+
+        let failed = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertFalse(failed.success)
+        XCTAssertEqual(controller.cursor, 1, "Failed step must not advance cursor")
+        XCTAssertEqual(failed.error, "injected failure for config:2")
+
+        // Retry still fails and cursor stays
+        let retry = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertFalse(retry.success)
+        XCTAssertEqual(controller.cursor, 1)
+    }
+
+    func testCalibrationRunUntilStopsBeforeTarget() {
+        let steps = makeTestSteps(count: 5)
+        let controller = makeController(steps: steps)
+
+        let result = controller.handle(MinecraftCalibrationRequest(command: "run_until", target: "crafting:4"))
+        XCTAssertTrue(result.success)
+        // Should run config:1, config:2, config:3 and stop before crafting:4 (index 3)
+        XCTAssertEqual(controller.cursor, 3)
+        XCTAssertEqual(result.cursor, "crafting:4")
+    }
+
+    func testCalibrationRunUntilStopsImmediatelyOnFailure() {
+        let steps = makeTestSteps(count: 5)
+        let controller = makeController(steps: steps, failOnIds: ["config:2"])
+
+        let result = controller.handle(MinecraftCalibrationRequest(command: "run_until", target: "crafting:5"))
+        XCTAssertFalse(result.success)
+        // Ran config:1 successfully, then config:2 failed and stopped
+        XCTAssertEqual(controller.cursor, 1)
+        XCTAssertEqual(result.error, "injected failure for config:2")
+    }
+
+    func testCalibrationRunUntilByName() {
+        let steps = makeTestSteps(count: 4)
+        let controller = makeController(steps: steps)
+
+        let result = controller.handle(MinecraftCalibrationRequest(command: "run_until", target: "Step 3"))
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(controller.cursor, 2)
+    }
+
+    func testCalibrationArbitraryActionsNeverAdvanceCursor() {
+        let steps = makeTestSteps(count: 3)
+        let controller = makeController(steps: steps)
+        let startCursor = controller.cursor
+
+        let tap = controller.handle(MinecraftCalibrationRequest(command: "tap", x: 0.5, y: 0.443))
+        XCTAssertTrue(tap.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+
+        let drag = controller.handle(MinecraftCalibrationRequest(command: "drag", x: 0.1, y: 0.2, endX: 0.3, endY: 0.4))
+        XCTAssertTrue(drag.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+
+        let chat = controller.handle(MinecraftCalibrationRequest(command: "chat_command", text: "/tp @s 1 2 3"))
+        XCTAssertTrue(chat.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+
+        let kb = controller.handle(MinecraftCalibrationRequest(command: "keyboard_text", text: "emerald"))
+        XCTAssertTrue(kb.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+
+        let wait = controller.handle(MinecraftCalibrationRequest(command: "wait", seconds: 0.01))
+        XCTAssertTrue(wait.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+    }
+
+    func testCalibrationMarkCompleteAdvancesWithoutExecuting() {
+        let steps = makeTestSteps(count: 3)
+        // Even if this step would fail, mark_complete should succeed and advance
+        let controller = makeController(steps: steps, failOnIds: ["config:1"])
+
+        let result = controller.handle(MinecraftCalibrationRequest(command: "mark_complete"))
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(controller.cursor, 1)
+        XCTAssertEqual(result.lastResult?.succeeded, true)
+        XCTAssertEqual(result.cursor, "config:2")
+    }
+
+    func testCalibrationSelectStepMovesCursorOnly() {
+        let steps = makeTestSteps(count: 5)
+        let controller = makeController(steps: steps)
+
+        // Advance two steps
+        _ = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        _ = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertEqual(controller.cursor, 2)
+
+        // Jump back
+        let back = controller.handle(MinecraftCalibrationRequest(command: "select_step", target: "config:1"))
+        XCTAssertTrue(back.success)
+        XCTAssertEqual(controller.cursor, 0)
+        XCTAssertEqual(back.cursor, "config:1")
+
+        // Jump forward by name
+        let forward = controller.handle(MinecraftCalibrationRequest(command: "select_step", target: "Step 5"))
+        XCTAssertTrue(forward.success)
+        XCTAssertEqual(controller.cursor, 4)
+    }
+
+    func testCalibrationSelectStepDoesNotRestoreUIState() {
+        // Verifies explicit contract: select-step changes only cursor.
+        let steps = makeTestSteps(count: 3)
+        let controller = makeController(steps: steps)
+        _ = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        let before = controller.cursor
+        _ = controller.handle(MinecraftCalibrationRequest(command: "select_step", target: "crafting:4"))
+        XCTAssertNotEqual(controller.cursor, before)
+        // No execution should have happened; lastResult still reflects the earlier step
+        XCTAssertEqual(controller.lastResult?.step.id, "config:1")
+    }
+
+    func testCalibrationReconnectSafeState() {
+        // Controller state persists across multiple handle calls (simulating reconnects)
+        let steps = makeTestSteps(count: 4)
+        let controller = makeController(steps: steps)
+
+        _ = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        _ = controller.handle(MinecraftCalibrationRequest(command: "tap", x: 0.1, y: 0.1))
+        XCTAssertEqual(controller.cursor, 1, "Ad hoc tap must not change cursor")
+
+        // New "connection" - same controller instance - sees updated cursor
+        let status = controller.handle(MinecraftCalibrationRequest(command: "status"))
+        XCTAssertEqual(status.cursor, "config:2")
+        XCTAssertEqual(status.completedCount, 1)
+
+        _ = controller.handle(MinecraftCalibrationRequest(command: "step"))
+        XCTAssertEqual(controller.cursor, 2)
+    }
+
+    func testCalibrationMalformedJSONAndUnknownCommandReturnError() {
+        // Malformed handling is server-level, but controller also returns error for unknown command
+        let steps = makeTestSteps(count: 2)
+        let controller = makeController(steps: steps)
+
+        let unknown = controller.handle(MinecraftCalibrationRequest(command: "bogus"))
+        XCTAssertFalse(unknown.success)
+        XCTAssertNotNil(unknown.error)
+
+        let missingTarget = controller.handle(MinecraftCalibrationRequest(command: "run_until"))
+        XCTAssertFalse(missingTarget.success)
+
+        let unknownStep = controller.handle(MinecraftCalibrationRequest(command: "select_step", target: "does-not-exist"))
+        XCTAssertFalse(unknownStep.success)
+    }
+
+    func testCalibrationListStepsReturnsAllPhasedIds() {
+        let steps = makeTestSteps(count: 5)
+        let controller = makeController(steps: steps)
+        let resp = controller.handle(MinecraftCalibrationRequest(command: "list_steps"))
+        XCTAssertTrue(resp.success)
+        XCTAssertEqual(resp.steps?.count, 5)
+        XCTAssertEqual(resp.steps?.first?.id, "config:1")
+        XCTAssertEqual(resp.steps?.last?.id, "crafting:5")
+    }
+
     func testPixelExpectationMatchesSyntheticPositiveAndNegativeImages() throws {
         let inspector = MinecraftPixelInspector()
         let expectation = MinecraftPixelExpectation.redCluster(xRange: 0.2...0.3, yRange: 0.2...0.3, minimumCount: 4)

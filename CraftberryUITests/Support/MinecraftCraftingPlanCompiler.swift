@@ -1,13 +1,5 @@
 import Foundation
 
-/// TEMPORARY — remove once the crafted-item destination is understood.
-///
-/// Pauses either side of the final recipe's output tap so an operator watching the device can
-/// report what Minecraft actually does. The harness's `MINECRAFT_E2E_OBSERVE_EACH_STEP` pause
-/// cannot be used here: host environment variables do not reach the on-device test runner.
-private let observeBeforeFinalTake: TimeInterval = 60
-private let observeAfterFinalTake: TimeInterval = 45
-
 struct MinecraftCraftingPlanCompiler {
     var layout = MinecraftCalibratedLayout()
 
@@ -51,13 +43,7 @@ struct MinecraftCraftingPlanCompiler {
         if let verification = recipe.beforePickupVerification {
             steps.append(step(for: verification, name: "Confirm \(recipe.outputName) output is visible"))
         }
-        if isLastRecipe {
-            steps.append(MinecraftStep(name: "PAUSE — look at the device now", action: .wait(seconds: observeBeforeFinalTake)))
-        }
         steps.append(.tap("Take \(recipe.outputName) output", layout.craftingOutput))
-        if isLastRecipe {
-            steps.append(MinecraftStep(name: "PAUSE — the take just happened", action: .wait(seconds: observeAfterFinalTake)))
-        }
         // Taking the output drops it straight into the hotbar, and Minecraft renders an item's name
         // only in the tooltip raised by tapping that hotbar slot — nothing on the crafting screen
         // spells the name out. So the name assertion has to come after the hotbar tap, not before

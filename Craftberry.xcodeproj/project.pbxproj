@@ -47,6 +47,11 @@
 		A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* MinecraftE2EHarness.swift */; };
 		A10000000000000000000040 /* MinecraftStepExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* MinecraftStepExecutor.swift */; };
 		A10000000000000000000041 /* MinecraftDebuggerConsole.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000046 /* MinecraftDebuggerConsole.swift */; };
+		A10000000000000000000047 /* MinecraftCalibrationProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000047 /* MinecraftCalibrationProtocol.swift */; };
+		A10000000000000000000048 /* MinecraftCalibrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000048 /* MinecraftCalibrationController.swift */; };
+		A10000000000000000000049 /* MinecraftCalibrationServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000049 /* MinecraftCalibrationServer.swift */; };
+		A10000000000000000000050 /* MinecraftCalibrationHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000050 /* MinecraftCalibrationHarness.swift */; };
+		A10000000000000000000051 /* MinecraftCalibrationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000051 /* MinecraftCalibrationUITests.swift */; };
 		A10000000000000000000036 /* RecipeBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* RecipeBook.swift */; };
 /* End PBXBuildFile section */
 
@@ -113,6 +118,11 @@
 		A20000000000000000000040 /* MinecraftE2EHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftE2EHarness.swift; sourceTree = "<group>"; };
 		A20000000000000000000045 /* MinecraftStepExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftStepExecutor.swift; sourceTree = "<group>"; };
 		A20000000000000000000046 /* MinecraftDebuggerConsole.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftDebuggerConsole.swift; sourceTree = "<group>"; };
+		A20000000000000000000047 /* MinecraftCalibrationProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationProtocol.swift; sourceTree = "<group>"; };
+		A20000000000000000000048 /* MinecraftCalibrationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationController.swift; sourceTree = "<group>"; };
+		A20000000000000000000049 /* MinecraftCalibrationServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationServer.swift; sourceTree = "<group>"; };
+		A20000000000000000000050 /* MinecraftCalibrationHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationHarness.swift; sourceTree = "<group>"; };
+		A20000000000000000000051 /* MinecraftCalibrationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* RecipeBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeBook.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -219,6 +229,7 @@
 				A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */,
 				A20000000000000000000031 /* MinecraftDeviceE2EUITests.swift */,
 				A20000000000000000000033 /* MinecraftE2ESupportTests.swift */,
+				A20000000000000000000051 /* MinecraftCalibrationUITests.swift */,
 				A40000000000000000000012 /* Support */,
 				A20000000000000000000029 /* MinecraftImportConfig.json */,
 				A20000000000000000000032 /* MinecraftDeviceE2EConfig.json */,
@@ -238,6 +249,10 @@
 				A20000000000000000000040 /* MinecraftE2EHarness.swift */,
 				A20000000000000000000045 /* MinecraftStepExecutor.swift */,
 				A20000000000000000000046 /* MinecraftDebuggerConsole.swift */,
+				A20000000000000000000047 /* MinecraftCalibrationProtocol.swift */,
+				A20000000000000000000048 /* MinecraftCalibrationController.swift */,
+				A20000000000000000000049 /* MinecraftCalibrationServer.swift */,
+				A20000000000000000000050 /* MinecraftCalibrationHarness.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -454,6 +469,7 @@
 				A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */,
 				A10000000000000000000026 /* MinecraftDeviceE2EUITests.swift in Sources */,
 				A10000000000000000000028 /* MinecraftE2ESupportTests.swift in Sources */,
+				A10000000000000000000051 /* MinecraftCalibrationUITests.swift in Sources */,
 				A10000000000000000000029 /* MinecraftE2EModels.swift in Sources */,
 				A10000000000000000000030 /* MinecraftCalibratedLayout.swift in Sources */,
 				A10000000000000000000031 /* MinecraftCraftingPlanCompiler.swift in Sources */,
@@ -463,6 +479,10 @@
 				A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */,
 				A10000000000000000000040 /* MinecraftStepExecutor.swift in Sources */,
 				A10000000000000000000041 /* MinecraftDebuggerConsole.swift in Sources */,
+				A10000000000000000000047 /* MinecraftCalibrationProtocol.swift in Sources */,
+				A10000000000000000000048 /* MinecraftCalibrationController.swift in Sources */,
+				A10000000000000000000049 /* MinecraftCalibrationServer.swift in Sources */,
+				A10000000000000000000050 /* MinecraftCalibrationHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

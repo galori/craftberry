@@ -215,6 +215,126 @@ run's attached screenshots. For scenarios that are already calibrated, run
 the plain `xcodebuild test` path with no breakpoints; the harness behaves
 identically either way.
 
+## Interactive calibration: the agent JSON controller
+
+The same plan that backs the LLDB console is also exposed to an agent on the
+Mac through a resumable USB-only JSON controller. It shares the automatic
+Craftberry generation/export/import and post-import cold launch, then waits
+indefinitely for controller commands instead of auto-running the steps.
+
+### Architecture
+
+- `MinecraftCalibrationUITests` has one test per scenario (emerald, redstone
+  tools/weapons/armor). Each performs the deterministic Craftberry export/import,
+  cold-launches Minecraft, then starts a `Network.framework` `NWListener` on
+  device port `8765`.
+- `scripts/minecraft-calibrate.sh` exposes that port on the Mac as
+  `127.0.0.1:8765` via `iproxy 8765:8765` (`-u <UDID>` when `DEVICE_ID` is set)
+  and speaks one newline-delimited JSON request per TCP connection.
+- Every response echoes the run's state: `success`/`error`, `scenario`,
+  `phase`, `cursor` (e.g. `config:12`), `completedCount`/`totalCount`,
+  `currentStep`/`nextStep`, `lastResult`, and for bulk queries `steps`.
+  `observe` additionally returns a base64 PNG (`screenshotBase64`) and, with
+  `--ocr`, Vision OCR text (`recognizedText`).
+- `MinecraftCalibrationController` owns the cursor. It advances only on
+  successful `step`/`run-until`; failed planned steps retain the cursor so the
+  operator can retry or inspect. `select-step` moves only the cursor and
+  explicitly does not restore Minecraft UI state. Arbitrary actions
+  (`tap`/`drag`/`swipe-up`/`keyboard-text`/`numeric-keyboard-text`/`chat-command`/`wait`)
+  never advance the cursor, even on success.
+
+### CLI lifecycle
+
+```sh
+# Start a session (emerald, redstone, weapon, or armor)
+scripts/minecraft-calibrate.sh start emerald --break-at config:12
+scripts/minecraft-calibrate.sh start redstone
+
+# Inspect the run
+scripts/minecraft-calibrate.sh status
+scripts/minecraft-calibrate.sh list-steps
+scripts/minecraft-calibrate.sh observe --ocr   # screenshot + OCR, saved under .build/minecraft-calibration/screenshots/
+
+# Drive the plan
+scripts/minecraft-calibrate.sh step
+scripts/minecraft-calibrate.sh run-until crafting:4    # stops before crafting:4, stops immediately on failure
+scripts/minecraft-calibrate.sh mark-complete            # skip current step without running it
+scripts/minecraft-calibrate.sh select-step config:3     # move cursor only
+
+# Ad hoc probing (never advances cursor)
+scripts/minecraft-calibrate.sh tap 0.5 0.443
+scripts/minecraft-calibrate.sh drag 0.5 0.8 0.5 0.3
+scripts/minecraft-calibrate.sh swipe-up
+scripts/minecraft-calibrate.sh keyboard-text emerald
+scripts/minecraft-calibrate.sh numeric-keyboard-text 12345678
+scripts/minecraft-calibrate.sh chat-command "/tp @s 100 80 95"
+scripts/minecraft-calibrate.sh wait 2
+
+# End the session
+scripts/minecraft-calibrate.sh stop              # terminates Minecraft + runs AFC cleanup
+scripts/minecraft-calibrate.sh stop --keep-state # leaves Minecraft, packs, and world untouched
+```
+
+`run-until` stops before its target and does not execute it; use `step`
+afterward to run the target itself. `select-step` takes either a stable id
+(`config:12`, `crafting:4`) or a human-readable step name.
+
+### Session tracking, reconnect, and cleanup
+
+- The script runs `xcodebuild` and `iproxy` as tracked background processes and
+  records `session.json`, `xcodebuild.log`, `iproxy.log`, a command
+  `transcript.log`, per-command result bundles, and decoded screenshots under
+  `.build/minecraft-calibration/`.
+- A second `start` while a session is active is refused with an actionable
+  error and the existing session's `session.json` is printed. The same
+  `stop`/`status`/`observe` commands work across agent turns (i.e. after the
+  `start` shell has exited) because they reconnect to `127.0.0.1:8765`.
+- `stop` (default) terminates Minecraft on the device and runs
+  `scripts/minecraft-cleanup.sh clean --delete-world --yes` after the XCTest
+  teardown has quit Minecraft, so AFC can read the Documents tree. With
+  `--keep-state` it leaves Minecraft, the installed packs, and the world in
+  place for manual inspection.
+- Malformed JSON, an unknown command, a stale session (xcodebuild already
+  exited), a port conflict on `8765`, a device disconnect, or an unexpected
+  XCTest exit each return a `{"success":false,"error":...}` JSON and preserve
+  logs. A stale `session.json` whose pids are no longer alive is treated as
+  stale and allows a new `start`.
+
+### Pause / human handoff / resume
+
+The controller does not impose timed pauses. To hand off to a human mid-run:
+
+1. Leave the session idle. Physical interaction on the device remains possible
+   while the controller is waiting — the listener is passive, not a blocking
+   modal.
+2. Let the human inspect or poke Minecraft directly on the device.
+3. Resume from the agent via `status`, `observe`, `step`, or `run-until`
+   without restarting the session.
+
+To resume an agent session after a human turn that manually advanced Minecraft,
+use `mark-complete` (if the human already achieved the current step's target
+state) or `select-step` to re-align the cursor; `select-step` will not attempt
+to undo the human's work.
+
+### Prerequisites and troubleshooting
+
+- Same prerequisites as the LLDB console: unlocked physical iPhone over USB,
+  Developer Mode, Minecraft installed, valid signing, `jq`/`python3`/`iproxy`
+  on PATH.
+- One calibration session and one physical iPhone at a time. The fixed device
+  port `8765` is acceptable because the host side binds only to `127.0.0.1`
+  and the listener exists only during the calibration UI test.
+- No API key is required; the calibration tests use the deterministic
+  `--ui-testing` fixtures, same as the plain E2E tests.
+- If `status` reports `could not reach calibration controller`, check
+  `.build/minecraft-calibration/xcodebuild.log` and `iproxy.log`. A common
+  cause is that Craftberry export/import is still running — the controller
+  only listens after the post-import cold launch.
+- Keep rotation lock on; the same orientation note as the LLDB console
+  applies.
+- If `start` reports `127.0.0.1:8765 is already in use`, stop the existing
+  session or free the port before starting another.
+
 ## Deleting a downloaded file from Files (cleanup)
 
 Confirmed live: a file downloaded via Safari into Files' Downloads location

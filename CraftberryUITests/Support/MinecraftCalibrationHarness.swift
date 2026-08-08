@@ -1,23 +1,28 @@
 import XCTest
 
-final class MinecraftE2EHarness {
+/// Shared setup for both the non-interactive `MinecraftE2EHarness` and the
+/// interactive calibration server. The calibration path reuses the deterministic
+/// Craftberry export/import/cold-launch sequence, then hands control to a
+/// `MinecraftCalibrationServer` on port 8765 instead of auto-running the steps.
+final class MinecraftCalibrationHarness {
     private let testCase: XCTestCase
     private let minecraftBundleID = "com.mojang.minecraftpe"
     private let compiler = MinecraftCraftingPlanCompiler()
     private let ocr = MinecraftOCRInspector()
-    private let executor: MinecraftStepExecutor
 
     init(testCase: XCTestCase) {
         self.testCase = testCase
-        self.executor = MinecraftStepExecutor(onIntermediateScreenshot: { [testCase] name in
-            testCase.attachScreenshot(name)
-        })
     }
 
-    func run(_ scenario: MinecraftE2EScenario) throws {
+    /// Performs Craftberry generation, export, Minecraft import, and cold launch,
+    /// then starts the calibration TCP server and waits indefinitely for
+    /// controller commands. This method never returns under normal operation; the
+    /// caller (`scripts/minecraft-calibrate.sh stop`) terminates the test
+    /// process externally.
+    func runCalibration(_ scenario: MinecraftE2EScenario, breakAt target: String? = nil) throws {
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
-            throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
+            throw XCTSkip("This is a physical-device calibration test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
         }
 
         let craftberry = XCUIApplication()
@@ -76,38 +81,56 @@ final class MinecraftE2EHarness {
         Thread.sleep(forTimeInterval: 8)
         testCase.attachScreenshot("Minecraft cold launch after importing Craftberry's \(scenario.projectName)")
 
-        let console = MinecraftDebuggerConsole(
+        // Build the calibration controller over the full phased plan.
+        let executor = MinecraftStepExecutor(onIntermediateScreenshot: { [testCase] name in
+            testCase.attachScreenshot(name)
+        })
+        let controller = MinecraftCalibrationController(
+            scenario: scenario,
+            configSteps: configuration.steps,
+            craftingPlan: scenario.craftingPlan,
+            compiler: compiler,
             app: minecraft,
             executor: executor,
-            resolve: { self.resolved($0, scenario: scenario) },
-            onScreenshot: { [testCase] in
-                let label = "Debugger console checkpoint screenshot"
-                testCase.attachScreenshot(label)
-                return "Attached to the Xcode test report as '\(label)'."
-            }
+            resolve: { self.resolved($0, scenario: scenario) }
         )
-        MinecraftDebuggerConsole.current = console
-        testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }
 
-        let phasedConfigSteps = configuration.steps.phased(as: .config)
-        for step in phasedConfigSteps {
-            run(step, using: console)
+        // Optional break-at: run until just before target before exposing the server.
+        if let target = target, !target.isEmpty {
+            if let targetIndex = controller.allSteps.firstIndex(where: { $0.id == target || $0.name == target }) {
+                while controller.cursor < targetIndex {
+                    let step = controller.allSteps[controller.cursor]
+                    // Use the controller's step handling so cursor/failure semantics match.
+                    let request = MinecraftCalibrationRequest(command: "step")
+                    let response = controller.handle(request)
+                    if !response.success {
+                        print("[CalibrationHarness] break-at pre-run failed at \(step.id): \(response.error ?? "unknown")")
+                        break
+                    }
+                }
+                print("[CalibrationHarness] break-at \(target) reached (cursor \(controller.cursor)/\(controller.allSteps.count))")
+            } else {
+                print("[CalibrationHarness] warning: break-at target '\(target)' not found; starting at beginning")
+            }
         }
 
-        let craftingSteps = compiler.compile(scenario.craftingPlan)
-        let phasedCraftingSteps = craftingSteps.phased(as: .crafting)
-        for step in phasedCraftingSteps {
-            run(step, using: console)
+        let server = MinecraftCalibrationServer(controller: controller)
+        do {
+            try server.start()
+            print("[CalibrationHarness] calibration server listening on 8765 for scenario \(scenario.launchArgument)")
+        } catch {
+            XCTFail("Failed to start calibration server: \(error)")
+            return
         }
+        testCase.addTeardownBlock { server.stop() }
+
+        // Keep the test alive indefinitely. `scripts/minecraft-calibrate.sh stop`
+        // terminates the xcodebuild process; until then we must not return.
+        print("[CalibrationHarness] waiting indefinitely for controller commands (scenario \(scenario.launchArgument))")
+        // RunLoop keeps the process responsive to NWListener callbacks while blocking return.
+        RunLoop.current.run()
     }
 
-    /// The keyboard toolbar's Done button (`craftberry.dismissKeyboard`) resigns the prompt text
-    /// editor's focus. Dismissal matters because the on-screen keyboard otherwise overlaps and
-    /// intercepts taps on the Generate button (both sit at the bottom of the screen) — confirmed
-    /// on a physical device/iOS version where backgrounding and reactivating the app did not
-    /// reliably resign focus on its own. Fail loudly rather than tap Generate while occluded,
-    /// which would silently mistap the keyboard and hang waiting for a state transition that
-    /// never happens.
     private func dismissKeyboard(in app: XCUIApplication) throws {
         guard app.keyboards.element.exists else { return }
         let doneButton = app.buttons["craftberry.dismissKeyboard"]
@@ -117,22 +140,6 @@ final class MinecraftE2EHarness {
             app.keyboards.element.exists,
             "The on-screen keyboard did not dismiss after tapping Done; it may still be covering the Generate button."
         )
-    }
-
-    /// Runs one phased step via the debugger console's before/after checkpoints, attaches the
-    /// normal per-step screenshot, and converts a failed result into an XCTest failure — matching
-    /// the pre-extraction behavior of recording a failure and continuing rather than aborting the
-    /// run. `beforeStep` hits an `@inline(never)` checkpoint a human/agent can break on; if they
-    /// ran or skipped the step from LLDB while paused there, its result comes back from
-    /// `beforeStep` and `runCurrentStep` here is a no-op.
-    private func run(_ step: MinecraftPhasedStep, using console: MinecraftDebuggerConsole) {
-        let result = console.beforeStep(step) ?? console.runCurrentStep()
-            ?? .failure(step, reason: "Step '\(step.name)' (\(step.id)) produced no result.")
-        console.afterStep(result)
-        testCase.attachScreenshot(step.name)
-        if !result.succeeded {
-            XCTFail(result.failureReason ?? "Step '\(step.name)' (\(step.id)) failed with no reason.")
-        }
     }
 
     private func tapMinecraftShareDestination(in app: XCUIApplication) throws {
@@ -174,5 +181,3 @@ final class MinecraftE2EHarness {
         }
     }
 }
-
-
