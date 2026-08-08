@@ -47,9 +47,11 @@ struct MinecraftCraftingPlanCompiler {
         // Taking the output drops it straight into the hotbar, and Minecraft renders an item's name
         // only in the tooltip raised by tapping that hotbar slot — nothing on the crafting screen
         // spells the name out. So the name assertion has to come after the hotbar tap, not before
-        // it, or it always reads a screen with no name on it. The tooltip fades after about a
-        // second, hence no wait in between.
         steps.append(.tap("Select \(recipe.outputName) in the hotbar", recipe.outputDestination))
+        // The tooltip appears after the hotbar tap and fades after ~1s. Give the UI a moment
+        // to raise it before OCR polls — confirmed live that redstone armor/boots need the tap
+        // to show the name, and without a brief pause the 0.5s poll can miss the transient text.
+        steps.append(MinecraftStep(name: "Wait for \(recipe.outputName) tooltip to appear", action: .wait(seconds: 0.8)))
         if let verification = recipe.afterPickupVerification {
             steps.append(step(for: verification, name: "Confirm crafted \(recipe.outputName)"))
             // While the tooltip is up it swallows the next tap: confirmed live that closing the

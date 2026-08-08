@@ -32,7 +32,7 @@ struct MinecraftOCRInspector {
             if let image = XCUIScreen.main.screenshot().image.cgImage, contains(expected, in: image) {
                 return true
             }
-            usleep(500_000)
+            usleep(150_000)
         } while Date() < deadline
         return false
     }
