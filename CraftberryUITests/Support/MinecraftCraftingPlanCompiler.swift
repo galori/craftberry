@@ -51,7 +51,10 @@ struct MinecraftCraftingPlanCompiler {
         // The tooltip appears after the hotbar tap and fades after ~1s. Give the UI a moment
         // to raise it before OCR polls — confirmed live that redstone armor/boots need the tap
         // to show the name, and without a brief pause the 0.5s poll can miss the transient text.
-        steps.append(MinecraftStep(name: "Wait for \(recipe.outputName) tooltip to appear", action: .wait(seconds: 0.8)))
+        // Live polling showed the tooltip only lives ~300ms after the tap is visible to Vision
+        // (seen at 0.2-0.35s, gone by 0.5s), so 0.8s leaves almost no window. Use 0.2s to start
+        // the 8s poll while the tooltip is still up.
+        steps.append(MinecraftStep(name: "Wait for \(recipe.outputName) tooltip to appear", action: .wait(seconds: 0.2)))
         if let verification = recipe.afterPickupVerification {
             steps.append(step(for: verification, name: "Confirm crafted \(recipe.outputName)"))
             // While the tooltip is up it swallows the next tap: confirmed live that closing the
