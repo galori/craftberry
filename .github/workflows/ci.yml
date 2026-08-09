@@ -24,4 +24,4 @@ jobs:
         run: swift test --parallel
 
       - name: Verify Xcode project builds
-        run: xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build -skipPackagePluginValidation
+        run: xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
