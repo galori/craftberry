@@ -187,6 +187,7 @@ struct CreationView: View {
                 .padding(.horizontal, 36)
             Spacer()
         }
+        .accessibilityIdentifier("craftberry.state.failed")
     }
 
     @ViewBuilder

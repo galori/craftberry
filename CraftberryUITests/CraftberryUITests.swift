@@ -66,6 +66,30 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 10))
     }
 
+    func testDeterministicRedstoneBlockSetCanBuild() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-redstone-block-set"]
+        app.launch()
+
+        XCTAssertTrue(waitForElement("craftberry.state.editing", in: app, timeout: 8))
+
+        let prompt = app.textViews["craftberry.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText("Generate a redstone block set crafted from redstone")
+        dismissKeyboardIfPresent(in: app)
+
+        app.buttons["craftberry.generate"].tap()
+        if !waitForElement("craftberry.state.ready", in: app, timeout: 8) {
+            if app.descendants(matching: .any)["craftberry.state.failed"].waitForExistence(timeout: 1) {
+                XCTFail("Block set generation failed (ready not reached, failed state present): \(app.debugDescription)")
+            } else {
+                XCTFail("Block set generation failed (neither ready nor failed): \(app.debugDescription)")
+            }
+        }
+        XCTAssertTrue(app.staticTexts["Redstone"].waitForExistence(timeout: 2))
+    }
+
     func testShufflingExamplePromptsShowsDifferentSuggestions() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]
