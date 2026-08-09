@@ -107,8 +107,8 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight]),
                         .init(searchText: "stick", resultColumn: 3, destinations: [.middleCenter, .bottomCenter])
                     ],
-                    beforePickupVerification: .pixels(.redstonePickaxeOutput),
-                    afterPickupVerification: nil,
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Pickaxe"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
