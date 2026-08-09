@@ -150,6 +150,8 @@ public enum PixelArtTextureRenderer {
         case .bootsPixelArt: renderBoots(color: resource.color, pixelScale: pixelScale)
         case .armorLayerOne: renderArmorLayer(color: resource.color, pixelScale: pixelScale)
         case .armorLayerTwo: renderArmorLayer(color: resource.color, pixelScale: pixelScale)
+        case .foodPixelArt: renderFood(color: resource.color, pixelScale: pixelScale)
+        case .fuelPixelArt: renderFuel(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -270,6 +272,42 @@ public enum PixelArtTextureRenderer {
 
     private static func renderBoots(color: PixelArtColor, pixelScale: Int) -> Data {
         renderArmorPiece(color: color, pixelScale: pixelScale, parts: [(9, 6, 6, 11), (17, 6, 6, 11)])
+    }
+
+    private static func renderFood(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        fill(8, 10, 16, 12, .outline)
+        fill(9, 11, 14, 10, palette.main)
+        fill(11, 12, 10, 3, palette.highlight)
+        fill(10, 18, 12, 2, palette.shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderFuel(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        fill(10, 8, 12, 16, .outline)
+        fill(11, 9, 10, 14, palette.main)
+        fill(12, 10, 6, 6, palette.highlight)
+        fill(12, 17, 8, 3, palette.shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 
     /// A 32x32 inventory icon for an armor piece, drawn as a set of solid parts with a shared outline.

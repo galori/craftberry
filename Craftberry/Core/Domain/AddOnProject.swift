@@ -155,25 +155,53 @@ public struct ArmorTrait: Codable, Equatable, Sendable {
     }
 }
 
+public struct FoodTrait: Codable, Equatable, Sendable {
+    public let nutrition: Int
+    public let saturationModifier: String
+    public let canAlwaysEat: Bool
+
+    public init(nutrition: Int, saturationModifier: String = "0.6", canAlwaysEat: Bool = false) {
+        self.nutrition = nutrition
+        self.saturationModifier = saturationModifier
+        self.canAlwaysEat = canAlwaysEat
+    }
+
+    public var saturationValue: Double? { Double(saturationModifier) }
+}
+
+public struct FuelTrait: Codable, Equatable, Sendable {
+    public let duration: Double
+
+    public init(duration: Double) {
+        self.duration = duration
+    }
+}
+
 public struct ItemTraits: Codable, Equatable, Sendable {
     public let combat: CombatTrait?
     public let durability: DurabilityTrait?
     public let handEquipped: Bool
     public let maximumStackSize: Int
     public let armor: ArmorTrait?
+    public let food: FoodTrait?
+    public let fuel: FuelTrait?
 
     public init(
         combat: CombatTrait? = nil,
         durability: DurabilityTrait? = nil,
         handEquipped: Bool = false,
         maximumStackSize: Int = 64,
-        armor: ArmorTrait? = nil
+        armor: ArmorTrait? = nil,
+        food: FoodTrait? = nil,
+        fuel: FuelTrait? = nil
     ) {
         self.combat = combat
         self.durability = durability
         self.handEquipped = handEquipped
         self.maximumStackSize = maximumStackSize
         self.armor = armor
+        self.food = food
+        self.fuel = fuel
     }
 }
 
@@ -274,6 +302,8 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case bootsPixelArt
     case armorLayerOne
     case armorLayerTwo
+    case foodPixelArt
+    case fuelPixelArt
 }
 
 public struct VisualResource: Codable, Equatable, Sendable {
@@ -831,6 +861,116 @@ private struct MaterialArmorSpec {
     let layerResourceID: ContentID
 }
 
+private struct MaterialConsumableSpec {
+    let suffix: String
+    let displayName: String
+    let menuGroup: String
+    let visualKind: VisualResourceKind
+    let pattern: [String]
+}
+
+extension AddOnProject {
+    public static func materialConsumableSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        nutrition: Int = 6,
+        saturationModifier: String = "0.6",
+        canAlwaysEat: Bool = false,
+        fuelDuration: Double = 12.0,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (1...20).contains(nutrition) else { throw AddOnProjectError.invalidNutrition }
+        guard let saturation = Double(saturationModifier), (0.1...5.0).contains(saturation) else {
+            throw AddOnProjectError.invalidSaturation
+        }
+        guard (1.0...200.0).contains(fuelDuration) else { throw AddOnProjectError.invalidFuelDuration }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let foodID = ContentID("\(stem)_food")
+        let fuelID = ContentID("\(stem)_fuel")
+        let ingot = ItemDefinition(
+            id: ingotID,
+            displayName: "\(material) Ingot",
+            menuCategory: .items,
+            menuGroup: "minecraft:itemGroup.name.ingot",
+            traits: ItemTraits(),
+            visualResourceID: ingotID
+        )
+        let food = ItemDefinition(
+            id: foodID,
+            displayName: "\(material) Food",
+            menuCategory: .items,
+            menuGroup: "minecraft:itemGroup.name.food",
+            traits: ItemTraits(
+                maximumStackSize: 64,
+                food: FoodTrait(nutrition: nutrition, saturationModifier: saturationModifier, canAlwaysEat: canAlwaysEat)
+            ),
+            visualResourceID: foodID
+        )
+        let fuel = ItemDefinition(
+            id: fuelID,
+            displayName: "\(material) Fuel",
+            menuCategory: .items,
+            menuGroup: "minecraft:itemGroup.name.fuel",
+            traits: ItemTraits(
+                maximumStackSize: 64,
+                fuel: FuelTrait(duration: fuelDuration)
+            ),
+            visualResourceID: fuelID
+        )
+        let ingotRecipe = ShapelessRecipeDefinition(
+            id: ContentID("\(stem)_ingot_recipe"),
+            tags: ["crafting_table"],
+            ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount),
+            result: RecipeResult(item: .generated(ingotID), count: 1),
+            unlock: [.vanilla(sourceItem)]
+        )
+        let foodRecipe = ShapedRecipeDefinition(
+            id: ContentID("\(stem)_food_recipe"),
+            tags: ["crafting_table"],
+            pattern: ["III", "I I"],
+            ingredients: ["I": .generated(ingotID)],
+            result: RecipeResult(item: .generated(foodID), count: 4),
+            unlock: [.generated(ingotID)]
+        )
+        let fuelRecipe = ShapedRecipeDefinition(
+            id: ContentID("\(stem)_fuel_recipe"),
+            tags: ["crafting_table"],
+            pattern: ["II", "II"],
+            ingredients: ["I": .generated(ingotID)],
+            result: RecipeResult(item: .generated(fuelID), count: 4),
+            unlock: [.generated(ingotID)]
+        )
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: foodID, kind: .foodPixelArt, color: color),
+            VisualResource(id: fuelID, kind: .fuelPixelArt, color: color)
+        ]
+        return AddOnProject(
+            id: identity.projectID,
+            namespace: identity.namespace,
+            displayName: material,
+            shortDescription: shortDescription,
+            packUUIDs: identity.packUUIDs,
+            buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
+            targetProfileID: profile.id,
+            originalPrompt: originalPrompt,
+            content: [.item(ingot), .item(food), .item(fuel), .shapelessRecipe(ingotRecipe), .shapedRecipe(foodRecipe), .shapedRecipe(fuelRecipe)] + visuals.map(AddOnContentNode.visualResource)
+        )
+    }
+}
+
 public enum AddOnProjectError: LocalizedError, Equatable {
     case emptyDisplayName
     case displayNameTooLong
@@ -838,6 +978,9 @@ public enum AddOnProjectError: LocalizedError, Equatable {
     case invalidDurability
     case invalidIngredientCount
     case invalidArmorProtection
+    case invalidNutrition
+    case invalidSaturation
+    case invalidFuelDuration
     case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
@@ -849,6 +992,9 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .invalidDurability: "Durability must be between 50 and 2,000."
         case .invalidIngredientCount: "Material recipes need between 1 and 9 source items."
         case .invalidArmorProtection: "Armor set protection must be between 4 and 20."
+        case .invalidNutrition: "Food nutrition must be between 1 and 20."
+        case .invalidSaturation: "Food saturation modifier must be between 0.1 and 5.0."
+        case .invalidFuelDuration: "Fuel duration must be between 1.0 and 200.0."
         case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."

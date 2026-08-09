@@ -178,7 +178,15 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         },
                         wearable: item.traits.armor.map {
                             ItemDocument.Wearable(slot: $0.slot.bedrockSlot, protection: $0.protection)
-                        }
+                        },
+                        food: item.traits.food.map {
+                            ItemDocument.Food(
+                                nutrition: $0.nutrition,
+                                saturationModifier: $0.saturationModifier,
+                                canAlwaysEat: $0.canAlwaysEat ? true : nil
+                            )
+                        },
+                        fuel: item.traits.fuel.map { ItemDocument.Fuel(duration: $0.duration) }
                     )
                 )
             )

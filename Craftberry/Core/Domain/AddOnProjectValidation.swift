@@ -183,6 +183,55 @@ public enum AddOnProjectValidator {
                     appendUnsupportedTrait(.armor, itemPath: itemPath, profile: profile, issues: &issues)
                 }
             }
+            if let food = item.traits.food {
+                if !(1...20).contains(food.nutrition) {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "invalid_food_nutrition",
+                            path: "\(itemPath).traits.food.nutrition",
+                            message: "Food nutrition must be between 1 and 20."
+                        )
+                    )
+                }
+                if let value = Double(food.saturationModifier), !(0.1...5.0).contains(value) {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "invalid_food_saturation",
+                            path: "\(itemPath).traits.food.saturationModifier",
+                            message: "Food saturation modifiers must be between 0.1 and 5.0."
+                        )
+                    )
+                } else if Double(food.saturationModifier) == nil {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "invalid_food_saturation",
+                            path: "\(itemPath).traits.food.saturationModifier",
+                            message: "Food saturation modifiers must be a numeric string."
+                        )
+                    )
+                }
+                if !profile.supportedItemTraits.contains(.food) {
+                    appendUnsupportedTrait(.food, itemPath: itemPath, profile: profile, issues: &issues)
+                }
+            }
+            if let fuel = item.traits.fuel {
+                if !(1.0...200.0).contains(fuel.duration) {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "invalid_fuel_duration",
+                            path: "\(itemPath).traits.fuel.duration",
+                            message: "Fuel durations must be between 1.0 and 200.0."
+                        )
+                    )
+                }
+                if !profile.supportedItemTraits.contains(.fuel) {
+                    appendUnsupportedTrait(.fuel, itemPath: itemPath, profile: profile, issues: &issues)
+                }
+            }
             if !(1...64).contains(item.traits.maximumStackSize) {
                 issues.append(
                     CompilationIssue(

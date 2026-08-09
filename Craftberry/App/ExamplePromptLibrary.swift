@@ -14,9 +14,9 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// Every prompt must stay inside the active capability profile: only materials from
 /// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, protection
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
-/// set, armor set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
+/// set, armor set, consumable set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -89,5 +89,18 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🧊", text: "An amethyst armor set named Crystalguard, 16 protection"),
         ExamplePrompt(emoji: "🔩", text: "An iron armor set named Ironclad for early exploring"),
         ExamplePrompt(emoji: "⚡", text: "A redstone armor set named Pulseguard, 12 protection")
+    ]
+
+    private static let consumableSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🍎", text: "A diamond consumable set: ingot, food, and fuel"),
+        ExamplePrompt(emoji: "🍖", text: "An emerald consumable set named Verdant with food and fuel"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod consumable set named Ember with food and fuel"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz consumable set named Frostbite, food and fuel"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone consumable set named Pulse, food and fuel"),
+        ExamplePrompt(emoji: "⛏️", text: "An iron consumable set named Ironclad with food and fuel"),
+        ExamplePrompt(emoji: "💎", text: "A lapis consumable set named Deepsea, food and fuel"),
+        ExamplePrompt(emoji: "🪙", text: "A gold consumable set named Gilded with food and fuel"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst consumable set named Geode, food and fuel"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite consumable set named Warden, food and fuel")
     ]
 }
