@@ -107,7 +107,22 @@ final class MinecraftStepExecutor {
             return sendChatCommand(text, in: minecraft, step: step)
         case .assertText(let rawExpected):
             let expected = resolve(rawExpected)
-            guard ocr.waitForRecognizedText(expected, timeout: 8) else {
+            // Allow `|`-separated alternatives for dialogs that vary by Minecraft version/state
+            // (e.g. the pack-activation warning alternates between "Using Add-Ons" and "Update world?").
+            let alternatives = expected.split(separator: "|").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            let candidates = alternatives.isEmpty ? [expected] : alternatives
+            var matched = false
+            for candidate in candidates {
+                if ocr.waitForRecognizedText(candidate, timeout: 3) {
+                    matched = true
+                    break
+                }
+            }
+            // Fallback: try the full string as a single literal (covers legacy single-value configs).
+            if !matched, candidates.count > 1, ocr.waitForRecognizedText(expected, timeout: 2) {
+                matched = true
+            }
+            guard matched else {
                 return .failure(step, reason: "OCR did not find '\(expected)' after \(step.name). Recalibrate this step if Minecraft's UI changed.")
             }
             return .success(step)

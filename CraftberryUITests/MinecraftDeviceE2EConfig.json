@@ -271,7 +271,7 @@
     {
       "name": "Confirm the add-on stacking warning",
       "action": "ocr",
-      "text": "Update world?"
+      "text": "Using Add-Ons|Update world?"
     },
     {
       "name": "Accept the add-on stacking warning",
