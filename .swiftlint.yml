@@ -1,0 +1,52 @@
+# SwiftLint configuration for Craftberry
+# Modeled on toka's eslint+prettier setup: strict but not noisy for existing code.
+# Install with `brew install swiftlint` and run via `scripts/lint.sh` or the pre-commit hook.
+
+included:
+  - Craftberry
+  - CraftberryTests
+  - CraftberryUITests
+  - Tools
+
+excluded:
+  - .build
+  - .swiftpm
+  - DerivedData
+  - .scratch
+  - worktrees
+  - .githooks
+
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - file_length
+  - type_body_length
+  - function_body_length
+  - cyclomatic_complexity
+  - nesting
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - first_where
+  - sorted_first_last
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+line_length:
+  warning: 150
+  error: 200
+  ignores_urls: true
+  ignores_function_declarations: true
+  ignores_comments: true
+
+identifier_name:
+  min_length:
+    warning: 2
+  excluded:
+    - id
+    - x
+    - y
+    - z
