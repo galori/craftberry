@@ -32,6 +32,7 @@ If you're troubleshooting something on the physical device where each iteration 
 - For this temporary POC workflow, commit and push each cohesive change directly to `main` after its full validation suite passes. Replace this rule with the branch-and-PR flow before the project is shared beyond this local development workflow.
 - Every time a new capability ships (a new content family, item kind, trait, or supported vanilla material), add a handful of new example prompts for it to `ExamplePromptLibrary` in `Craftberry/App/ExamplePromptLibrary.swift`. The welcome screen samples three of these at random and the user can shuffle for three more, so the collection is how players discover what the app can now build. Prompts must stay inside the active capability profile — supported materials only, attack 1–30, durability 50–2,000, names of 32 characters or fewer — so tapping one never lands in `.unsupported`. `ExamplePromptLibraryTests` enforces the collection's size, per-kind coverage, and that every supported material in `GeneratedVanillaItemCatalog` appears in at least one prompt; extending the catalog will fail those tests until prompts are added.
 - In the final handoff for every completed increment, give three concrete prompt examples that exercise newly added capabilities, so the user knows what to test manually. State any required local setup (such as a Debug API key) and clearly separate device acceptance that remains pending.
+- Write all temporary files to `.scratch/` (not `/tmp` or `$TMPDIR`). `/tmp` is cleared on reboot and loses handoffs — `.scratch/` is the durable, ignored workspace scratch space.
 
 ### Pull request flow
 
@@ -49,6 +50,7 @@ If you're troubleshooting something on the physical device where each iteration 
 - `ROADMAP.md` — active add-on architecture, constraints, and incremental delivery plan.
 - `CAPABILITIES.md` — support and verification matrix for each pinned Bedrock profile.
 - `PLAN.md` — historical custom-sword POC plan.
+- `.scratch/` — ignored local scratch space for temporary handoffs, investigation notes, and repro artifacts. Contents never committed and survive reboots (unlike `/tmp`). Use it for anything that would otherwise go to `/tmp`.
 
 Update this section when the actual Xcode project layout is introduced or materially changed.
 
