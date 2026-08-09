@@ -250,7 +250,7 @@
     {
       "name": "Wait for available behavior packs",
       "action": "wait",
-      "seconds": 3
+      "seconds": 6
     },
     {
       "name": "Confirm the imported behavior pack is available",
