@@ -24,15 +24,18 @@ final class PixelArtTextureRendererTests: XCTestCase {
     }
 
     /// Every generated visual resource kind must render valid, correctly sized PNG bytes.
-    /// Armor-layer kinds are worn-body textures at Bedrock's fixed 64x32 sheet size; every
-    /// other kind is a 32x32 inventory icon.
+    /// Armor-layer kinds are worn-body textures at Bedrock's fixed 64x32 sheet size; blockTerrain
+    /// is a 16x16 terrain tile; every other kind is a 32x32 inventory icon.
     func testRenderProducesExpectedDimensionsForEveryVisualResourceKind() {
         for kind in VisualResourceKind.allCases {
             let resource = VisualResource(id: ContentID("test_\(kind.rawValue)"), kind: kind, color: .blue)
             let data = PixelArtTextureRenderer.render(resource)
-            let expected: PNGDimensions = (kind == .armorLayerOne || kind == .armorLayerTwo)
-                ? PNGDimensions(width: 64, height: 32)
-                : PNGDimensions(width: 32, height: 32)
+            let expected: PNGDimensions
+            switch kind {
+            case .armorLayerOne, .armorLayerTwo: expected = PNGDimensions(width: 64, height: 32)
+            case .blockTerrain: expected = PNGDimensions(width: 16, height: 16)
+            default: expected = PNGDimensions(width: 32, height: 32)
+            }
             XCTAssertEqual(Array(data.prefix(8)), [137, 80, 78, 71, 13, 10, 26, 10], "missing PNG signature for \(kind)")
             XCTAssertEqual(PNGInspector.dimensions(of: data), expected, "unexpected dimensions for \(kind)")
         }

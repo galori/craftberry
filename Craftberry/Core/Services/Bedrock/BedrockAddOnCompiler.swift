@@ -152,6 +152,27 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         var entries = [
             ZipArchiveEntry(path: "manifest.json", data: try BedrockDocumentEncoder.encode(manifest))
         ]
+        for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let identifier = identifier(for: block.id, namespace: project.namespace)
+            let document = BlockDocument(
+                formatVersion: profile.blockFormatVersion,
+                block: BlockDocument.Block(
+                    description: BlockDocument.Description(
+                        identifier: identifier,
+                        menuCategory: BlockDocument.MenuCategory(category: "construction", group: "minecraft:itemGroup.name.blocks")
+                    ),
+                    components: BlockDocument.Components(
+                        destroyTime: block.destroyTime,
+                        mapColor: BlockDocument.MapColor(color: block.mapColor),
+                        lightDampening: 15,
+                        loot: "loot_tables/blocks/\(block.id.rawValue).json"
+                    )
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+            let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: identifier, weight: 1)])])
+            entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
+        }
         for item in project.items.sorted(by: contentOrder) {
             let identifier = identifier(for: item.id, namespace: project.namespace)
             let document = ItemDocument(
@@ -337,6 +358,38 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     data: PixelArtTextureRenderer.render(layer)
                 )
             )
+        }
+        // Block terrain tiles (16×16) — distinct from the 32×32 block-item sprites emitted above.
+        for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            if let terrain = project.visualResources.first(where: { $0.id == block.terrainResourceID }) {
+                entries.append(
+                    ZipArchiveEntry(
+                        path: "textures/blocks/\(block.id.rawValue).png",
+                        data: PixelArtTextureRenderer.render(terrain)
+                    )
+                )
+            }
+        }
+        if !project.blocks.isEmpty {
+            var terrainData: [String: TerrainTextureDocument.Texture] = [:]
+            for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+                terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(block.id.rawValue)")
+            }
+            let terrainTexture = TerrainTextureDocument(
+                resourcePackName: resourcePackDisplayName,
+                textureName: "atlas.terrain",
+                padding: 8,
+                numMipLevels: 4,
+                textureData: terrainData
+            )
+            entries.append(ZipArchiveEntry(path: "textures/terrain_texture.json", data: try BedrockDocumentEncoder.encode(terrainTexture)))
+            var blockEntries: [String: BlocksDocument.Entry] = [:]
+            for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+                let identifier = identifier(for: block.id, namespace: project.namespace)
+                blockEntries[identifier] = BlocksDocument.Entry(textures: block.id.rawValue, sound: "stone")
+            }
+            let blocksDocument = BlocksDocument(entries: blockEntries)
+            entries.append(ZipArchiveEntry(path: "blocks.json", data: try BedrockDocumentEncoder.encode(blocksDocument)))
         }
         let textureMap = ItemTextureDocument(
             resourcePackName: resourcePackDisplayName,

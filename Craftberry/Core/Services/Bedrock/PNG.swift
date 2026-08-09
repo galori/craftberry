@@ -152,6 +152,8 @@ public enum PixelArtTextureRenderer {
         case .armorLayerTwo: renderArmorLayer(color: resource.color, pixelScale: pixelScale)
         case .foodPixelArt: renderFood(color: resource.color, pixelScale: pixelScale)
         case .fuelPixelArt: renderFuel(color: resource.color, pixelScale: pixelScale)
+        case .blockPixelArt: renderBlock(color: resource.color, pixelScale: pixelScale)
+        case .blockTerrain: renderBlockTerrain(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -307,6 +309,46 @@ public enum PixelArtTextureRenderer {
         fill(11, 9, 10, 14, palette.main)
         fill(12, 10, 6, 6, palette.highlight)
         fill(12, 17, 8, 3, palette.shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderBlock(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        // Isometric-ish cube icon: top face highlight, front main, side shadow.
+        fill(6, 8, 20, 16, .outline)
+        fill(7, 9, 18, 14, palette.main)
+        fill(7, 9, 18, 5, palette.highlight)
+        fill(7, 18, 18, 5, palette.shadow)
+        fill(12, 12, 8, 8, palette.highlight)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderBlockTerrain(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale)
+        let side = 16 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        fill(0, 0, 16, 16, palette.main)
+        fill(0, 0, 16, 2, palette.highlight)
+        fill(0, 14, 16, 2, palette.shadow)
+        fill(3, 3, 2, 2, palette.highlight)
+        fill(10, 6, 2, 2, palette.shadow)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 

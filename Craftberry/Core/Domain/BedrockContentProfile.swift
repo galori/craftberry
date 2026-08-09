@@ -23,6 +23,22 @@ public enum ItemTraitKind: String, Codable, CaseIterable, Sendable {
     case fuel
 }
 
+public enum BlockMapColor: String, CaseIterable, Codable, Sendable {
+    case diamond = "#5CDBD5"
+    case iron = "#C2C2C2"
+    case gold = "#FAEE4D"
+    case emerald = "#17C37B"
+    case lapis = "#224D85"
+    case quartz = "#E9E2D6"
+    case netherite = "#443F41"
+    case amethyst = "#8B5FE0"
+    case blaze = "#F0B12D"
+    case redstone = "#B01A14"
+    case stone = "#8A8A8A"
+
+    public static var allowedHexValues: Set<String> { Set(allCases.map(\.rawValue)) }
+}
+
 public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable {
     public let id: String
     public let sampleVersion: String
@@ -31,6 +47,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
     public let manifestFormatVersion: Int
     public let itemFormatVersion: String
     public let recipeFormatVersion: String
+    public let blockFormatVersion: String
     public let supportedItemTraits: Set<ItemTraitKind>
     public let vanillaItemIdentifiers: Set<String>
     public let vanillaItemTags: Set<String>
@@ -43,6 +60,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         manifestFormatVersion: Int,
         itemFormatVersion: String,
         recipeFormatVersion: String,
+        blockFormatVersion: String,
         supportedItemTraits: Set<ItemTraitKind>,
         vanillaItemIdentifiers: Set<String>,
         vanillaItemTags: Set<String>
@@ -54,6 +72,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         self.manifestFormatVersion = manifestFormatVersion
         self.itemFormatVersion = itemFormatVersion
         self.recipeFormatVersion = recipeFormatVersion
+        self.blockFormatVersion = blockFormatVersion
         self.supportedItemTraits = supportedItemTraits
         self.vanillaItemIdentifiers = vanillaItemIdentifiers
         self.vanillaItemTags = vanillaItemTags
@@ -70,6 +89,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         manifestFormatVersion: 2,
         itemFormatVersion: "1.21.100",
         recipeFormatVersion: "1.20.10",
+        blockFormatVersion: "1.21.100",
         supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel],
         vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
         vanillaItemTags: []

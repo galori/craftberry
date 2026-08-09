@@ -114,6 +114,7 @@ final class AddOnProjectTests: XCTestCase {
             manifestFormatVersion: BedrockContentProfile.current.manifestFormatVersion,
             itemFormatVersion: BedrockContentProfile.current.itemFormatVersion,
             recipeFormatVersion: BedrockContentProfile.current.recipeFormatVersion,
+            blockFormatVersion: BedrockContentProfile.current.blockFormatVersion,
             supportedItemTraits: [.durability],
             vanillaItemIdentifiers: BedrockContentProfile.current.vanillaItemIdentifiers,
             vanillaItemTags: BedrockContentProfile.current.vanillaItemTags
@@ -673,6 +674,7 @@ final class AddOnProjectTests: XCTestCase {
             manifestFormatVersion: BedrockContentProfile.current.manifestFormatVersion,
             itemFormatVersion: BedrockContentProfile.current.itemFormatVersion,
             recipeFormatVersion: BedrockContentProfile.current.recipeFormatVersion,
+            blockFormatVersion: BedrockContentProfile.current.blockFormatVersion,
             supportedItemTraits: [.durability, .handEquipped],
             vanillaItemIdentifiers: BedrockContentProfile.current.vanillaItemIdentifiers,
             vanillaItemTags: BedrockContentProfile.current.vanillaItemTags

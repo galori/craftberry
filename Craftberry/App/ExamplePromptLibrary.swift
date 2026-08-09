@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -102,5 +102,18 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold consumable set named Gilded with food and fuel"),
         ExamplePrompt(emoji: "💜", text: "An amethyst consumable set named Geode, food and fuel"),
         ExamplePrompt(emoji: "🗿", text: "A netherite consumable set named Warden, food and fuel")
+    ]
+
+    private static let blockSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🧱", text: "A diamond block set: Azure ingot plus storage block"),
+        ExamplePrompt(emoji: "🏗️", text: "An emerald block set named Verdant with ingot and block"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod block set named Ember with ingot and block"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz block set named Frostbite with ingot and block"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone block set named Pulse with ingot and block"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron block set named Ironclad with ingot and block"),
+        ExamplePrompt(emoji: "💙", text: "A lapis block set named Deepsea with ingot and block"),
+        ExamplePrompt(emoji: "🪙", text: "A gold block set named Gilded with ingot and block"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst block set named Geode with ingot and block"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite block set named Warden with ingot and block")
     ]
 }

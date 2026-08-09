@@ -238,6 +238,98 @@ struct AttachableDocument: Encodable {
     }
 }
 
+struct BlockDocument: Encodable {
+    let formatVersion: String
+    let block: Block
+
+    struct Block: Encodable {
+        let description: Description
+        let components: Components
+    }
+
+    struct Description: Encodable {
+        let identifier: String
+        let menuCategory: MenuCategory?
+    }
+
+    struct MenuCategory: Encodable {
+        let category: String
+        let group: String
+    }
+
+    struct Components: Encodable {
+        let destroyTime: Double
+        let mapColor: MapColor
+        let lightDampening: Int
+        let loot: String
+
+        enum CodingKeys: String, CodingKey {
+            case destroyTime = "minecraft:destroy_time"
+            case mapColor = "minecraft:map_color"
+            case lightDampening = "minecraft:light_dampening"
+            case loot = "minecraft:loot"
+        }
+    }
+
+    struct MapColor: Encodable {
+        let color: String
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case block = "minecraft:block"
+    }
+}
+
+struct LootTableDocument: Encodable {
+    let pools: [Pool]
+
+    struct Pool: Encodable {
+        let rolls: Int
+        let entries: [Entry]
+    }
+
+    struct Entry: Encodable {
+        let type: String
+        let name: String
+        let weight: Int
+    }
+}
+
+struct TerrainTextureDocument: Encodable {
+    let resourcePackName: String
+    let textureName: String
+    let padding: Int
+    let numMipLevels: Int
+    let textureData: [String: Texture]
+
+    struct Texture: Encodable {
+        let textures: String
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resourcePackName = "resource_pack_name"
+        case textureName = "texture_name"
+        case padding
+        case numMipLevels = "num_mip_levels"
+        case textureData = "texture_data"
+    }
+}
+
+struct BlocksDocument: Encodable {
+    let entries: [String: Entry]
+
+    struct Entry: Encodable {
+        let textures: String
+        let sound: String
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(entries)
+    }
+}
+
 enum BedrockDocumentEncoder {
     static func encode<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder()

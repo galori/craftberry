@@ -304,6 +304,24 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case armorLayerTwo
     case foodPixelArt
     case fuelPixelArt
+    case blockPixelArt
+    case blockTerrain
+}
+
+public struct BlockDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let displayName: String
+    public let destroyTime: Double
+    public let mapColor: String
+    public let terrainResourceID: ContentID
+
+    public init(id: ContentID, displayName: String, destroyTime: Double, mapColor: String, terrainResourceID: ContentID) {
+        self.id = id
+        self.displayName = displayName
+        self.destroyTime = destroyTime
+        self.mapColor = mapColor
+        self.terrainResourceID = terrainResourceID
+    }
 }
 
 public struct VisualResource: Codable, Equatable, Sendable {
@@ -320,17 +338,19 @@ public struct VisualResource: Codable, Equatable, Sendable {
 
 public enum AddOnContentNode: Codable, Equatable, Sendable {
     case item(ItemDefinition)
+    case block(BlockDefinition)
     case shapedRecipe(ShapedRecipeDefinition)
     case shapelessRecipe(ShapelessRecipeDefinition)
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, shapedRecipe, shapelessRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         switch try values.decode(Kind.self, forKey: .type) {
         case .item: self = .item(try values.decode(ItemDefinition.self, forKey: .value))
+        case .block: self = .block(try values.decode(BlockDefinition.self, forKey: .value))
         case .shapedRecipe: self = .shapedRecipe(try values.decode(ShapedRecipeDefinition.self, forKey: .value))
         case .shapelessRecipe: self = .shapelessRecipe(try values.decode(ShapelessRecipeDefinition.self, forKey: .value))
         case .visualResource: self = .visualResource(try values.decode(VisualResource.self, forKey: .value))
@@ -343,6 +363,9 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .item(let item):
             try values.encode(Kind.item, forKey: .type)
             try values.encode(item, forKey: .value)
+        case .block(let block):
+            try values.encode(Kind.block, forKey: .type)
+            try values.encode(block, forKey: .value)
         case .shapedRecipe(let recipe):
             try values.encode(Kind.shapedRecipe, forKey: .type)
             try values.encode(recipe, forKey: .value)
@@ -444,6 +467,10 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     }
 
     public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) }
+
+    public var blocks: [BlockDefinition] {
+        content.compactMap { if case .block(let block) = $0 { block } else { nil } }
+    }
 
     public var visualResources: [VisualResource] {
         content.compactMap { if case .visualResource(let resource) = $0 { resource } else { nil } }
@@ -870,6 +897,44 @@ private struct MaterialConsumableSpec {
 }
 
 extension AddOnProject {
+    public static func materialBlockSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        destroyTime: Double = 3.0,
+        mapColor: String = "#5CDBD5",
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (0.5...10.0).contains(destroyTime) else { throw AddOnProjectError.invalidBlockDestroyTime }
+        guard BlockMapColor.allowedHexValues.contains(mapColor) else { throw AddOnProjectError.invalidBlockMapColor }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let blockID = ContentID("\(stem)_block")
+        let terrainID = ContentID("\(stem)_block_terrain")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let blockItem = ItemDefinition(id: blockID, displayName: "\(material) Block", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: blockID)
+        let block = BlockDefinition(id: blockID, displayName: "\(material) Block", destroyTime: destroyTime, mapColor: mapColor, terrainResourceID: terrainID)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let blockRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_block_recipe"), tags: ["crafting_table"], pattern: ["III", "III", "III"], ingredients: ["I": .generated(ingotID)], result: RecipeResult(item: .generated(blockID), count: 1), unlock: [.generated(ingotID)])
+        let deconstructRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_block_deconstruct_recipe"), tags: ["crafting_table"], ingredients: [.generated(blockID)], result: RecipeResult(item: .generated(ingotID), count: 9), unlock: [.generated(blockID)])
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: blockID, kind: .blockPixelArt, color: color),
+            VisualResource(id: terrainID, kind: .blockTerrain, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(blockItem), .block(block), .shapelessRecipe(ingotRecipe), .shapedRecipe(blockRecipe), .shapelessRecipe(deconstructRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
+
     public static func materialConsumableSet(
         materialName: String = "Azure",
         color: PixelArtColor = .blue,
@@ -981,6 +1046,8 @@ public enum AddOnProjectError: LocalizedError, Equatable {
     case invalidNutrition
     case invalidSaturation
     case invalidFuelDuration
+    case invalidBlockDestroyTime
+    case invalidBlockMapColor
     case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
@@ -995,6 +1062,8 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .invalidNutrition: "Food nutrition must be between 1 and 20."
         case .invalidSaturation: "Food saturation modifier must be between 0.1 and 5.0."
         case .invalidFuelDuration: "Fuel duration must be between 1.0 and 200.0."
+        case .invalidBlockDestroyTime: "Block destroy time must be between 0.5 and 10.0."
+        case .invalidBlockMapColor: "Block map color must be a supported vanilla palette hex."
         case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."

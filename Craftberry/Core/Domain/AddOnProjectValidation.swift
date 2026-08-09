@@ -90,12 +90,36 @@ public enum AddOnProjectValidator {
             noun: "visual resource",
             to: &issues
         )
+        appendDuplicateIssues(
+            values: project.blocks.map(\.id),
+            code: "duplicate_block_id",
+            path: "content.blocks",
+            noun: "block",
+            to: &issues
+        )
         let itemIDs = Set(project.items.map(\.id))
         let visualResourceIDs = Set(project.visualResources.map(\.id))
         let visualResourceKinds = project.visualResources.reduce(into: [ContentID: VisualResourceKind]()) { kinds, resource in
             kinds[resource.id] = resource.kind
         }
         validateContentIDs(project, issues: &issues)
+        for block in project.blocks {
+            let blockPath = "content.blocks.\(block.id.rawValue)"
+            if !(0.5...10.0).contains(block.destroyTime) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_block_destroy_time", path: "\(blockPath).destroyTime", message: "Block destroy times must be between 0.5 and 10.0."))
+            }
+            if !BlockMapColor.allowedHexValues.contains(block.mapColor) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_block_map_color", path: "\(blockPath).mapColor", message: "Block map colors must be a supported vanilla palette value."))
+            }
+            if !visualResourceIDs.contains(block.terrainResourceID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block references missing terrain visual resource \(block.terrainResourceID.rawValue)."))
+            } else if visualResourceKinds[block.terrainResourceID] != .blockTerrain {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block terrain resource \(block.terrainResourceID.rawValue) must be a blockTerrain visual."))
+            }
+            if !itemIDs.contains(block.id) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_block_item", path: "\(blockPath).id", message: "Block \(block.id.rawValue) requires a matching placeable item."))
+            }
+        }
         for item in project.items {
             let itemPath = "content.items.\(item.id.rawValue)"
             if item.displayName.contains("\n") || item.displayName.contains("\r") {
@@ -367,6 +391,9 @@ public enum AddOnProjectValidator {
         }
         for recipe in shapelessRecipes {
             guard case .generated(let resultID) = recipe.result.item else { continue }
+            // Storage-block deconstruction (1 block → 9 ingot) is an intentional inverse of the 9-ingot → 1-block compression.
+            // Exclude the 1→9 shapeless pair from cycle detection to allow the conventional round-trip.
+            if recipe.result.count == 9, recipe.ingredients.count == 1 { continue }
             let generatedIngredients = recipe.ingredients.reduce(into: Set<ContentID>()) { ids, reference in
                 if case .generated(let id) = reference { ids.insert(id) }
             }
@@ -490,6 +517,7 @@ public enum AddOnProjectValidator {
     ) {
         let values: [(path: String, id: ContentID)] =
             project.items.map { ("content.items.\($0.id.rawValue).id", $0.id) }
+            + project.blocks.map { ("content.blocks.\($0.id.rawValue).id", $0.id) }
             + project.recipes.map { ("content.recipes.\($0.id.rawValue).id", $0.id) }
             + project.shapelessRecipes.map { ("content.recipes.\($0.id.rawValue).id", $0.id) }
             + project.visualResources.map { ("content.visualResources.\($0.id.rawValue).id", $0.id) }
