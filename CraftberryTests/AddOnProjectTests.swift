@@ -161,6 +161,20 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(book.rows.first { $0.item.displayName == "Azure Shovel" }?.summary, "Azure Ingot + 2 Stick -> Azure Shovel")
     }
 
+    func testMaterialBlockSetCreatesExpectedIngotAndBlock() throws {
+        let project = try AddOnProject.materialBlockSet(
+            materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4,
+            destroyTime: 3.0, mapColor: "#5CDBD5",
+            shortDescription: "test", originalPrompt: "test", identity: testIdentity()
+        )
+        XCTAssertEqual(project.items.map(\.id), [ContentID("azure_a1b2c3_ingot"), ContentID("azure_a1b2c3_block")])
+        XCTAssertEqual(project.blocks.map(\.id), [ContentID("azure_a1b2c3_block")])
+        XCTAssertEqual(project.visualResources.count, 3)
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+        let book = RecipeBook(project: project)
+        XCTAssertEqual(book.rows.count, 2)
+    }
+
     func testMaterialSwordSetCreatesDerivedItemsAndRecipes() throws {
         let project = try AddOnProject.materialSwordSet(
             materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4,

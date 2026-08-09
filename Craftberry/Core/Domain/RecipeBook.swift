@@ -6,14 +6,20 @@ public struct RecipeBook: Equatable, Sendable {
     public init(project: AddOnProject) {
         let itemsByID = Dictionary(uniqueKeysWithValues: project.items.map { ($0.id, $0) })
         let visualsByID = Dictionary(uniqueKeysWithValues: project.visualResources.map { ($0.id, $0) })
-        let shapedByResult = Dictionary(uniqueKeysWithValues: project.recipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
-            guard case .generated(let id) = recipe.result.item else { return nil }
-            return (id, .shaped(recipe))
-        })
-        let shapelessByResult = Dictionary(uniqueKeysWithValues: project.shapelessRecipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
-            guard case .generated(let id) = recipe.result.item else { return nil }
-            return (id, .shapeless(recipe))
-        })
+        let shapedByResult = Dictionary(
+            project.recipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
+                guard case .generated(let id) = recipe.result.item else { return nil }
+                return (id, .shaped(recipe))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let shapelessByResult = Dictionary(
+            project.shapelessRecipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
+                guard case .generated(let id) = recipe.result.item else { return nil }
+                return (id, .shapeless(recipe))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
         rows = project.items.compactMap { item in
             let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id]
             return RecipeBookRow(
