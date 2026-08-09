@@ -54,7 +54,7 @@ The runner:
 6. Exports the attachments.
 7. Uses `scripts/ocr.swift` to require `My World` on the world-list screenshot.
 
-This was verified on an iPhone 16e running iOS 26.6 and Minecraft 26.33.
+This was verified on an iPhone 13 Pro running iOS 26.6 and Minecraft 26.40.
 Evidence is written under `.build/minecraft-coordinate-touch/`.
 
 ## Extending Minecraft flows
@@ -130,7 +130,7 @@ in-game acceptance checks.
 
 ## Deleting test worlds and installed packs after a test (cleanup)
 
-Confirmed live on iPhone 16e / Minecraft 26.33:
+Confirmed live on iPhone 13 Pro / Minecraft 26.40:
 
 - Prefer direct AFC cleanup over Minecraft's Storage UI.
 - The `craftberry test` world is **reused** across runs. The first E2E run

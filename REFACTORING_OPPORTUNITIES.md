@@ -99,12 +99,8 @@ lines and would have saved a dozen manual round-trips.
 
 ## Known-stale calibration
 
-`MinecraftDeviceE2EConfig.json` and `MinecraftCalibratedLayout` are a single calibration shared by
+`MinecraftDeviceE2EConfig.json` and `MinecraftCalibratedLayout` were previously shared by
 two physical devices running different Minecraft versions (iPhone 16e / 26.33, iPhone 13 Pro /
-26.40). Values are corrected in place as each device reveals them, so a fix for one may regress the
-other, and nothing records which device a given constant was last verified against.
-
-If both devices stay in rotation, the calibration should be per-device — keyed by model — rather
-than one set of constants edited in place. Only the armor scenario has been run end-to-end on the
-13 Pro; the emerald, tool-set and weapon-set scenarios still carry coordinates last verified on the
-16e and adjusted blind.
+26.40). The project has now migrated to the iPhone 13 Pro as the sole dedicated device; the 16e is
+retired. If a second device is reintroduced, calibration should be per-device — keyed by model —
+rather than one set of constants edited in place.

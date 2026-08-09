@@ -11,3 +11,10 @@ Config/Secrets.xcconfig
 .scratch/*
 result.json
 stdout.processed.tif
+# local editor / OS artifacts
+*.swp
+*.swo
+*~
+# local cleanup / planning notes — not part of the product
+PROJECT_CLEANUP.md
+.agents/plans/

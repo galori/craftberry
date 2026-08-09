@@ -61,7 +61,7 @@ Direct creative-inventory lookup of the item's localized display name remains a 
 
 `MinecraftDeviceE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it enters **“Generate a redstone tool set crafted from redstone”**, builds and exports the `.mcaddon`, hands it to Minecraft, creates a fresh uniquely marked Creative world, activates both pack halves for that world, crafts a Redstone Ingot from redstone, then crafts a Redstone Pickaxe and verifies the output slot with a calibrated pixel assertion. The existing Emerald Sword acceptance test remains available as a separate physical-device regression test.
 
-Minecraft coordinate UI changes with the device and Minecraft release. The checked-in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) is enabled and calibrated for the dedicated iPhone 16e. Quit iPhone Mirroring, keep rotation lock on, unlock the USB-connected iPhone, and run:
+Minecraft coordinate UI changes with the device and Minecraft release. The checked-in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) is enabled and calibrated for the dedicated iPhone 13 Pro. Quit iPhone Mirroring, keep rotation lock on, unlock the USB-connected iPhone, and run:
 
 ```sh
 scripts/ios-device.sh minecraft-e2e

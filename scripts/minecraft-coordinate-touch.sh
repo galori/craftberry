@@ -20,7 +20,7 @@ via a genuine XCTest coordinate gesture. The test records before/after device
 screenshots in a timestamped .xcresult.
 
 Before running: quit iPhone Mirroring, unlock the iPhone, and connect it by
-USB. The test cold-launches Minecraft and targets an iPhone 16e in landscape.
+USB. The test cold-launches Minecraft and targets an iPhone 13 Pro in landscape.
 
 Set DEVICE_ID=<xcode-device-id> when more than one physical iPhone is connected.
 USAGE

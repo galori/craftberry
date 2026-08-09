@@ -4,7 +4,7 @@ import XCTest
 ///
 /// This deliberately does not use accessibility lookup: Minecraft's Ore UI
 /// exposes no useful accessibility elements. The coordinate is the centre of
-/// the main-menu Play button on the iPhone 16e in landscape. It is normalized
+/// the main-menu Play button on the iPhone 13 Pro in landscape. It is normalized
 /// to Minecraft's application frame, so it is not tied to a particular
 /// mirrored-window size.
 final class MinecraftCoordinateTouchUITests: XCTestCase {
@@ -28,7 +28,7 @@ final class MinecraftCoordinateTouchUITests: XCTestCase {
         )
 
         // Minecraft renders its own loading screen, so becoming foreground is
-        // not enough to establish that Ore UI is ready. On the physical 16e,
+        // not enough to establish that Ore UI is ready. On the physical 13 Pro,
         // eight seconds covers a cold launch with margin and lands on the
         // deterministic main menu.
         sleep(8)

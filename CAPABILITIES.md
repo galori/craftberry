@@ -50,7 +50,7 @@ The profile currently carries the format versions and the small vanilla item cat
 | Material armor set generation through OpenAI structured intent | Automated |
 | Material consumable (food+fuel) set generation through OpenAI structured intent | Automated |
 | Blockception schema lint | Pending |
-| Physical iPhone import and both packs active | Verified for a generated Emerald Test Sword on iPhone 16e / Minecraft 26.33; the complete Craftberry export-to-Minecraft test passed on 2026-08-05. |
+| Physical iPhone import and both packs active | Verified for a generated Emerald Test Sword on iPhone 13 Pro / Minecraft 26.40; the complete Craftberry export-to-Minecraft test passed on 2026-08-05 (originally calibrated on iPhone 16e, now migrated to 13 Pro). |
 | Creative crafting, localized name, and in-hand selection | Verified for Emerald Test Sword by the same physical-device test. |
 | Clean Content Log; Survival crafting, appearance, combat, durability | Pending |
 
