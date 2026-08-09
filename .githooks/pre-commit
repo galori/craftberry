@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# Run swiftlint on staged Swift files only (fast pre-commit, mirrors toka's lint-staged)
+if ! command -v swiftlint >/dev/null 2>&1; then
+  # Don't block commits in environments without swiftlint (e.g. fresh clones)
+  exit 0
+fi
+
+STAGED_SWIFT=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.swift$' || true)
+if [ -z "$STAGED_SWIFT" ]; then
+  exit 0
+fi
+
+echo "swiftlint: checking staged Swift files..."
+# Pass staged files explicitly; fallback to full lint if no file filtering needed
+echo "$STAGED_SWIFT" | xargs swiftlint lint --strict --config .swiftlint.yml -- 2>&1 | head -n 200
+STATUS=${PIPESTATUS[1]:-0}
+if [ $STATUS -ne 0 ]; then
+  echo ""
+  echo "swiftlint failed on staged files. Fix issues or run: scripts/lint.sh"
+  echo "To bypass (not recommended): git commit --no-verify"
+  exit $STATUS
+fi
+exit 0

@@ -25,23 +25,37 @@ If you're troubleshooting something on the physical device where each iteration 
 > ### ⛔ DONE MEANS E2E CREATED *AND* PASSED — NO EXCEPTIONS
 > **After every `ROADMAP.md` increment or new feature set (new content family, item kind, block kind, trait, recipe shape, material, etc.) work is NOT done until you have BOTH created a new E2E scenario for it AND watched that scenario pass on the physical 13 Pro.** That means: (1) add a new `scripts/ios-device.sh minecraft-e2e <scenario>` case that exercises the new capability end-to-end in Minecraft (craft/place/break/interact + clean Content Log + OCR-verified), (2) run it yourself with `scripts/ios-device.sh minecraft-e2e <scenario>` (and `minecraft-e2e-all` when it should be included), (3) iterate until it passes. Do NOT stop to ask the user whether to create or run it — just do it. Do NOT hand it back as "Device acceptance pending — run `DEVICE_ID=… scripts/ios-device.sh …` yourself." Pushing to `main` or declaring the increment shipped before that new E2E is green is incomplete work. **The ONLY acceptable pause is when the device is unavailable** (`scripts/ios-device.sh list` shows no device / tunnel down / locked) — then ask the user for that unblock only ("please unlock/connect the 13 Pro until `scripts/ios-device.sh list` shows it") and the moment it is back, resume and run the E2E yourself.
 
+### Branching — one worktree per task (required)
+
+- Always create each task on its own git worktree under `./worktrees/<slug>` on a dedicated branch. Do not work directly in the repository root for branch or pull-request work. From the repository root: `git worktree add worktrees/<slug> -b <branch>` and do all edits inside that worktree.
+- `worktrees/` is ignored globally (do not commit worktree contents from the root). Keep unrelated or pre-existing worktree changes out of the commit.
+- Expect to request or escalate permissions whenever the workflow requires actions outside the current worktree or sandboxed write area (creating/deleting worktrees, updating `main`, interacting with GitHub via `gh`). Do not skip those steps because they require approval.
+- Multiple independent tasks may run in parallel only when the model judges that their branches, worktrees, and PR lifecycles can remain safely isolated. Do not stack PRs — branch every change off `main` and target `main`; never open a PR whose base is another feature branch.
+
+### Pull request flow (required)
+
+- Never commit directly on `main`. Always branch from `main` unless the work explicitly depends on unmerged changes.
+- After the change is complete and verified locally, commit, push the branch, open a PR against `main`, and enable auto-merge: `gh pr create --title "..." --body "..." && gh pr merge --auto --squash` (use the repo's default merge method). Do not wait for checks or merge manually — auto-merge completes the merge once required checks are green.
+- Use a concise PR title and one-paragraph body stating the user-visible change and validation performed.
+- Keep secrets, signed artifacts, device logs containing personal data, and generated Bedrock archives out of commits.
+
+### Completion — PR must be green and merged
+
+- A task is not complete until its PR is green and merged into `main`. Green means all required GitHub Actions checks (unit tests and lint — E2E device tests are excluded from CI and verified locally) pass and the PR has been auto-merged.
+- After the PR merges, update the local `main` (`git fetch origin && git checkout main && git pull --ff-only`), delete the task's worktree (`git worktree remove worktrees/<slug>`) and prune the branch (`git branch -d <branch>`), and only then move on to the next task.
+- E2E device acceptance remains required for `ROADMAP.md` increments per the ⛔ rule above, but it does not replace CI green — both are required.
+
 ### Required after every change
 
 - Use test-driven development when feasible: add or update a failing test that captures the intended behavior before implementing it, then make it pass. If TDD is not feasible, explain why in the final handoff or PR notes.
-- Run the smallest relevant checks while iterating, then run the full unit-test suite before considering a cohesive change complete.
-- After every change, proactively run the focused E2E that covers the touched capability (e.g. `scripts/ios-device.sh minecraft-e2e emerald` for sword, `redstone`/`weapon`/`armor`/`consumable`/`block` for collections) without asking the user — it is expected, not optional. If the change introduced a new ROADMAP increment / feature set, this also means you must have created the new scenario first per the rule above — running only old scenarios does not satisfy it. Report the outcome concisely per the Communication rule (how far it got / what couldn't be verified / why / next step). Never hand the E2E back to the user to run (e.g. “re-connect … then run DEVICE_ID=… scripts/ios-device.sh …”); the agent runs it. If the device is needed to proceed (phone not detected, locked, or tunnel not connected), ask the user only for that unblock (“please unlock / connect the 13 Pro until `scripts/ios-device.sh list` shows it”), then resume and run the E2E yourself.
+- Run the smallest relevant checks while iterating, then run the full unit-test suite before considering a cohesive change complete: `swift test` or `xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -only-testing:CraftberryTests test`.
+- Run the linter before committing: `scripts/lint.sh` (or `swiftlint lint --strict` if installed). The pre-commit hook runs the same check on staged files — install it with `git config core.hooksPath .githooks` or `scripts/setup-hooks.sh`.
+- After every change, proactively run the focused E2E that covers the touched capability (e.g. `scripts/ios-device.sh minecraft-e2e emerald` for sword, `redstone`/`weapon`/`armor`/`consumable`/`block` for collections) without asking the user — it is expected, not optional. If the change introduced a new ROADMAP increment / feature set, this also means you must have created the new scenario first per the rule above — running only old scenarios does not satisfy it. Report the outcome concisely per the Communication rule (how far it got / what couldn't be verified / why / next step). Never hand the E2E back to the user to run (e.g. "re-connect … then run DEVICE_ID=… scripts/ios-device.sh …"); the agent runs it. If the device is needed to proceed (phone not detected, locked, or tunnel not connected), ask the user only for that unblock ("please unlock / connect the 13 Pro until `scripts/ios-device.sh list` shows it"), then resume and run the E2E yourself.
 - Keep ordinary validation local and side-effect-free. Builds and tests may write ignored derived data or temporary files, but must not modify Minecraft, iOS device data, Xcode user settings, or external services unless the task explicitly requires it.
 - Preserve unrelated or pre-existing worktree changes.
-- For this temporary POC workflow, commit and push each cohesive change directly to `main` after its full validation suite passes. Replace this rule with the branch-and-PR flow before the project is shared beyond this local development workflow.
 - Every time a new capability ships (a new content family, item kind, trait, or supported vanilla material), add a handful of new example prompts for it to `ExamplePromptLibrary` in `Craftberry/App/ExamplePromptLibrary.swift`. The welcome screen samples three of these at random and the user can shuffle for three more, so the collection is how players discover what the app can now build. Prompts must stay inside the active capability profile — supported materials only, attack 1–30, durability 50–2,000, names of 32 characters or fewer — so tapping one never lands in `.unsupported`. `ExamplePromptLibraryTests` enforces the collection's size, per-kind coverage, and that every supported material in `GeneratedVanillaItemCatalog` appears in at least one prompt; extending the catalog will fail those tests until prompts are added.
 - In the final handoff for every completed increment, give three concrete prompt examples that exercise newly added capabilities, so the user knows what to test manually. State any required local setup (such as a Debug API key) and clearly separate device acceptance that remains pending.
 - Write all temporary files to `.scratch/` (not `/tmp` or `$TMPDIR`). `/tmp` is cleared on reboot and loses handoffs — `.scratch/` is the durable, ignored workspace scratch space.
-
-### Pull request flow
-
-- Branch from the default branch unless the work explicitly depends on unmerged changes.
-- Use a concise PR title and description that state the user-visible change and validation performed.
-- Keep secrets, signed artifacts, device logs containing personal data, and generated Bedrock archives out of commits.
 
 ## Project Structure
 
@@ -89,9 +103,14 @@ Bedrock's actual engine validation is stricter than the official docs, stricter 
 4. Independently rule out the encoding layer before chasing schema theories: confirm the PNG decodes (`sips`, Preview, or PIL) and the ZIP extracts (`unzip`) cleanly. That separates "the file is corrupt" from "the schema is wrong" and avoids re-guessing JSON key names blind.
 5. A raw/untranslated tooltip key (`item.namespace:name.name` shown instead of a real display name) specifically points at a resource-pack loading/parsing failure (`item_texture.json`, `texts/languages.json`, or the `.lang` file) — not just a missing translation entry.
 
+## Continuous Integration
+
+- Every PR runs GitHub Actions (see `.github/workflows/ci.yml` and `lint.yml`): unit tests via `swift test` (which runs `CraftberryTests` only) and SwiftLint. Both must be green before auto-merge — they exclude E2E/UI device tests, which are verified locally per the ⛔ rule above.
+- Branch protection requires these checks on `main`; the pre-commit hook (`scripts/lint.sh` via `.githooks/pre-commit`) runs the same lint locally before push.
+
 ## Testing
 
-- Use XCTest as the default test framework; run focused tests while iterating and the full test target before handoff.
+- Use XCTest as the default test framework; run focused tests while iterating and the full test target before handoff. In CI, only `CraftberryTests` runs — `CraftberryUITests` / `MinecraftDeviceE2EUITests` are device-only and excluded from PR checks.
 - For Minecraft Ore UI automation, follow `docs/MINECRAFT_DEVICE_AUTOMATION.md`: use normalized USB/XCTest coordinates and require screenshot/OCR evidence; never use Mirroring pointer clicks or treat successful gesture synthesis alone as acceptance.
 - Unit-test all IR validation and defaults, identifier sanitization, manifest dependency wiring, generated JSON, texture dimensions, and both `.mcpack` and `.mcaddon` archive entries.
 - Use fixtures and fake `LLMClient` implementations for deterministic app and UI tests. Keep live API tests opt-in and never require a real key for the normal suite.
@@ -110,12 +129,13 @@ Bedrock's actual engine validation is stricter than the official docs, stricter 
 
 ## Local Commands
 
-Once the Xcode project exists, prefer these commands from the repository root (replace the placeholder scheme and simulator as the project is created):
-
 ```sh
 xcodebuild -list
-xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
+swift test                                          # unit tests only (CI uses this; excludes E2E/UI)
+xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -only-testing:CraftberryTests test
 xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build
+scripts/lint.sh                                     # SwiftLint (requires `brew install swiftlint`)
+scripts/setup-hooks.sh                              # install pre-commit hook -> .githooks
 scripts/ios-device.sh list
 scripts/ios-device.sh test
 ```
