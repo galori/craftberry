@@ -89,14 +89,78 @@ final class MinecraftE2EHarness {
         MinecraftDebuggerConsole.current = console
         testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }
 
-        let phasedConfigSteps = configuration.steps.phased(as: .config)
-        for step in phasedConfigSteps {
+        let slices = try configuration.slices()
+
+        // 1) Always bring Minecraft to the world list (shared prefix). This is
+        // needed both to create a new world and to detect that one exists.
+        for step in slices.prefix.phased(as: .config) {
+            run(step, using: console)
+        }
+
+        // Device-side detection: after the prefix (Play + 8s wait) the world
+        // list is visible. Use Vision OCR to see if "craftberry test" is
+        // already present — this is the source of truth on device, since the
+        // host's AFC probe env (CRAFTBERRY_E2E_REUSE_WORLD) does not propagate
+        // to the XCTest process on the phone. The host probe remains useful
+        // for logging, but we do not rely on it.
+        let shouldReuse: Bool = {
+            // Give the world list a moment to settle after the 8s wait.
+            Thread.sleep(forTimeInterval: 1)
+            testCase.attachScreenshot("World list for reuse detection")
+            var recognized = ocr.recognizedText()
+            print("[MinecraftE2EHarness] OCR for reuse detection: '\(recognized.prefix(500))'")
+            if recognized.localizedCaseInsensitiveContains("craftberry") {
+                print("[MinecraftE2EHarness] reuse detected (craftberry substring)")
+                return true
+            }
+            // Retry with a short poll — OCR can be transiently empty right
+            // after a navigation or world name may be on next page.
+            if ocr.waitForRecognizedText("craftberry", timeout: 5) {
+                print("[MinecraftE2EHarness] reuse detected on retry (craftberry)")
+                return true
+            }
+            // One swipe up to reveal worlds below the fold, then check again.
+            minecraft.swipeUp()
+            Thread.sleep(forTimeInterval: 2)
+            testCase.attachScreenshot("World list after swipe for reuse detection")
+            recognized = ocr.recognizedText()
+            print("[MinecraftE2EHarness] OCR after swipe: '\(recognized.prefix(500))'")
+            if recognized.localizedCaseInsensitiveContains("craftberry") {
+                print("[MinecraftE2EHarness] reuse detected after swipe")
+                return true
+            }
+            let found = ocr.waitForRecognizedText("craftberry", timeout: 3)
+            if found {
+                print("[MinecraftE2EHarness] reuse detected after swipe retry")
+            } else {
+                print("[MinecraftE2EHarness] no existing world found via OCR — will create")
+            }
+            return found
+        }()
+
+        if !shouldReuse {
+            for step in slices.creation.phased(as: .config) {
+                run(step, using: console)
+            }
+        } else {
+            testCase.attachScreenshot("Reusing existing craftberry test world — skipped world creation steps")
+        }
+
+        for step in slices.activation.phased(as: .config) {
+            run(step, using: console)
+        }
+        for step in slices.staging.phased(as: .config) {
             run(step, using: console)
         }
 
         let craftingSteps = compiler.compile(scenario.craftingPlan)
         let phasedCraftingSteps = craftingSteps.phased(as: .crafting)
         for step in phasedCraftingSteps {
+            run(step, using: console)
+        }
+
+        let cleanupSteps = MinecraftE2EStepSlices.postScenarioCleanup.phased(as: .config)
+        for step in cleanupSteps {
             run(step, using: console)
         }
     }
@@ -173,6 +237,7 @@ final class MinecraftE2EHarness {
         default: text
         }
     }
+
 }
 
 

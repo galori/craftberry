@@ -397,7 +397,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
 
     func testCalibrationSelectStepDoesNotRestoreUIState() {
         // Verifies explicit contract: select-step changes only cursor.
-        let steps = makeTestSteps(count: 3)
+        let steps = makeTestSteps(count: 5)
         let controller = makeController(steps: steps)
         _ = controller.handle(MinecraftCalibrationRequest(command: "step"))
         let before = controller.cursor

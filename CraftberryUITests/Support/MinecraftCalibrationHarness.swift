@@ -81,13 +81,20 @@ final class MinecraftCalibrationHarness {
         Thread.sleep(forTimeInterval: 8)
         testCase.attachScreenshot("Minecraft cold launch after importing Craftberry's \(scenario.projectName)")
 
-        // Build the calibration controller over the full phased plan.
+        // Build the calibration controller over the phased plan, reusing
+        // the existing world when the host AFC probe says it already exists.
         let executor = MinecraftStepExecutor(onIntermediateScreenshot: { [testCase] name in
             testCase.attachScreenshot(name)
         })
+        let slices = try configuration.slices()
+        let shouldReuse = MinecraftWorldReuseFlag.shouldReuseWorld()
+        if shouldReuse {
+            print("[CalibrationHarness] reusing existing craftberry test world — creation steps omitted")
+        }
+        let configSteps = slices.configSteps(reusingWorld: shouldReuse) + MinecraftE2EStepSlices.postScenarioCleanup
         let controller = MinecraftCalibrationController(
             scenario: scenario,
-            configSteps: configuration.steps,
+            configSteps: configSteps,
             craftingPlan: scenario.craftingPlan,
             compiler: compiler,
             app: minecraft,
