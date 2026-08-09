@@ -52,10 +52,25 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneToolSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-tool-set")
         let usesRedstoneWeaponSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-weapon-set")
         let usesRedstoneArmorSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-armor-set")
+        let usesRedstoneConsumableSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-consumable-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
-        if usesRedstoneArmorSet {
+        if usesRedstoneConsumableSet {
+            project = try AddOnProject.materialConsumableSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                nutrition: 6,
+                saturationModifier: "0.6",
+                canAlwaysEat: false,
+                fuelDuration: 12.0,
+                shortDescription: "A redstone consumable kit with a custom ingot, food, and fuel.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneArmorSet {
             project = try AddOnProject.materialArmorSet(
                 materialName: "Redstone",
                 color: .red,
