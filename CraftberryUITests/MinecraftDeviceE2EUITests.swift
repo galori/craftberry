@@ -83,6 +83,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryRedstoneStructureSetCanBeImportedActivatedAndCraftedIntoBlock() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).run(.redstoneStructureSet)
+        #endif
+    }
+
     func testCraftberryRedstoneOreSetCanBeImportedActivatedAndCraftedIntoOre() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -357,6 +365,40 @@ extension MinecraftE2EScenario {
         )
     )
 
+    static let redstoneStructureSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-structure-set",
+        prompt: "Generate a redstone structure hut built from redstone blocks",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Block",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Ingot",
+                    ingredients: [
+                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: true
+                ),
+                .init(
+                    outputName: "Redstone Block",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleCenter, .middleRight, .bottomLeft, .bottomCenter, .bottomRight])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Block"),
+                    outputDestination: slotAfterIngredientsReturn,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        )
+    )
+
     static let redstoneOreSet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-ore-set",
         prompt: "Generate a redstone ore set crafted from redstone",
@@ -417,41 +459,6 @@ extension MinecraftE2EScenario {
                     ],
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Block"),
-                    outputDestination: slotAfterIngredientsReturn,
-                    shouldResetTableAfterPickup: false
-                )
-            ],
-            finalHotbarTap: nil
-        )
-    )
-
-    static let redstoneScriptedSet = MinecraftE2EScenario(
-        launchArgument: "--ui-testing-redstone-scripted-set",
-        prompt: "Generate a redstone scripted set crafted from redstone",
-        projectName: "Redstone",
-        expectedCraftedItemName: "Redstone Charm",
-        behaviorPackName: "Redstone Behavior",
-        resourcePackName: "Redstone Resources",
-        craftingPlan: MinecraftCraftingPlan(
-            recipes: [
-                .init(
-                    outputName: "Redstone Ingot",
-                    ingredients: [
-                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
-                    ],
-                    beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
-                    outputDestination: firstCraftSlot,
-                    shouldResetTableAfterPickup: true
-                ),
-                .init(
-                    outputName: "Redstone Charm",
-                    ingredients: [
-                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleCenter]),
-                        .init(searchText: "stick", resultColumn: 3, destinations: [.bottomCenter])
-                    ],
-                    beforePickupVerification: nil,
-                    afterPickupVerification: .text("Charm"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )

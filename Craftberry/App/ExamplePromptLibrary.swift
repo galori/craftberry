@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + scriptedSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + structureSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -171,6 +171,7 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "❄️", text: "A quartz crop set named Frostbite seeds and harvest"),
         ExamplePrompt(emoji: "🧪", text: "A redstone crop set named Pulse with seeds, crop, and produce")
     ]
+
     private static let entitySets: [ExamplePrompt] = [
         ExamplePrompt(emoji: "🐣", text: "A diamond entity set: Azure ingot plus friendly creature"),
         ExamplePrompt(emoji: "🐥", text: "An emerald entity set named Verdant with a passive creature"),
@@ -184,17 +185,16 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🗿", text: "A netherite entity set named Warden with a sturdy creature")
     ]
 
-
-    private static let scriptedSets: [ExamplePrompt] = [
-        ExamplePrompt(emoji: "✨", text: "A diamond scripted set: Azure ingot plus charm that gives regeneration"),
-        ExamplePrompt(emoji: "🏃", text: "An emerald scripted set named Verdant with speed charm on use"),
-        ExamplePrompt(emoji: "🔥", text: "A blaze rod scripted set named Ember with strength charm"),
-        ExamplePrompt(emoji: "❄️", text: "A quartz scripted set named Frostbite with jump boost charm"),
-        ExamplePrompt(emoji: "🧪", text: "A redstone scripted set named Pulse with resistance charm"),
-        ExamplePrompt(emoji: "⛓️", text: "An iron scripted set named Ironclad with absorption charm"),
-        ExamplePrompt(emoji: "💙", text: "A lapis scripted set named Deepsea with regeneration charm"),
-        ExamplePrompt(emoji: "🪙", text: "A gold scripted set named Gilded charm that grants speed"),
-        ExamplePrompt(emoji: "💜", text: "An amethyst scripted set named Geode with speed charm, 15 seconds"),
-        ExamplePrompt(emoji: "🗿", text: "A netherite scripted set named Warden with strength charm on interact")
+    private static let structureSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🏠", text: "A diamond hut structure from 4 diamonds, with Azure Block hut"),
+        ExamplePrompt(emoji: "🏚️", text: "An emerald hut named Verdant with 3x3 shelter structure"),
+        ExamplePrompt(emoji: "🏡", text: "A blaze rod structure hut named Ember with block shelter"),
+        ExamplePrompt(emoji: "🛖", text: "A quartz hut structure named Frostbite built from blocks"),
+        ExamplePrompt(emoji: "🏕️", text: "A redstone hut structure named Pulse with 3x3 hut"),
+        ExamplePrompt(emoji: "🏘️", text: "An iron hut structure named Ironclad with shelter"),
+        ExamplePrompt(emoji: "🏰", text: "A lapis hut structure named Deepsea with block hut"),
+        ExamplePrompt(emoji: "🏯", text: "A gold hut structure named Gilded with 3x3 hut"),
+        ExamplePrompt(emoji: "⛩️", text: "An amethyst hut structure named Geode with shelter"),
+        ExamplePrompt(emoji: "🗼", text: "A netherite hut structure named Warden with 3x3 hut")
     ]
 }

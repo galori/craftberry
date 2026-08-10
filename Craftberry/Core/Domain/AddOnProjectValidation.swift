@@ -178,6 +178,25 @@ public enum AddOnProjectValidator {
                 issues.append(CompilationIssue(severity: .error, code: "missing_block_item", path: "\(blockPath).id", message: "Block \(block.id.rawValue) requires a matching placeable item."))
             }
         }
+        let blockIDs = Set(project.blocks.map(\.id))
+        if project.structures.count > 1 {
+            issues.append(CompilationIssue(severity: .error, code: "too_many_structures", path: "content.structures", message: "This profile supports at most one structure per add-on."))
+        }
+        for structure in project.structures {
+            let structurePath = "content.structures.\(structure.id.rawValue)"
+            if structure.displayName.contains("\n") || structure.displayName.contains("\r") {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_localization_value", path: "\(structurePath).displayName", message: "Structure display names cannot contain line breaks."))
+            }
+            if structure.size != [3, 3, 3] {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_structure_size", path: "\(structurePath).size", message: "Structures must be exactly 3×3×3 in this profile."))
+            }
+            if !blockIDs.contains(structure.blockID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_structure_block", path: "\(structurePath).blockID", message: "Structure references missing block \(structure.blockID.rawValue)."))
+            }
+            if structure.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_structure_display_name", path: "\(structurePath).displayName", message: "Structure display names cannot be empty."))
+            }
+        }
         for item in project.items {
             let itemPath = "content.items.\(item.id.rawValue)"
             if item.displayName.contains("\n") || item.displayName.contains("\r") {
@@ -495,21 +514,6 @@ public enum AddOnProjectValidator {
                     message: "Generated item recipes contain a dependency cycle."
                 )
             )
-        }
-        if project.mechanics.count > 1 {
-            issues.append(CompilationIssue(severity: .error, code: "too_many_mechanics", path: "content.mechanics", message: "At most one scripted mechanic is supported in this slice."))
-        }
-        for mechanic in project.mechanics {
-            let mPath = "content.mechanics.\(mechanic.id.rawValue)"
-            if !itemIDs.contains(mechanic.targetItemID) {
-                issues.append(CompilationIssue(severity: .error, code: "missing_mechanic_target", path: "\(mPath).targetItemID", message: "Mechanic references missing item \(mechanic.targetItemID.rawValue)."))
-            }
-            if !(5...60).contains(mechanic.action.effect.durationSeconds) {
-                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_duration", path: "\(mPath).action.effect.durationSeconds", message: "Mechanic effect duration must be between 5 and 60 seconds."))
-            }
-            if !(0...4).contains(mechanic.action.effect.amplifier) {
-                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_amplifier", path: "\(mPath).action.effect.amplifier", message: "Mechanic effect amplifier must be between 0 and 4."))
-            }
         }
         return CompilationReport(profileID: profile.id, issues: issues)
     }
