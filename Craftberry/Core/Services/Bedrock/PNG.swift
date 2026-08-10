@@ -159,7 +159,7 @@ public enum PixelArtTextureRenderer {
         case .cropTerrain: renderCropTerrain(color: resource.color, pixelScale: pixelScale)
         case .orePixelArt: renderOre(color: resource.color, pixelScale: pixelScale)
         case .oreTerrain: renderOreTerrain(color: resource.color, pixelScale: pixelScale)
-        case .spawnEggPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
+        case .entityPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
         }
     }
 
