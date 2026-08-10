@@ -48,6 +48,9 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
     public let itemFormatVersion: String
     public let recipeFormatVersion: String
     public let blockFormatVersion: String
+    public let entityFormatVersion: String
+    public let spawnRuleFormatVersion: String
+    public let clientEntityFormatVersion: String
     public let supportedItemTraits: Set<ItemTraitKind>
     public let vanillaItemIdentifiers: Set<String>
     public let vanillaItemTags: Set<String>
@@ -61,6 +64,9 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         itemFormatVersion: String,
         recipeFormatVersion: String,
         blockFormatVersion: String,
+        entityFormatVersion: String,
+        spawnRuleFormatVersion: String,
+        clientEntityFormatVersion: String,
         supportedItemTraits: Set<ItemTraitKind>,
         vanillaItemIdentifiers: Set<String>,
         vanillaItemTags: Set<String>
@@ -73,6 +79,9 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         self.itemFormatVersion = itemFormatVersion
         self.recipeFormatVersion = recipeFormatVersion
         self.blockFormatVersion = blockFormatVersion
+        self.entityFormatVersion = entityFormatVersion
+        self.spawnRuleFormatVersion = spawnRuleFormatVersion
+        self.clientEntityFormatVersion = clientEntityFormatVersion
         self.supportedItemTraits = supportedItemTraits
         self.vanillaItemIdentifiers = vanillaItemIdentifiers
         self.vanillaItemTags = vanillaItemTags
@@ -90,6 +99,9 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         itemFormatVersion: "1.21.100",
         recipeFormatVersion: "1.20.10",
         blockFormatVersion: "1.21.100",
+        entityFormatVersion: "1.26.10",
+        spawnRuleFormatVersion: "1.8.0",
+        clientEntityFormatVersion: "1.10.0",
         supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel],
         vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
         vanillaItemTags: [GeneratedVanillaItemCatalog.trimmableArmorTag]

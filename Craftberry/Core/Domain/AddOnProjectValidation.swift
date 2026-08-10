@@ -97,12 +97,60 @@ public enum AddOnProjectValidator {
             noun: "block",
             to: &issues
         )
+        appendDuplicateIssues(
+            values: project.entities.map(\.id),
+            code: "duplicate_entity_id",
+            path: "content.entities",
+            noun: "entity",
+            to: &issues
+        )
+        appendDuplicateIssues(
+            values: project.spawnRules.map(\.id),
+            code: "duplicate_spawn_rule_id",
+            path: "content.spawnRules",
+            noun: "spawn rule",
+            to: &issues
+        )
+        appendDuplicateIssues(
+            values: project.entityLootTables.map(\.id),
+            code: "duplicate_entity_loot_id",
+            path: "content.entityLootTables",
+            noun: "entity loot",
+            to: &issues
+        )
         let itemIDs = Set(project.items.map(\.id))
         let visualResourceIDs = Set(project.visualResources.map(\.id))
         let visualResourceKinds = project.visualResources.reduce(into: [ContentID: VisualResourceKind]()) { kinds, resource in
             kinds[resource.id] = resource.kind
         }
         validateContentIDs(project, issues: &issues)
+        let entityIDs = Set(project.entities.map(\.id))
+        for entity in project.entities {
+            let path = "content.entities.\(entity.id.rawValue)"
+            if !(4...40).contains(entity.health) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_entity_health", path: "\(path).health", message: "Entity health must be between 4 and 40."))
+            }
+            if !visualResourceIDs.contains(entity.spawnEggResourceID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_entity_spawn_egg_resource", path: "\(path).spawnEggResourceID", message: "Entity references missing spawn egg visual resource \(entity.spawnEggResourceID.rawValue)."))
+            } else if visualResourceKinds[entity.spawnEggResourceID] != .entityPixelArt {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_entity_spawn_egg_resource", path: "\(path).spawnEggResourceID", message: "Entity spawn egg resource \(entity.spawnEggResourceID.rawValue) must be a entityPixelArt visual."))
+            }
+            if entity.displayName.contains("\n") || entity.displayName.contains("\r") {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_localization_value", path: "\(path).displayName", message: "Entity display names cannot contain line breaks."))
+            }
+        }
+        for rule in project.spawnRules {
+            let path = "content.spawnRules.\(rule.id.rawValue)"
+            if !entityIDs.contains(rule.entityID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_spawn_rule_entity", path: "\(path).entityID", message: "Spawn rule references missing entity \(rule.entityID.rawValue)."))
+            }
+        }
+        for loot in project.entityLootTables {
+            let path = "content.entityLootTables.\(loot.id.rawValue)"
+            if !entityIDs.contains(loot.entityID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_entity_loot_entity", path: "\(path).entityID", message: "Entity loot references missing entity \(loot.entityID.rawValue)."))
+            }
+        }
         for block in project.blocks {
             let blockPath = "content.blocks.\(block.id.rawValue)"
             if !(0.5...10.0).contains(block.destroyTime) {

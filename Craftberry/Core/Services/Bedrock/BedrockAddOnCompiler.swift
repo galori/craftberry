@@ -198,6 +198,115 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)])])
             entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
         }
+        for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let identifier = identifier(for: entity.id, namespace: project.namespace)
+            let adultGroupName = "\(entity.id.rawValue)_adult"
+            let babyGroupName = "\(entity.id.rawValue)_baby"
+            let lootTablePath = "loot_tables/entities/\(entity.id.rawValue).json"
+            let entityDocument = EntityDocument(
+                formatVersion: profile.entityFormatVersion,
+                entity: EntityDocument.Entity(
+                    description: EntityDocument.Description(
+                        identifier: identifier,
+                        isSpawnable: true,
+                        isSummonable: true,
+                        spawnCategory: "creature"
+                    ),
+                    componentGroups: [
+                        babyGroupName: EntityDocument.ComponentGroup(
+                            isBaby: EntityDocument.EmptyComponent(),
+                            scale: EntityDocument.Scale(value: 0.5),
+                            ageable: EntityDocument.Ageable(
+                                duration: 1200,
+                                feedItems: ["wheat"],
+                                growUp: EntityDocument.GrowUp(event: "minecraft:ageable_grow_up", target: "self")
+                            ),
+                            experienceReward: nil,
+                            loot: nil,
+                            breedable: nil
+                        ),
+                        adultGroupName: EntityDocument.ComponentGroup(
+                            isBaby: nil,
+                            scale: nil,
+                            ageable: nil,
+                            experienceReward: EntityDocument.ExperienceReward(onDeath: "query.last_hit_by_player ? Math.Random(1,3) : 0"),
+                            loot: EntityDocument.Loot(table: lootTablePath),
+                            breedable: EntityDocument.Breedable(
+                                requireTame: false,
+                                breedsWith: [identifier: EntityDocument.EmptyComponent()],
+                                breedItems: ["wheat"]
+                            )
+                        )
+                    ],
+                    components: EntityDocument.Components(
+                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, "mob"]),
+                        breathable: EntityDocument.Breathable(totalSupply: 15, suffocateTime: 0),
+                        collisionBox: EntityDocument.CollisionBox(width: 0.6, height: 0.8),
+                        nameable: EntityDocument.EmptyComponent(),
+                        health: EntityDocument.Health(value: entity.health, max: entity.health),
+                        movement: EntityDocument.Movement(value: 0.25),
+                        physics: EntityDocument.EmptyComponent(),
+                        pushable: EntityDocument.Pushable(isPushable: true, isPushableByPiston: true),
+                        scale: EntityDocument.Scale(value: entity.scale)
+                    )
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "entities/\(entity.id.rawValue).json", data: try BedrockDocumentEncoder.encode(entityDocument)))
+        }
+        for rule in project.spawnRules.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let entity = try require(
+                project.entities.first(where: { $0.id == rule.entityID }),
+                profile: profile,
+                code: "missing_spawn_rule_entity",
+                path: "content.spawnRules.\(rule.id.rawValue).entityID",
+                message: "Spawn rule references missing entity \(rule.entityID.rawValue)."
+            )
+            let identifier = identifier(for: entity.id, namespace: project.namespace)
+            let spawnDocument = SpawnRuleDocument(
+                formatVersion: profile.spawnRuleFormatVersion,
+                spawnRules: SpawnRuleDocument.SpawnRules(
+                    description: SpawnRuleDocument.Description(identifier: identifier, populationControl: "animal"),
+                    conditions: [
+                        SpawnRuleDocument.Condition(
+                            spawnsOnSurface: SpawnRuleDocument.EmptyComponent(),
+                            spawnsOnBlockFilter: "minecraft:grass_block",
+                            brightnessFilter: SpawnRuleDocument.BrightnessFilter(min: 7, max: 15, adjustForWeather: false),
+                            weight: SpawnRuleDocument.Weight(default: 10),
+                            herd: SpawnRuleDocument.Herd(minSize: 2, maxSize: 4),
+                            biomeFilter: SpawnRuleDocument.BiomeFilter(test: "has_biome_tag", operator: "==", value: "animal")
+                        )
+                    ]
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "spawn_rules/\(rule.id.rawValue).json", data: try BedrockDocumentEncoder.encode(spawnDocument)))
+        }
+        for loot in project.entityLootTables.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let entity = try require(
+                project.entities.first(where: { $0.id == loot.entityID }),
+                profile: profile,
+                code: "missing_entity_loot_entity",
+                path: "content.entityLootTables.\(loot.id.rawValue).entityID",
+                message: "Entity loot references missing entity \(loot.entityID.rawValue)."
+            )
+            let lootItemName: String = {
+                switch loot.item {
+                case .vanilla(let id): return id
+                case .generated(let contentID): return identifier(for: contentID, namespace: project.namespace)
+                case .tag(let tag): return tag
+                }
+            }()
+            let lootDocument = LootTableDocument(
+                pools: [
+                    LootTableDocument.Pool(
+                        rolls: 1,
+                        entries: [
+                            LootTableDocument.Entry(type: "item", name: lootItemName, weight: 1)
+                        ]
+                    )
+                ]
+            )
+            entries.append(ZipArchiveEntry(path: "loot_tables/entities/\(entity.id.rawValue).json", data: try BedrockDocumentEncoder.encode(lootDocument)))
+        }
         for item in project.items.sorted(by: contentOrder) {
             let identifier = identifier(for: item.id, namespace: project.namespace)
             let document = ItemDocument(
@@ -499,6 +608,31 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             }
             let blocksDocument = BlocksDocument(entries: blockEntries)
             entries.append(ZipArchiveEntry(path: "blocks.json", data: try BedrockDocumentEncoder.encode(blocksDocument)))
+        }
+        for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let identifier = identifier(for: entity.id, namespace: project.namespace)
+            let spawnEggTextureName = entity.spawnEggResourceID.rawValue
+            let clientEntity = ClientEntityDocument(
+                formatVersion: profile.clientEntityFormatVersion,
+                clientEntity: ClientEntityDocument.ClientEntity(
+                    description: ClientEntityDocument.Description(
+                        identifier: identifier,
+                        materials: ["default": "entity_alphatest"],
+                        textures: ["default": "textures/entity/\(entity.id.rawValue)"],
+                        geometry: ["default": "geometry.pig"],
+                        renderControllers: ["controller.render.pig"],
+                        spawnEgg: ClientEntityDocument.SpawnEgg(texture: spawnEggTextureName)
+                    )
+                )
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "entity/\(entity.id.rawValue).entity.json",
+                    data: try BedrockDocumentEncoder.encode(clientEntity)
+                )
+            )
+            localizationLines.append("entity.\(identifier).name=\(entity.displayName)")
+            localizationLines.append("item.spawn_egg.entity.\(identifier).name=\(entity.displayName) Spawn Egg")
         }
         let textureMap = ItemTextureDocument(
             resourcePackName: resourcePackDisplayName,
