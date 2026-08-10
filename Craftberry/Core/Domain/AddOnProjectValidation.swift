@@ -379,7 +379,32 @@ public enum AddOnProjectValidator {
             validateUnlock(recipe.unlock, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
             validate(recipe.input, path: "\(recipePath).input", itemIDs: itemIDs, profile: profile, issues: &issues)
         }
-        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes, project.furnaceRecipes) {
+        for recipe in project.smithingTrimRecipes {
+            let recipePath = "content.recipes.\(recipe.id.rawValue)"
+            if recipe.tags.isEmpty {
+                issues.append(CompilationIssue(severity: .error, code: "smithing_recipe_tags_required", path: "\(recipePath).tags", message: "Smithing recipes require at least one tag."))
+            }
+            if recipe.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                issues.append(CompilationIssue(severity: .error, code: "smithing_recipe_tag_empty", path: "\(recipePath).tags", message: "Smithing recipe tags cannot be empty."))
+            }
+            validate(recipe.template, path: "\(recipePath).template", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.base, path: "\(recipePath).base", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.addition, path: "\(recipePath).addition", itemIDs: itemIDs, profile: profile, issues: &issues)
+        }
+        for recipe in project.smithingTransformRecipes {
+            let recipePath = "content.recipes.\(recipe.id.rawValue)"
+            if recipe.tags.isEmpty {
+                issues.append(CompilationIssue(severity: .error, code: "smithing_recipe_tags_required", path: "\(recipePath).tags", message: "Smithing recipes require at least one tag."))
+            }
+            if recipe.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                issues.append(CompilationIssue(severity: .error, code: "smithing_recipe_tag_empty", path: "\(recipePath).tags", message: "Smithing recipe tags cannot be empty."))
+            }
+            validateRecipeResult(recipe.result, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.template, path: "\(recipePath).template", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.base, path: "\(recipePath).base", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.addition, path: "\(recipePath).addition", itemIDs: itemIDs, profile: profile, issues: &issues)
+        }
+        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes, project.furnaceRecipes, project.smithingTransformRecipes) {
             issues.append(
                 CompilationIssue(
                     severity: .error,
@@ -392,7 +417,7 @@ public enum AddOnProjectValidator {
         return CompilationReport(profileID: profile.id, issues: issues)
     }
 
-    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition], _ furnaceRecipes: [FurnaceRecipeDefinition]) -> Bool {
+    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition], _ furnaceRecipes: [FurnaceRecipeDefinition], _ smithingTransformRecipes: [SmithingTransformRecipeDefinition] = []) -> Bool {
         var dependencies: [ContentID: Set<ContentID>] = [:]
         for recipe in recipes {
             guard case .generated(let resultID) = recipe.result.item else { continue }
@@ -415,6 +440,14 @@ public enum AddOnProjectValidator {
             guard case .generated(let resultID) = recipe.result.item else { continue }
             var generatedIngredients = Set<ContentID>()
             if case .generated(let id) = recipe.input { generatedIngredients.insert(id) }
+            dependencies[resultID, default: []].formUnion(generatedIngredients)
+        }
+        for recipe in smithingTransformRecipes {
+            guard case .generated(let resultID) = recipe.result.item else { continue }
+            var generatedIngredients = Set<ContentID>()
+            for ref in [recipe.template, recipe.base, recipe.addition] {
+                if case .generated(let id) = ref { generatedIngredients.insert(id) }
+            }
             dependencies[resultID, default: []].formUnion(generatedIngredients)
         }
 

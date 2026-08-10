@@ -7,6 +7,51 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsMaterialSmithingSetRecipesAndTextures() throws {
+        let project = try AddOnProject.materialSmithingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "smithing", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_ingot.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_sword.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_ingot_recipe.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_sword_smithing_recipe.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_trim_recipe.json" })
+
+        // Pinned to vanilla smithing samples: transform has template/base/addition/result, trim has template/base/addition with tag.
+        let transform = try json(named: "recipes/azure_a1b2c3_sword_smithing_recipe.json", in: behavior)
+        let transformRecipe = try XCTUnwrap(transform["minecraft:recipe_smithing_transform"] as? [String: Any])
+        XCTAssertEqual(transformRecipe["tags"] as? [String], ["smithing_table"])
+        XCTAssertEqual(transformRecipe["template"] as? String, "minecraft:netherite_upgrade_smithing_template")
+        XCTAssertEqual(transformRecipe["base"] as? String, "minecraft:diamond_sword")
+        XCTAssertEqual(transformRecipe["addition"] as? String, "craftberry:azure_a1b2c3_ingot")
+        XCTAssertEqual(transformRecipe["result"] as? String, "craftberry:azure_a1b2c3_sword")
+        let transformDesc = try XCTUnwrap(transformRecipe["description"] as? [String: Any])
+        XCTAssertEqual(transformDesc["identifier"] as? String, "craftberry:azure_a1b2c3_sword_smithing_recipe")
+
+        let trim = try json(named: "recipes/azure_a1b2c3_trim_recipe.json", in: behavior)
+        let trimRecipe = try XCTUnwrap(trim["minecraft:recipe_smithing_trim"] as? [String: Any])
+        XCTAssertEqual(trimRecipe["tags"] as? [String], ["smithing_table"])
+        XCTAssertEqual(trimRecipe["template"] as? String, "minecraft:ward_armor_trim_smithing_template")
+        XCTAssertEqual((trimRecipe["base"] as? [String: String])?["tag"], "minecraft:trimmable_armors")
+        XCTAssertEqual(trimRecipe["addition"] as? String, "craftberry:azure_a1b2c3_ingot")
+        let trimDesc = try XCTUnwrap(trimRecipe["description"] as? [String: Any])
+        XCTAssertEqual(trimDesc["identifier"] as? String, "craftberry:azure_a1b2c3_trim_recipe")
+
+        XCTAssertEqual(transform["format_version"] as? String, "1.20.10")
+        XCTAssertEqual(trim["format_version"] as? String, "1.20.10")
+
+        let textureMap = try json(named: "textures/item_texture.json", in: resources)
+        let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
+        XCTAssertNotNil(textureData["azure_a1b2c3_ingot"])
+        XCTAssertNotNil(textureData["azure_a1b2c3_sword"])
+    }
+
     func testCompilerEmitsMaterialWeaponSetItemsRecipesTexturesAndLocalization() throws {
         let project = try AddOnProject.materialWeaponSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "weapons", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

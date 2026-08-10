@@ -302,6 +302,40 @@ public struct FurnaceRecipeDefinition: Codable, Equatable, Sendable {
     }
 }
 
+public struct SmithingTrimRecipeDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let tags: [String]
+    public let template: ContentReference
+    public let base: ContentReference
+    public let addition: ContentReference
+
+    public init(id: ContentID, tags: [String], template: ContentReference, base: ContentReference, addition: ContentReference) {
+        self.id = id
+        self.tags = tags
+        self.template = template
+        self.base = base
+        self.addition = addition
+    }
+}
+
+public struct SmithingTransformRecipeDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let tags: [String]
+    public let template: ContentReference
+    public let base: ContentReference
+    public let addition: ContentReference
+    public let result: RecipeResult
+
+    public init(id: ContentID, tags: [String], template: ContentReference, base: ContentReference, addition: ContentReference, result: RecipeResult) {
+        self.id = id
+        self.tags = tags
+        self.template = template
+        self.base = base
+        self.addition = addition
+        self.result = result
+    }
+}
+
 public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case swordPixelArt
     case ingotPixelArt
@@ -358,10 +392,12 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case shapedRecipe(ShapedRecipeDefinition)
     case shapelessRecipe(ShapelessRecipeDefinition)
     case furnaceRecipe(FurnaceRecipeDefinition)
+    case smithingTrimRecipe(SmithingTrimRecipeDefinition)
+    case smithingTransformRecipe(SmithingTransformRecipeDefinition)
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, furnaceRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -371,6 +407,8 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .shapedRecipe: self = .shapedRecipe(try values.decode(ShapedRecipeDefinition.self, forKey: .value))
         case .shapelessRecipe: self = .shapelessRecipe(try values.decode(ShapelessRecipeDefinition.self, forKey: .value))
         case .furnaceRecipe: self = .furnaceRecipe(try values.decode(FurnaceRecipeDefinition.self, forKey: .value))
+        case .smithingTrimRecipe: self = .smithingTrimRecipe(try values.decode(SmithingTrimRecipeDefinition.self, forKey: .value))
+        case .smithingTransformRecipe: self = .smithingTransformRecipe(try values.decode(SmithingTransformRecipeDefinition.self, forKey: .value))
         case .visualResource: self = .visualResource(try values.decode(VisualResource.self, forKey: .value))
         }
     }
@@ -392,6 +430,12 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
             try values.encode(recipe, forKey: .value)
         case .furnaceRecipe(let recipe):
             try values.encode(Kind.furnaceRecipe, forKey: .type)
+            try values.encode(recipe, forKey: .value)
+        case .smithingTrimRecipe(let recipe):
+            try values.encode(Kind.smithingTrimRecipe, forKey: .type)
+            try values.encode(recipe, forKey: .value)
+        case .smithingTransformRecipe(let recipe):
+            try values.encode(Kind.smithingTransformRecipe, forKey: .type)
             try values.encode(recipe, forKey: .value)
         case .visualResource(let resource):
             try values.encode(Kind.visualResource, forKey: .type)
@@ -491,7 +535,15 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         content.compactMap { if case .furnaceRecipe(let recipe) = $0 { recipe } else { nil } }
     }
 
-    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) + furnaceRecipes.map(\.id) }
+    public var smithingTrimRecipes: [SmithingTrimRecipeDefinition] {
+        content.compactMap { if case .smithingTrimRecipe(let recipe) = $0 { recipe } else { nil } }
+    }
+
+    public var smithingTransformRecipes: [SmithingTransformRecipeDefinition] {
+        content.compactMap { if case .smithingTransformRecipe(let recipe) = $0 { recipe } else { nil } }
+    }
+
+    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) + furnaceRecipes.map(\.id) + smithingTrimRecipes.map(\.id) + smithingTransformRecipes.map(\.id) }
 
     public var blocks: [BlockDefinition] {
         content.compactMap { if case .block(let block) = $0 { block } else { nil } }
@@ -1090,6 +1142,64 @@ extension AddOnProject {
             VisualResource(id: swordID, kind: .swordPixelArt, color: color)
         ]
         return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(sword), .furnaceRecipe(furnaceRecipe), .shapedRecipe(swordRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
+
+    public static func materialSmithingSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        attackBonus: Int = 10,
+        durability: Int = 500,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (1...30).contains(attackBonus) else { throw AddOnProjectError.invalidAttackBonus }
+        guard (50...2_000).contains(durability) else { throw AddOnProjectError.invalidDurability }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let swordID = ContentID("\(stem)_sword")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let sword = ItemDefinition(id: swordID, displayName: "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let smithingTransformRecipe = SmithingTransformRecipeDefinition(
+            id: ContentID("\(stem)_sword_smithing_recipe"),
+            tags: ["smithing_table"],
+            template: .vanilla("minecraft:netherite_upgrade_smithing_template"),
+            base: .vanilla("minecraft:diamond_sword"),
+            addition: .generated(ingotID),
+            result: RecipeResult(item: .generated(swordID), count: 1)
+        )
+        let smithingTrimRecipe = SmithingTrimRecipeDefinition(
+            id: ContentID("\(stem)_trim_recipe"),
+            tags: ["smithing_table"],
+            template: .vanilla("minecraft:ward_armor_trim_smithing_template"),
+            base: .tag("minecraft:trimmable_armors"),
+            addition: .generated(ingotID)
+        )
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: swordID, kind: .swordPixelArt, color: color)
+        ]
+        return AddOnProject(
+            id: identity.projectID,
+            namespace: identity.namespace,
+            displayName: material,
+            shortDescription: shortDescription,
+            packUUIDs: identity.packUUIDs,
+            buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
+            targetProfileID: profile.id,
+            originalPrompt: originalPrompt,
+            content: [.item(ingot), .item(sword), .shapelessRecipe(ingotRecipe), .smithingTransformRecipe(smithingTransformRecipe), .smithingTrimRecipe(smithingTrimRecipe)] + visuals.map(AddOnContentNode.visualResource)
+        )
     }
 }
 

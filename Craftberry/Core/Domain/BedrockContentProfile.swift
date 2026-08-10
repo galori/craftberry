@@ -92,7 +92,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         blockFormatVersion: "1.21.100",
         supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel],
         vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
-        vanillaItemTags: []
+        vanillaItemTags: [GeneratedVanillaItemCatalog.trimmableArmorTag]
     )
 
     public var materialSourceIdentifiers: Set<String> {

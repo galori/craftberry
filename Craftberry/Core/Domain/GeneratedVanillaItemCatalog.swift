@@ -11,5 +11,16 @@ enum GeneratedVanillaItemCatalog {
         "minecraft:redstone"
     ]
 
-    static let identifiers = materialSources.union(["minecraft:stick"])
+    static let smithingTemplates: Set<String> = [
+        "minecraft:netherite_upgrade_smithing_template",
+        "minecraft:ward_armor_trim_smithing_template"
+    ]
+
+    static let smithingBases: Set<String> = [
+        "minecraft:diamond_sword"
+    ]
+
+    static let trimmableArmorTag = "minecraft:trimmable_armors"
+
+    static let identifiers = materialSources.union(["minecraft:stick"]).union(smithingTemplates).union(smithingBases)
 }
