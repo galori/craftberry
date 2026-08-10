@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000057 /* AddOnRevisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000057 /* AddOnRevisionTests.swift */; };
+		A10000000000000000000056 /* AddOnRevision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000056 /* AddOnRevision.swift */; };
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
@@ -77,6 +79,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000057 /* AddOnRevisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnRevisionTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000056 /* AddOnRevision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnRevision.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
@@ -202,6 +206,7 @@
 				A20000000000000000000020 /* AddOnProjectValidation.swift */,
 				A20000000000000000000025 /* GeneratedVanillaItemCatalog.swift */,
 				A20000000000000000000041 /* RecipeBook.swift */,
+				A20000000000000000000056 /* AddOnRevision.swift */,
 			);
 			path = Core/Domain;
 			sourceTree = "<group>";
@@ -226,6 +231,7 @@
 				A20000000000000000000043 /* ExamplePromptLibraryTests.swift */,
 				A20000000000000000000044 /* PixelArtTextureRendererTests.swift */,
 				A20000000000000000000055 /* CachingLLMClientTests.swift */,
+				A20000000000000000000057 /* AddOnRevisionTests.swift */,
 			);
 			path = CraftberryTests;
 			sourceTree = "<group>";
@@ -457,6 +463,7 @@
 				A10000000000000000000021 /* GeneratedVanillaItemCatalog.swift in Sources */,
 				A10000000000000000000036 /* RecipeBook.swift in Sources */,
 				A10000000000000000000037 /* ExamplePromptLibrary.swift in Sources */,
+				A10000000000000000000056 /* AddOnRevision.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -472,6 +479,7 @@
 				A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */,
 				A10000000000000000000039 /* PixelArtTextureRendererTests.swift in Sources */,
 				A10000000000000000000055 /* CachingLLMClientTests.swift in Sources */,
+				A10000000000000000000057 /* AddOnRevisionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
