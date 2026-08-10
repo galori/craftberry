@@ -58,6 +58,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         try MinecraftE2EHarness(testCase: self).run(.redstoneBlockSet)
         #endif
     }
+
+    func testCraftberryRedstoneSmithingSetCanBeImportedActivatedAndCraftedIntoIngot() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).run(.redstoneSmithingSet)
+        #endif
+    }
 }
 
 /// Where each recipe's output lands in the hotbar.
@@ -229,6 +237,30 @@ extension MinecraftE2EScenario {
                     beforePickupVerification: nil,
                     afterPickupVerification: .text("Food"),
                     outputDestination: slotAfterIngredientsReturn,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        )
+    )
+
+    static let redstoneSmithingSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-smithing-set",
+        prompt: "Generate a redstone smithing set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Ingot",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Ingot",
+                    ingredients: [
+                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone"),
+                    outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: false
                 )
             ],
