@@ -51,7 +51,12 @@ If you're troubleshooting something on the physical device where each iteration 
 ### Completion — PR must be green and merged
 
 - A task is not complete until its PR is green and merged into `main`. Green means all required GitHub Actions checks (unit tests and lint — E2E device tests are excluded from CI and verified locally) pass and the PR has been auto-merged.
-- After the PR merges, update the local `main` (`git fetch origin && git checkout main && git pull --ff-only`), delete the task's worktree (`git worktree remove worktrees/<slug>`) and prune the branch (`git branch -d <branch>`), and only then move on to the next task.
+- After the PR merges, update the local `main` and clean up — but **never delete the worktree you are currently inside**. Removing the worktree that contains your session's `pwd` invalidates the workspace root (`workspace root is invalid: No such file or directory`) and breaks every subsequent tool call, requiring manual `mkdir -p` recovery. Safe order:
+  1. `git worktree list` and `pwd` / `git rev-parse --show-toplevel` — confirm which worktree you are in before touching anything.
+  2. `cd` to the main worktree first (e.g. `cd /Users/gall/workspace/craftberry`), then update `main` there: `git fetch origin && git checkout main && git pull --ff-only`. Alternatively, run every git command with `git -C /Users/gall/workspace/craftberry ...` so the main worktree is the target.
+  3. Only then, **from the main worktree**, delete the task's worktree (`git -C /Users/gall/workspace/craftberry worktree remove worktrees/<slug>` or `git worktree remove <absolute-path-to-worktree>`) and prune the branch (`git branch -d <branch>`). Do not run `git worktree remove` targeting the worktree that contains your current `pwd`; if you need `--force`, you are likely still inside it — `cd` out first.
+  4. `git worktree list` again to confirm removal before starting the next task.
+  - If your session is still rooted in the task worktree, do not remove it — create the next task's worktree first or switch sessions, and **ask before deleting any worktree you are currently inside**.
 - E2E device acceptance remains required for `ROADMAP.md` increments per the ⛔ rule above, but it does not replace CI green — both are required.
 
 ### Required after every change
