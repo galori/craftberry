@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -154,5 +154,21 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold brewing set named Gilded brewed elixir from ingot"),
         ExamplePrompt(emoji: "💜", text: "An amethyst brewing set named Geode with brewing mix and container"),
         ExamplePrompt(emoji: "🗿", text: "A netherite brewing set named Warden brewed elixir splash")
+    ]
+
+    private static let oreSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🪨", text: "A diamond ore set: Azure ingot plus ore block"),
+        ExamplePrompt(emoji: "⛏️", text: "An emerald ore set named Verdant with ingot and ore"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod ore set named Ember with ingot and ore"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz ore set named Frostbite with ingot and ore"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone ore set named Pulse with ingot and ore")
+    ]
+
+    private static let cropSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🌱", text: "A diamond crop set: Azure seeds plus crop and produce"),
+        ExamplePrompt(emoji: "🌾", text: "An emerald crop set named Verdant with seeds and crop"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod crop set named Ember with seeds and crop"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz crop set named Frostbite seeds and harvest"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone crop set named Pulse with seeds, crop, and produce")
     ]
 }

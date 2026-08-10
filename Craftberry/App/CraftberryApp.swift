@@ -57,10 +57,34 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneSmithingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-smithing-set")
         let usesRedstoneFurnaceSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-furnace-set")
         let usesRedstoneBrewingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-brewing-set")
+        let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
+        let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
-        if usesRedstoneBrewingSet {
+        if usesRedstoneOreSet {
+            project = try AddOnProject.materialOreSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#B01A14",
+                shortDescription: "A redstone ore kit with a custom ingot and ore block.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneCropSet {
+            project = try AddOnProject.materialCropSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                shortDescription: "A redstone crop kit with seeds, crop block, and produce.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneBrewingSet {
             project = try AddOnProject.materialBrewingSet(
                 materialName: "Redstone",
                 color: .red,

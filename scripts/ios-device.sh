@@ -286,8 +286,16 @@ minecraft_e2e_on_device() {
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneBrewingSetCanBeImportedActivatedAndCraftedIntoIngot"
             result_name="MinecraftRedstoneBrewingSetE2EUITests"
             ;;
+        ore)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneOreSetCanBeImportedActivatedAndCraftedIntoOre"
+            result_name="MinecraftRedstoneOreSetE2EUITests"
+            ;;
+        crop)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneCropSetCanBeImportedActivatedAndCraftedIntoSeeds"
+            result_name="MinecraftRedstoneCropSetE2EUITests"
+            ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, weapon, armor, consumable, block, smithing, furnace, or brewing)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, weapon, armor, consumable, block, smithing, furnace, brewing, ore, or crop)." >&2
             exit 1
             ;;
     esac
@@ -362,7 +370,7 @@ minecraft_e2e_all_on_device() {
             *) echo "error: unknown flag '$1' for minecraft-e2e-all (expected --fresh-world)" >&2; exit 1 ;;
         esac
     done
-    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing)
+    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing ore crop)
     local overall_status=0
     local first="yes"
     for scenario in "${scenarios[@]}"; do

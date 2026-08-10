@@ -113,8 +113,18 @@ public enum AddOnProjectValidator {
             }
             if !visualResourceIDs.contains(block.terrainResourceID) {
                 issues.append(CompilationIssue(severity: .error, code: "missing_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block references missing terrain visual resource \(block.terrainResourceID.rawValue)."))
-            } else if visualResourceKinds[block.terrainResourceID] != .blockTerrain {
-                issues.append(CompilationIssue(severity: .error, code: "invalid_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block terrain resource \(block.terrainResourceID.rawValue) must be a blockTerrain visual."))
+            } else {
+                let kind = visualResourceKinds[block.terrainResourceID]
+                let allowed: Set<VisualResourceKind> = [.blockTerrain, .oreTerrain, .cropTerrain]
+                if kind == nil || !allowed.contains(kind!) {
+                    issues.append(CompilationIssue(severity: .error, code: "invalid_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block terrain resource \(block.terrainResourceID.rawValue) must be a terrain visual."))
+                }
+            }
+            if let stages = block.growthStages, !(2...16).contains(stages) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_block_growth_stages", path: "\(blockPath).growthStages", message: "Crop growth stages must be between 2 and 16."))
+            }
+            if let loot = block.lootDropID, !itemIDs.contains(loot) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_block_loot_item", path: "\(blockPath).lootDropID", message: "Block loot target \(loot.rawValue) must be a generated item."))
             }
             if !itemIDs.contains(block.id) {
                 issues.append(CompilationIssue(severity: .error, code: "missing_block_item", path: "\(blockPath).id", message: "Block \(block.id.rawValue) requires a matching placeable item."))

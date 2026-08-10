@@ -442,6 +442,53 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(languagesJSON, ["en_US"])
     }
 
+    func testCompilerEmitsMaterialOreSetWithLootAndBlock() throws {
+        let project = try AddOnProject.materialOreSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "ore", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+        XCTAssertTrue(behavior.contains { $0.path == "blocks/azure_a1b2c3_ore.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "loot_tables/blocks/azure_a1b2c3_ore.json" })
+        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_ore.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_ingot")
+        let block = try json(named: "blocks/azure_a1b2c3_ore.json", in: behavior)
+        let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
+        let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
+        XCTAssertNil(desc["states"])
+        XCTAssertEqual(block["format_version"] as? String, "1.21.100")
+        let terrain = try json(named: "textures/terrain_texture.json", in: resources)
+        XCTAssertNotNil((terrain["texture_data"] as? [String: Any])?["azure_a1b2c3_ore"])
+    }
+
+    func testCompilerEmitsMaterialCropSetWithStatesAndPermutations() throws {
+        let project = try AddOnProject.materialCropSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "crop", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_seed_behavior.mcpack", in: outer)
+        let block = try json(named: "blocks/azure_a1b2c3_crop.json", in: behavior)
+        let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
+        let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
+        let states = try XCTUnwrap(desc["states"] as? [String: Any])
+        let growth = try XCTUnwrap(states["craftberry:growth"] as? [String: Any])
+        let values = try XCTUnwrap(growth["values"] as? [String: Any])
+        XCTAssertEqual(values["min"] as? Int, 0)
+        XCTAssertEqual(values["max"] as? Int, 7)
+        let perms = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
+        XCTAssertEqual(perms.count, 8)
+        XCTAssertTrue(perms.allSatisfy { ($0["condition"] as? String)?.contains("craftberry:growth") == true })
+        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_produce")
+    }
+
     private func makeProject() throws -> AddOnProject {
         try AddOnProject.sword(
             displayName: "Azure Sword",

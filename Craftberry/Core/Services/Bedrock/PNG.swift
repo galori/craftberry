@@ -155,6 +155,10 @@ public enum PixelArtTextureRenderer {
         case .blockPixelArt: renderBlock(color: resource.color, pixelScale: pixelScale)
         case .blockTerrain: renderBlockTerrain(color: resource.color, pixelScale: pixelScale)
         case .elixirPixelArt: renderElixir(color: resource.color, pixelScale: pixelScale)
+        case .seedPixelArt: renderSeed(color: resource.color, pixelScale: pixelScale)
+        case .cropTerrain: renderCropTerrain(color: resource.color, pixelScale: pixelScale)
+        case .orePixelArt: renderOre(color: resource.color, pixelScale: pixelScale)
+        case .oreTerrain: renderOreTerrain(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -372,6 +376,36 @@ public enum PixelArtTextureRenderer {
         fill(0, 14, 16, 2, palette.shadow)
         fill(3, 3, 2, 2, palette.highlight)
         fill(10, 6, 2, 2, palette.shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderSeed(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ c: RGBA) {
+            for r in max(0, y*scale)..<min(side, (y+h)*scale) { for col in max(0, x*scale)..<min(side, (x+w)*scale) { pixels[r*side+col]=c } }
+        }
+        fill(10,12,12,8,.outline); fill(11,13,10,6,palette.main); fill(12,14,6,2,palette.highlight)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderCropTerrain(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale); let side = 16*scale
+        var pixels = Array(repeating: RGBA.transparent, count: side*side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x:Int,_ y:Int,_ w:Int,_ h:Int,_ c:RGBA){for r in max(0,y*scale)..<min(side,(y+h)*scale){for col in max(0,x*scale)..<min(side,(x+w)*scale){pixels[r*side+col]=c}}}
+        fill(0,12,16,4,palette.main); fill(7,4,2,8,palette.highlight); fill(7,4,2,2,palette.shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderOre(color: PixelArtColor, pixelScale: Int) -> Data { renderBlock(color: color, pixelScale: pixelScale) }
+    private static func renderOreTerrain(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale); let side = 16*scale
+        var pixels = Array(repeating: RGBA.transparent, count: side*side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x:Int,_ y:Int,_ w:Int,_ h:Int,_ c:RGBA){for r in max(0,y*scale)..<min(side,(y+h)*scale){for col in max(0,x*scale)..<min(side,(x+w)*scale){pixels[r*side+col]=c}}}
+        fill(0,0,16,16,RGBA(red:120,green:120,blue:120,alpha:255)); fill(4,4,3,3,palette.main); fill(9,8,3,3,palette.highlight); fill(5,10,2,2,palette.shadow)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 

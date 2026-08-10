@@ -389,6 +389,10 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case blockPixelArt
     case blockTerrain
     case elixirPixelArt
+    case seedPixelArt
+    case cropTerrain
+    case orePixelArt
+    case oreTerrain
 }
 
 public struct BlockDefinition: Codable, Equatable, Sendable {
@@ -397,13 +401,30 @@ public struct BlockDefinition: Codable, Equatable, Sendable {
     public let destroyTime: Double
     public let mapColor: String
     public let terrainResourceID: ContentID
+    public let lootDropID: ContentID?
+    public let growthStages: Int?
 
-    public init(id: ContentID, displayName: String, destroyTime: Double, mapColor: String, terrainResourceID: ContentID) {
+    public init(id: ContentID, displayName: String, destroyTime: Double, mapColor: String, terrainResourceID: ContentID, lootDropID: ContentID? = nil, growthStages: Int? = nil) {
         self.id = id
         self.displayName = displayName
         self.destroyTime = destroyTime
         self.mapColor = mapColor
         self.terrainResourceID = terrainResourceID
+        self.lootDropID = lootDropID
+        self.growthStages = growthStages
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, displayName, destroyTime, mapColor, terrainResourceID, lootDropID, growthStages }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(ContentID.self, forKey: .id)
+        self.displayName = try c.decode(String.self, forKey: .displayName)
+        self.destroyTime = try c.decode(Double.self, forKey: .destroyTime)
+        self.mapColor = try c.decode(String.self, forKey: .mapColor)
+        self.terrainResourceID = try c.decode(ContentID.self, forKey: .terrainResourceID)
+        self.lootDropID = try c.decodeIfPresent(ContentID.self, forKey: .lootDropID)
+        self.growthStages = try c.decodeIfPresent(Int.self, forKey: .growthStages)
     }
 }
 
@@ -1294,6 +1315,76 @@ extension AddOnProject {
             VisualResource(id: elixirID, kind: .elixirPixelArt, color: color)
         ]
         return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(elixir), .shapelessRecipe(ingotRecipe), .brewingMixRecipe(brewingMixRecipe), .brewingContainerRecipe(brewingContainerRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
+
+    public static func materialOreSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        destroyTime: Double = 3.0,
+        mapColor: String = "#8A8A8A",
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (0.5...10.0).contains(destroyTime) else { throw AddOnProjectError.invalidBlockDestroyTime }
+        guard BlockMapColor.allowedHexValues.contains(mapColor) else { throw AddOnProjectError.invalidBlockMapColor }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let oreID = ContentID("\(stem)_ore")
+        let terrainID = ContentID("\(stem)_ore_terrain")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let oreItem = ItemDefinition(id: oreID, displayName: "\(material) Ore", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: oreID)
+        let oreBlock = BlockDefinition(id: oreID, displayName: "\(material) Ore", destroyTime: destroyTime, mapColor: mapColor, terrainResourceID: terrainID, lootDropID: ingotID, growthStages: nil)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let oreRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_ore_recipe"), tags: ["crafting_table"], pattern: ["III", "III", "III"], ingredients: ["I": .generated(ingotID)], result: RecipeResult(item: .generated(oreID), count: 1), unlock: [.generated(ingotID)])
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: oreID, kind: .orePixelArt, color: color),
+            VisualResource(id: terrainID, kind: .oreTerrain, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(oreItem), .block(oreBlock), .shapelessRecipe(ingotRecipe), .shapedRecipe(oreRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
+
+    public static func materialCropSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .green,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let seedID = ContentID("\(stem)_seed")
+        let cropID = ContentID("\(stem)_crop")
+        let produceID = ContentID("\(stem)_produce")
+        let terrainID = ContentID("\(stem)_crop_terrain")
+        let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.seeds", traits: ItemTraits(), visualResourceID: seedID)
+        let produce = ItemDefinition(id: produceID, displayName: "\(material) Produce", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.food", traits: ItemTraits(food: FoodTrait(nutrition: 4, saturationModifier: "0.6")), visualResourceID: produceID)
+        let cropItem = ItemDefinition(id: cropID, displayName: "\(material) Crop", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: cropID)
+        let cropBlock = BlockDefinition(id: cropID, displayName: "\(material) Crop", destroyTime: 0.5, mapColor: "#5CDBD5", terrainResourceID: terrainID, lootDropID: produceID, growthStages: 8)
+        let seedRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_seed_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(seedID), count: 4), unlock: [.vanilla(sourceItem)])
+        let visuals = [
+            VisualResource(id: seedID, kind: .seedPixelArt, color: color),
+            VisualResource(id: produceID, kind: .foodPixelArt, color: color),
+            VisualResource(id: cropID, kind: .cropTerrain, color: color),
+            VisualResource(id: terrainID, kind: .cropTerrain, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(seed), .item(produce), .item(cropItem), .block(cropBlock), .shapelessRecipe(seedRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }
 }
 

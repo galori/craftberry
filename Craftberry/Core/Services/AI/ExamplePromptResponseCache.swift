@@ -849,6 +849,14 @@ enum ExamplePromptResponseCache {
                 originalPrompt: originalPrompt,
                 identity: identity
             )
+        case "A diamond ore set: Azure ingot plus ore block":
+            project = try AddOnProject.materialOreSet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, destroyTime: 3.0, mapColor: "#8A8A8A", shortDescription: "A diamond Azure ingot plus ore block.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald ore set named Verdant with ingot and ore":
+            project = try AddOnProject.materialOreSet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, destroyTime: 3.0, mapColor: "#17C37B", shortDescription: "An emerald Verdant ingot and ore.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond crop set: Azure seeds plus crop and produce":
+            project = try AddOnProject.materialCropSet(materialName: "Azure", color: .green, sourceItem: "minecraft:diamond", sourceCount: 4, shortDescription: "A diamond Azure seeds plus crop and produce.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald crop set named Verdant with seeds and crop":
+            project = try AddOnProject.materialCropSet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, shortDescription: "An emerald Verdant seeds and crop.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -926,7 +934,11 @@ enum ExamplePromptResponseCache {
             "A lapis furnace set named Deepsea with furnace-smelted ingot",
             "A gold furnace set named Gilded smelted sword set",
             "An amethyst furnace set named Geode with furnace ingot",
-            "A netherite furnace set named Warden smelted ingot plus sword"
+            "A netherite furnace set named Warden smelted ingot plus sword",
+            "A diamond ore set: Azure ingot plus ore block",
+            "An emerald ore set named Verdant with ingot and ore",
+            "A diamond crop set: Azure seeds plus crop and produce",
+            "An emerald crop set named Verdant with seeds and crop"
         ]
     }
 }

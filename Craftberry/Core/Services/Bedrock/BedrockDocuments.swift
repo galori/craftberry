@@ -400,11 +400,35 @@ struct BlockDocument: Encodable {
     struct Block: Encodable {
         let description: Description
         let components: Components
+        let permutations: [Permutation]?
+
+        struct Permutation: Encodable {
+            let condition: String
+            let components: [String: Int]?
+
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(condition, forKey: .condition)
+                if let components { try c.encode(components, forKey: .components) }
+            }
+
+            enum CodingKeys: String, CodingKey { case condition, components }
+        }
     }
 
     struct Description: Encodable {
         let identifier: String
         let menuCategory: MenuCategory?
+        let states: [String: StateValue]?
+
+        struct StateValue: Encodable {
+            let values: RangeValue
+
+            struct RangeValue: Encodable {
+                let min: Int
+                let max: Int
+            }
+        }
     }
 
     struct MenuCategory: Encodable {
