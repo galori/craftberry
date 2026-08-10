@@ -57,12 +57,26 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneSmithingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-smithing-set")
         let usesRedstoneFurnaceSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-furnace-set")
         let usesRedstoneBrewingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-brewing-set")
+        let usesRedstoneScriptedSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-scripted-set")
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
-        if usesRedstoneOreSet {
+        if usesRedstoneScriptedSet {
+            project = try AddOnProject.materialScriptedSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                effectKind: .regeneration,
+                effectDurationSeconds: 10,
+                effectAmplifier: 0,
+                shortDescription: "A redstone scripted kit with a charm that grants regeneration on use.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneOreSet {
             project = try AddOnProject.materialOreSet(
                 materialName: "Redstone",
                 color: .red,

@@ -129,6 +129,31 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         profile: BedrockContentProfile
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
+        let hasMechanics = !project.mechanics.isEmpty
+        var modules: [ManifestDocument.Module] = [
+            ManifestDocument.Module(
+                type: "data",
+                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
+                version: version
+            )
+        ]
+        var dependencies: [ManifestDocument.Dependency] = [
+            ManifestDocument.Dependency(
+                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
+                version: version
+            )
+        ]
+        if hasMechanics {
+            let scriptUUID = scriptModuleUUID(from: project.packUUIDs.behaviorModule).uuidString.lowercased()
+            modules.append(ManifestDocument.Module(
+                type: "script",
+                uuid: scriptUUID,
+                version: version,
+                language: "javascript",
+                entry: "scripts/main.js"
+            ))
+            dependencies.append(ManifestDocument.Dependency(moduleName: "@minecraft/server", version: "2.1.0"))
+        }
         let manifest = ManifestDocument(
             formatVersion: profile.manifestFormatVersion,
             header: ManifestDocument.Header(
@@ -138,20 +163,20 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 version: version,
                 minimumEngineVersion: profile.minimumEngineVersion.components
             ),
-            modules: [ManifestDocument.Module(
-                type: "data",
-                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
-                version: version
-            )],
-            dependencies: [ManifestDocument.Dependency(
-                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
-                version: version
-            )]
+            modules: modules,
+            dependencies: dependencies
         )
         let primaryVisual = try primaryVisualResource(project: project, profile: profile)
         var entries = [
             ZipArchiveEntry(path: "manifest.json", data: try BedrockDocumentEncoder.encode(manifest))
         ]
+        if hasMechanics {
+            for mechanic in project.mechanics.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+                entries.append(
+                    ZipArchiveEntry(path: "scripts/main.js", data: Data(scriptTemplate(for: mechanic, namespace: project.namespace).utf8))
+                )
+            }
+        }
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
             // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
@@ -798,5 +823,39 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         case .generated(let id): .item(identifier(for: id, namespace: namespace))
         case .tag(let identifier): .tag(identifier)
         }
+    }
+
+
+    // Stable template pinned to bedrock-samples 1.26.30.5 @921fafb — reviewed, not LLM-generated.
+    func scriptTemplate(for mechanic: MechanicDefinition, namespace: String) -> String {
+        let itemId = identifier(for: mechanic.targetItemID, namespace: namespace)
+        let effect = mechanic.action.effect.kind.rawValue
+        let ticks = mechanic.action.effect.durationSeconds * 20
+        let amp = mechanic.action.effect.amplifier
+        return """
+import { world } from "@minecraft/server";
+
+world.afterEvents.itemUse.subscribe(event => {
+  if (event.itemStack?.typeId !== "\(itemId)") return;
+  const player = event.source;
+  if (!player) return;
+  player.addEffect("\(effect)", \(ticks), { amplifier: \(amp) });
+});
+"""
+    }
+
+    func scriptModuleUUID(from behaviorModule: UUID) -> UUID {
+        var derived = behaviorModule.uuidString
+        if let idx = derived.firstIndex(of: "-") {
+            let pos = derived.index(derived.startIndex, offsetBy: 0)
+            let hex = "0123456789abcdef"
+            let current = derived[pos]
+            let lower = String(current).lowercased().first ?? "a"
+            let index = hex.firstIndex(of: lower)?.utf16Offset(in: hex) ?? 0
+            let next = hex[hex.index(hex.startIndex, offsetBy: (index + 1) % 16)]
+            derived.replaceSubrange(pos...pos, with: String(next))
+            _ = idx
+        }
+        return UUID(uuidString: derived) ?? UUID()
     }
 }
