@@ -190,6 +190,44 @@ struct ShapelessRecipeDocument: Encodable {
     }
 }
 
+struct FurnaceRecipeDocument: Encodable {
+    let formatVersion: String
+    let recipe: Recipe
+
+    struct Recipe: Encodable {
+        let description: ShapedRecipeDocument.Description
+        let tags: [String]
+        let input: InputValue
+        let output: String
+        let unlock: [ShapedRecipeDocument.Ingredient]
+
+        enum CodingKeys: String, CodingKey { case description, tags, input, output, unlock }
+    }
+
+    enum InputValue: Encodable {
+        case item(String)
+        case tag(String)
+
+        func encode(to encoder: Encoder) throws {
+            switch self {
+            case .item(let value):
+                var container = encoder.singleValueContainer()
+                try container.encode(value)
+            case .tag(let value):
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(value, forKey: .tag)
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case tag }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case recipe = "minecraft:recipe_furnace"
+    }
+}
+
 struct ItemTextureDocument: Encodable {
     let resourcePackName: String
     let textureData: [String: Texture]

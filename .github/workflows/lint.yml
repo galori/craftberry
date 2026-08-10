@@ -1,0 +1,24 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  swiftlint:
+    name: SwiftLint
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint || brew upgrade swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --config .swiftlint.yml
+
+      - name: Verify lint script
+        run: bash scripts/lint.sh

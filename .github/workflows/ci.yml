@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Unit tests (excludes E2E/UI)
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: xcodebuild -version
+
+      - name: Run SwiftPM unit tests
+        # CraftberryTests is the only test target wired via Package.swift;
+        # CraftberryUITests / MinecraftDeviceE2EUITests require a physical
+        # device or simulator UI and are intentionally excluded from CI.
+        run: swift test --parallel
+
+      - name: Verify Xcode project builds
+        run: xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""

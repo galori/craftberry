@@ -1,0 +1,79 @@
+# SwiftLint configuration for Craftberry
+# Permissive: only warn on style, never fail CI on existing codebase.
+# Install with `brew install swiftlint` and run via `scripts/lint.sh` or the pre-commit hook.
+
+included:
+  - Craftberry
+  - CraftberryTests
+  - CraftberryUITests
+  - Tools
+
+excluded:
+  - .build
+  - .swiftpm
+  - DerivedData
+  - .scratch
+  - worktrees
+  - .githooks
+
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - file_length
+  - type_body_length
+  - function_body_length
+  - cyclomatic_complexity
+  - nesting
+  - identifier_name
+  - large_tuple
+  - trailing_comma
+  - comma
+  - vertical_whitespace
+  - for_where
+  - sorted_first_last
+  - large_tuple
+  - trailing_comma
+  - comma
+  - vertical_whitespace
+  - for_where
+  - identifier_name
+  - large_tuple
+  - optional_data_string_conversion
+  - static_over_final_class
+  - empty_count
+  - empty_string
+  - first_where
+  - unused_declaration
+  - unused_import
+  - line_length
+  - file_length
+
+# Disable all opt-in that would fail strict
+opt_in_rules: []
+
+analyzer_rules: []
+
+line_length:
+  warning: 150
+  error: 200
+  ignores_urls: true
+  ignores_function_declarations: true
+  ignores_comments: true
+
+identifier_name:
+  min_length:
+    warning: 2
+  excluded:
+    - id
+    - x
+    - y
+    - z
+    - a
+    - b
+    - w
+    - h
+    - r
+    - i
+    - s
+    - t
+    - e
