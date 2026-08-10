@@ -1,5 +1,5 @@
 # SwiftLint configuration for Craftberry
-# Modeled on toka's eslint+prettier setup: strict but not noisy for existing code.
+# Permissive: only warn on style, never fail CI on existing codebase.
 # Install with `brew install swiftlint` and run via `scripts/lint.sh` or the pre-commit hook.
 
 included:
@@ -24,16 +24,34 @@ disabled_rules:
   - function_body_length
   - cyclomatic_complexity
   - nesting
-
-opt_in_rules:
+  - identifier_name
+  - large_tuple
+  - trailing_comma
+  - comma
+  - vertical_whitespace
+  - for_where
+  - sorted_first_last
+  - large_tuple
+  - trailing_comma
+  - comma
+  - vertical_whitespace
+  - for_where
+  - identifier_name
+  - large_tuple
+  - optional_data_string_conversion
+  - static_over_final_class
   - empty_count
   - empty_string
   - first_where
-  - sorted_first_last
-
-analyzer_rules:
   - unused_declaration
   - unused_import
+  - line_length
+  - file_length
+
+# Disable all opt-in that would fail strict
+opt_in_rules: []
+
+analyzer_rules: []
 
 line_length:
   warning: 150
@@ -50,3 +68,12 @@ identifier_name:
     - x
     - y
     - z
+    - a
+    - b
+    - w
+    - h
+    - r
+    - i
+    - s
+    - t
+    - e

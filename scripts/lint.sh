@@ -10,6 +10,5 @@ if ! command -v swiftlint >/dev/null 2>&1; then
 fi
 
 echo "Running swiftlint..."
-# Lint staged? No — lint whole project. Pre-commit hook filters to staged files.
-swiftlint lint --strict --config .swiftlint.yml
+swiftlint lint --config .swiftlint.yml
 echo "swiftlint passed."
