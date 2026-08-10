@@ -47,9 +47,8 @@ final class MinecraftCalibrationHarness {
             "The deterministic device fixture did not generate \(scenario.projectName)."
         )
 
-        craftberry.buttons["craftberry.build"].tap()
+        craftberry.buttons["craftberry.exportToMinecraft"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.built", in: craftberry, timeout: 10))
-        craftberry.buttons["craftberry.export"].tap()
         testCase.attachScreenshot("Craftberry export share sheet")
         testCase.attachAccessibilityTree("Craftberry export share sheet", app: craftberry)
         try tapMinecraftShareDestination(in: craftberry)
@@ -135,6 +134,134 @@ final class MinecraftCalibrationHarness {
         // terminates the xcodebuild process; until then we must not return.
         print("[CalibrationHarness] waiting indefinitely for controller commands (scenario \(scenario.launchArgument))")
         // RunLoop keeps the process responsive to NWListener callbacks while blocking return.
+        RunLoop.current.run()
+    }
+
+    /// Performs the world export/import and cold launch, then exposes the imported
+    /// world through the same turn-by-turn controller used by the add-on scenarios.
+    /// This is intentionally interactive: world geometry and touch targets are
+    /// useful for a human to inspect on the physical device when a screenshot is
+    /// ambiguous.
+    func runPreconfiguredWorldCalibration(
+        _ scenario: MinecraftE2EScenario,
+        gameMode: MinecraftWorldGameMode,
+        breakAt target: String? = nil
+    ) throws {
+        let configuration = try loadConfiguration()
+        guard configuration.enabled else {
+            throw XCTSkip("This is a physical-device calibration test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
+        }
+
+        let craftberry = XCUIApplication()
+        craftberry.launchArguments = [
+            "--ui-testing",
+            scenario.launchArgument,
+            "--ui-testing-fresh-pack-identity"
+        ]
+        craftberry.launch()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
+
+        let prompt = craftberry.textViews["craftberry.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText(scenario.prompt)
+        try dismissKeyboard(in: craftberry)
+        craftberry.buttons["craftberry.generate"].tap()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+
+        craftberry.buttons["craftberry.exportWorld"].tap()
+        let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
+        XCTAssertTrue(modeButton.waitForExistence(timeout: 3), "The world game-mode menu did not expose \(gameMode.rawValue).")
+        modeButton.tap()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.built", in: craftberry, timeout: 15))
+        testCase.attachScreenshot("Craftberry preconfigured-world share sheet")
+        testCase.attachAccessibilityTree("Craftberry preconfigured-world share sheet", app: craftberry)
+        try tapMinecraftShareDestination(in: craftberry)
+
+        let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
+        testCase.addTeardownBlock { [testCase] in
+            minecraft.terminate()
+            testCase.attachScreenshot("Minecraft terminated before world calibration cleanup")
+        }
+        XCTAssertTrue(
+            minecraft.wait(for: .runningForeground, timeout: 30),
+            "Minecraft did not open after exporting the preconfigured .mcworld."
+        )
+        Thread.sleep(forTimeInterval: 10)
+        testCase.attachScreenshot("Minecraft after importing the preconfigured world")
+        XCTAssertFalse(
+            ocr.recognizedText().localizedCaseInsensitiveContains("Failed to import"),
+            "Minecraft rejected Craftberry's preconfigured world. Inspect the import screenshot."
+        )
+
+        minecraft.terminate()
+        Thread.sleep(forTimeInterval: 1)
+        minecraft.launch()
+        XCTAssertTrue(
+            minecraft.wait(for: .runningForeground, timeout: 30),
+            "Minecraft did not return to the foreground after the world import."
+        )
+        Thread.sleep(forTimeInterval: 8)
+
+        let executor = MinecraftStepExecutor(onIntermediateScreenshot: { [testCase] name in
+            testCase.attachScreenshot(name)
+        })
+        let slices = try configuration.slices()
+        let controller = MinecraftCalibrationController(
+            scenario: scenario,
+            configSteps: slices.prefix + slices.staging + MinecraftE2EStepSlices.postScenarioCleanup,
+            craftingPlan: scenario.craftingPlan,
+            compiler: compiler,
+            app: minecraft,
+            executor: executor,
+            resolve: { self.resolved($0, scenario: scenario) }
+        )
+
+        for step in slices.prefix.phased(as: .config) {
+            let response = controller.handle(MinecraftCalibrationRequest(command: "step"))
+            guard response.success else {
+                XCTFail("World calibration failed while opening the world list: \(response.error ?? "unknown error")")
+                return
+            }
+        }
+
+        let visibleWorldName = scenario.projectName.split(separator: " ").prefix(2).joined(separator: " ")
+        XCTAssertTrue(
+            ocr.waitForRecognizedText(visibleWorldName, timeout: 10),
+            "The imported preconfigured world was not visible in Minecraft's world list."
+        )
+        // The first card thumbnail launches the world; the nearby pencil/edit
+        // coordinate opens world settings instead.
+        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.16, dy: 0.45)).tap()
+        Thread.sleep(forTimeInterval: 45)
+        testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode for calibration")
+
+        if let target = target, !target.isEmpty {
+            if let targetIndex = controller.allSteps.firstIndex(where: { $0.id == target || $0.name == target }) {
+                while controller.cursor < targetIndex {
+                    let response = controller.handle(MinecraftCalibrationRequest(command: "step"))
+                    guard response.success else {
+                        print("[CalibrationHarness] break-at pre-run failed: \(response.error ?? "unknown error")")
+                        break
+                    }
+                }
+                print("[CalibrationHarness] break-at \(target) reached (cursor \(controller.cursor)/\(controller.allSteps.count))")
+            } else {
+                print("[CalibrationHarness] warning: break-at target '\(target)' not found; starting at beginning")
+            }
+        }
+
+        let server = MinecraftCalibrationServer(controller: controller)
+        do {
+            try server.start()
+            print("[CalibrationHarness] world calibration server listening on 8765 for \(gameMode.rawValue) mode")
+        } catch {
+            XCTFail("Failed to start world calibration server: \(error)")
+            return
+        }
+        testCase.addTeardownBlock { server.stop() }
+
+        print("[CalibrationHarness] waiting indefinitely for world controller commands")
         RunLoop.current.run()
     }
 

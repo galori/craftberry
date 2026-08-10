@@ -87,6 +87,13 @@ struct CreationView: View {
                 steps: ["Rendering project assets", "Writing Bedrock files", "Packaging the build"],
                 stateIdentifier: "craftberry.state.building"
             )
+        case .buildingWorld:
+            progressState(
+                title: "Preparing your Minecraft world…",
+                detail: "Embedding the add-on and setting up the world mode.",
+                steps: ["Reading the add-on packs", "Configuring world settings", "Packaging the .mcworld"],
+                stateIdentifier: "craftberry.state.buildingWorld"
+            )
         case .unsupported(let message), .failed(let message):
             messageState(message)
         case .ready(let project):
@@ -246,32 +253,85 @@ struct CreationView: View {
                 RecipeBookList(project: project, rows: book.rows)
                     .accessibilityIdentifier("craftberry.recipeBook")
 
-                if let result {
-                    Button {
-                        shareItem = ShareItem(url: result.artifact.url)
-                    } label: {
-                        Label("Export .mcaddon", systemImage: "square.and.arrow.up")
-                    }
-                    .buttonStyle(CraftberryPrimaryButtonStyle())
-                    .accessibilityIdentifier("craftberry.export")
-
-                    Text("Save or share this build artifact, then transfer it to a physical iPhone for Minecraft validation.")
-                        .font(.footnote)
-                        .foregroundStyle(Color.craftberryMuted)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Button("Build .mcaddon") {
-                        Task { await viewModel.buildArtifact(project) }
-                    }
-                        .buttonStyle(CraftberryPrimaryButtonStyle())
-                        .accessibilityIdentifier("craftberry.build")
+                Button {
+                    exportAddOn(project: project, existingResult: result)
+                } label: {
+                    Label("Export to Minecraft", systemImage: "square.and.arrow.up")
                 }
+                .buttonStyle(CraftberryPrimaryButtonStyle())
+                .accessibilityIdentifier("craftberry.exportToMinecraft")
+
+                Menu {
+                    Button("Creative") {
+                        exportWorld(project: project, existingResult: result, gameMode: .creative)
+                    }
+                    .accessibilityIdentifier("craftberry.exportWorld.creative")
+
+                    Button("Survival") {
+                        exportWorld(project: project, existingResult: result, gameMode: .survival)
+                    }
+                    .accessibilityIdentifier("craftberry.exportWorld.survival")
+                } label: {
+                    Label("Export preconfigured world", systemImage: "globe.americas")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CraftberrySecondaryButtonStyle())
+                .accessibilityIdentifier("craftberry.exportWorld")
+
+                if result != nil {
+                    Button {
+                        shareItem = ShareItem(url: result!.artifact.url)
+                    } label: {
+                        Label("Save .mcaddon", systemImage: "square.and.arrow.down")
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.craftberryMuted)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("craftberry.saveAddon")
+                }
+
+                Text("Choose Export to Minecraft for the add-on, or send a preconfigured Creative or Survival world with the packs already active.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.craftberryMuted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
             }
             .padding(24)
         }
         } else {
             messageState("The generated project has no supported previewable item.")
+        }
+    }
+
+    private func exportAddOn(project: AddOnProject, existingResult: BedrockCompilationResult?) {
+        Task {
+            let result: BedrockCompilationResult?
+            if let existingResult {
+                result = existingResult
+            } else {
+                result = await viewModel.buildArtifact(project)
+            }
+            guard let result else { return }
+            shareItem = ShareItem(url: result.artifact.url)
+        }
+    }
+
+    private func exportWorld(
+        project: AddOnProject,
+        existingResult: BedrockCompilationResult?,
+        gameMode: BedrockWorldGameMode
+    ) {
+        Task {
+            let addOn: BedrockCompilationResult?
+            if let existingResult {
+                addOn = existingResult
+            } else {
+                addOn = await viewModel.buildArtifact(project)
+            }
+            guard let addOn,
+                  let world = await viewModel.buildWorld(project: project, addOn: addOn, gameMode: gameMode)
+            else { return }
+            shareItem = ShareItem(url: world.artifact.url)
         }
     }
 
@@ -327,7 +387,7 @@ struct CreationView: View {
             .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 25))
 
             if case .editing = viewModel.state {
-                Text("Craftberry creates a Bedrock .mcaddon build artifact")
+                Text("Craftberry exports Bedrock add-ons and ready-to-play worlds")
                     .font(.caption2)
                     .foregroundStyle(Color.craftberryMuted)
             }
