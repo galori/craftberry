@@ -7,6 +7,51 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsMaterialBrewingSetRecipesAndTextures() throws {
+        let project = try AddOnProject.materialBrewingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "brewing", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_ingot.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_elixir.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_ingot_recipe.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_elixir_brewing_mix_recipe.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_elixir_brewing_container_recipe.json" })
+
+        // Pinned to vanilla brewing samples: brewing_mix and brewing_container share tags/input/reagent/output shape.
+        let mix = try json(named: "recipes/azure_a1b2c3_elixir_brewing_mix_recipe.json", in: behavior)
+        let mixRecipe = try XCTUnwrap(mix["minecraft:recipe_brewing_mix"] as? [String: Any])
+        XCTAssertEqual(mixRecipe["tags"] as? [String], ["brewing_stand"])
+        XCTAssertEqual(mixRecipe["input"] as? String, "minecraft:potion")
+        XCTAssertEqual(mixRecipe["reagent"] as? String, "craftberry:azure_a1b2c3_ingot")
+        XCTAssertEqual(mixRecipe["output"] as? String, "craftberry:azure_a1b2c3_elixir")
+        let mixDesc = try XCTUnwrap(mixRecipe["description"] as? [String: Any])
+        XCTAssertEqual(mixDesc["identifier"] as? String, "craftberry:azure_a1b2c3_elixir_brewing_mix_recipe")
+
+        let container = try json(named: "recipes/azure_a1b2c3_elixir_brewing_container_recipe.json", in: behavior)
+        let containerRecipe = try XCTUnwrap(container["minecraft:recipe_brewing_container"] as? [String: Any])
+        XCTAssertEqual(containerRecipe["tags"] as? [String], ["brewing_stand"])
+        XCTAssertEqual(containerRecipe["input"] as? String, "craftberry:azure_a1b2c3_elixir")
+        XCTAssertEqual(containerRecipe["reagent"] as? String, "minecraft:gunpowder")
+        XCTAssertEqual(containerRecipe["output"] as? String, "minecraft:splash_potion")
+        let containerDesc = try XCTUnwrap(containerRecipe["description"] as? [String: Any])
+        XCTAssertEqual(containerDesc["identifier"] as? String, "craftberry:azure_a1b2c3_elixir_brewing_container_recipe")
+
+        XCTAssertEqual(mix["format_version"] as? String, "1.20.10")
+        XCTAssertEqual(container["format_version"] as? String, "1.20.10")
+
+        let textureMap = try json(named: "textures/item_texture.json", in: resources)
+        let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
+        XCTAssertNotNil(textureData["azure_a1b2c3_ingot"])
+        XCTAssertNotNil(textureData["azure_a1b2c3_elixir"])
+    }
+
+
     func testCompilerEmitsMaterialSmithingSetRecipesAndTextures() throws {
         let project = try AddOnProject.materialSmithingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "smithing", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

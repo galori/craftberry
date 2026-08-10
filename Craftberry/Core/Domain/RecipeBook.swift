@@ -34,8 +34,15 @@ public struct RecipeBook: Equatable, Sendable {
             },
             uniquingKeysWith: { first, _ in first }
         )
+        let brewingByResult = Dictionary(
+            project.brewingMixRecipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
+                guard case .generated(let id) = recipe.output else { return nil }
+                return (id, .brewingMix(recipe))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
         rows = project.items.compactMap { item in
-            let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id] ?? furnaceByResult[item.id] ?? smithingByResult[item.id]
+            let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id] ?? furnaceByResult[item.id] ?? smithingByResult[item.id] ?? brewingByResult[item.id]
             return RecipeBookRow(
                 item: item,
                 visualResource: visualsByID[item.visualResourceID],
@@ -65,6 +72,14 @@ public struct RecipeBook: Equatable, Sendable {
             let base = IngredientLabel(reference: smithing.base, itemsByID: itemsByID).displayName
             let addition = IngredientLabel(reference: smithing.addition, itemsByID: itemsByID).displayName
             return "Smith \(base) + \(template) + \(addition) -> \(item.displayName)"
+        case .brewingMix(let brewing):
+            let input = IngredientLabel(reference: brewing.input, itemsByID: itemsByID).displayName
+            let reagent = IngredientLabel(reference: brewing.reagent, itemsByID: itemsByID).displayName
+            return "Brew \(input) + \(reagent) -> \(item.displayName)"
+        case .brewingContainer(let brewing):
+            let input = IngredientLabel(reference: brewing.input, itemsByID: itemsByID).displayName
+            let reagent = IngredientLabel(reference: brewing.reagent, itemsByID: itemsByID).displayName
+            return "Brew \(input) + \(reagent) -> \(item.displayName)"
         case .smithingTrim:
             return "Trim armor with \(item.displayName)"
         }
@@ -111,6 +126,8 @@ public enum RecipeBookRecipe: Equatable, Sendable {
     case furnace(FurnaceRecipeDefinition)
     case smithingTransform(SmithingTransformRecipeDefinition)
     case smithingTrim(SmithingTrimRecipeDefinition)
+    case brewingMix(BrewingMixRecipeDefinition)
+    case brewingContainer(BrewingContainerRecipeDefinition)
 
     public var result: RecipeResult {
         switch self {
@@ -119,6 +136,8 @@ public enum RecipeBookRecipe: Equatable, Sendable {
         case .furnace(let recipe): recipe.result
         case .smithingTransform(let recipe): recipe.result
         case .smithingTrim: RecipeResult(item: .vanilla("minecraft:air"), count: 1)
+        case .brewingMix(let recipe): RecipeResult(item: recipe.output, count: 1)
+        case .brewingContainer(let recipe): RecipeResult(item: recipe.output, count: 1)
         }
     }
 
@@ -129,6 +148,8 @@ public enum RecipeBookRecipe: Equatable, Sendable {
         case .furnace(let recipe): [recipe.input]
         case .smithingTransform(let recipe): [recipe.template, recipe.base, recipe.addition]
         case .smithingTrim(let recipe): [recipe.template, recipe.base, recipe.addition]
+        case .brewingMix(let recipe): [recipe.input, recipe.reagent]
+        case .brewingContainer(let recipe): [recipe.input, recipe.reagent]
         }
     }
 
@@ -153,6 +174,10 @@ public enum RecipeBookRecipe: Equatable, Sendable {
             return [recipe.template, recipe.base, recipe.addition] + Array(repeating: nil, count: 6)
         case .smithingTrim(let recipe):
             return [recipe.template, recipe.base, recipe.addition] + Array(repeating: nil, count: 6)
+        case .brewingMix(let recipe):
+            return [recipe.input, recipe.reagent] + Array(repeating: nil, count: 7)
+        case .brewingContainer(let recipe):
+            return [recipe.input, recipe.reagent] + Array(repeating: nil, count: 7)
         }
     }
 }

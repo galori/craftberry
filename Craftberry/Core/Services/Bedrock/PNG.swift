@@ -154,6 +154,7 @@ public enum PixelArtTextureRenderer {
         case .fuelPixelArt: renderFuel(color: resource.color, pixelScale: pixelScale)
         case .blockPixelArt: renderBlock(color: resource.color, pixelScale: pixelScale)
         case .blockTerrain: renderBlockTerrain(color: resource.color, pixelScale: pixelScale)
+        case .elixirPixelArt: renderElixir(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -274,6 +275,28 @@ public enum PixelArtTextureRenderer {
 
     private static func renderBoots(color: PixelArtColor, pixelScale: Int) -> Data {
         renderArmorPiece(color: color, pixelScale: pixelScale, parts: [(9, 6, 6, 11), (17, 6, 6, 11)])
+    }
+
+    private static func renderElixir(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        // Potion bottle: narrow neck + cork + bulbous body
+        fill(13, 6, 6, 4, .outline) // neck outline
+        fill(12, 5, 8, 2, .hilt) // cork top
+        fill(13, 7, 6, 2, palette.main)
+        fill(10, 10, 12, 14, .outline) // body outline
+        fill(11, 11, 10, 12, palette.main) // body fill
+        fill(12, 12, 6, 4, palette.highlight) // highlight
+        fill(12, 19, 8, 3, palette.shadow) // shadow bottom
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 
     private static func renderFood(color: PixelArtColor, pixelScale: Int) -> Data {

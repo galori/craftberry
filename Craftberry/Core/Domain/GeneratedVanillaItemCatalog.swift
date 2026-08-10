@@ -22,5 +22,23 @@ enum GeneratedVanillaItemCatalog {
 
     static let trimmableArmorTag = "minecraft:trimmable_armors"
 
-    static let identifiers = materialSources.union(["minecraft:stick"]).union(smithingTemplates).union(smithingBases)
+    static let brewingInputs: Set<String> = [
+        "minecraft:potion",
+        "minecraft:splash_potion",
+        "minecraft:lingering_potion",
+        "minecraft:potion_type:awkward",
+        "minecraft:potion_type:water",
+        "minecraft:potion_type:mundane",
+        "minecraft:potion_type:thick"
+    ]
+
+    static let brewingReagents: Set<String> = [
+        "minecraft:blaze_powder",
+        "minecraft:dragon_breath",
+        "minecraft:ghast_tear",
+        "minecraft:gunpowder",
+        "minecraft:nether_wart"
+    ]
+
+    static let identifiers = materialSources.union(["minecraft:stick"]).union(smithingTemplates).union(smithingBases).union(brewingInputs).union(brewingReagents)
 }
