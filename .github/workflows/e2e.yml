@@ -30,7 +30,7 @@ jobs:
         run: |
           # Reuses the existing "craftberry test" world between scenarios;
           # only Generated-by-Craftberry packs are cleaned after each run.
-          # This is ~20-30 min for all 7 scenarios.
+          # This is ~25-35 min for all 9 scenarios.
           scripts/ios-device.sh minecraft-e2e-all
 
       - name: Upload xcresult bundles

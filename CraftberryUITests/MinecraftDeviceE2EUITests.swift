@@ -66,6 +66,22 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         try MinecraftE2EHarness(testCase: self).run(.redstoneSmithingSet)
         #endif
     }
+
+    func testCraftberryRedstoneFurnaceSetCanBeImportedActivatedAndCraftedIntoSword() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).run(.redstoneFurnaceSet)
+        #endif
+    }
+
+    func testCraftberryRedstoneBrewingSetCanBeImportedActivatedAndCraftedIntoIngot() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).run(.redstoneBrewingSet)
+        #endif
+    }
 }
 
 /// Where each recipe's output lands in the hotbar.
@@ -247,6 +263,55 @@ extension MinecraftE2EScenario {
     static let redstoneSmithingSet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-smithing-set",
         prompt: "Generate a redstone smithing set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Ingot",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Ingot",
+                    ingredients: [
+                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        )
+    )
+
+    static let redstoneFurnaceSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-furnace-set",
+        prompt: "Generate a redstone furnace set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Sword",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Sword",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleCenter]),
+                        .init(searchText: "stick", resultColumn: 3, destinations: [.bottomCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Sword"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        )
+    )
+
+    static let redstoneBrewingSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-brewing-set",
+        prompt: "Generate a redstone brewing set crafted from redstone",
         projectName: "Redstone",
         expectedCraftedItemName: "Redstone Ingot",
         behaviorPackName: "Redstone Behavior",

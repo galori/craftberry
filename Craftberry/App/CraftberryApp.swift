@@ -55,10 +55,33 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneConsumableSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-consumable-set")
         let usesRedstoneBlockSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-block-set")
         let usesRedstoneSmithingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-smithing-set")
+        let usesRedstoneFurnaceSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-furnace-set")
+        let usesRedstoneBrewingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-brewing-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
-        if usesRedstoneBlockSet {
+        if usesRedstoneBrewingSet {
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                shortDescription: "A redstone brewing kit with a custom ingot and brewing-stand elixir.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneFurnaceSet {
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                attackBonus: 10,
+                durability: 500,
+                shortDescription: "A redstone furnace kit with a furnace-smelted ingot and sword.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneBlockSet {
             project = try AddOnProject.materialBlockSet(
                 materialName: "Redstone",
                 color: .red,
