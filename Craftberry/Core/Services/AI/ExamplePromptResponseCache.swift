@@ -757,6 +757,98 @@ enum ExamplePromptResponseCache {
                 originalPrompt: originalPrompt,
                 identity: identity
             )
+
+        // MARK: - Furnace sets
+        case "A diamond furnace set: smelt Azure ingot and forge a sword":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Azure",
+                color: .cyan,
+                sourceItem: "minecraft:diamond",
+                shortDescription: "A diamond furnace set smelting Azure ingot and sword.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An emerald furnace set named Verdant smelted in a furnace":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Verdant",
+                color: .green,
+                sourceItem: "minecraft:emerald",
+                shortDescription: "An emerald Verdant furnace set smelted in a furnace.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod furnace set named Ember with furnace-smelted ingot":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                shortDescription: "A blaze Ember furnace set with furnace-smelted ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz furnace set named Frostbite smelted then forged":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                shortDescription: "A quartz Frostbite furnace set smelted then forged.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone furnace set named Pulse with furnace recipe":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                shortDescription: "A redstone Pulse furnace set with furnace recipe.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An iron furnace set named Ironclad smelted in furnace":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Ironclad",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                shortDescription: "An iron Ironclad furnace set smelted in furnace.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A lapis furnace set named Deepsea with furnace-smelted ingot":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Deepsea",
+                color: .blue,
+                sourceItem: "minecraft:lapis_lazuli",
+                shortDescription: "A lapis Deepsea furnace set with furnace-smelted ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A gold furnace set named Gilded smelted sword set":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Gilded",
+                color: .gold,
+                sourceItem: "minecraft:gold_ingot",
+                shortDescription: "A gold Gilded furnace set smelted sword set.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An amethyst furnace set named Geode with furnace ingot":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Geode",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                shortDescription: "An amethyst Geode furnace set with furnace ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A netherite furnace set named Warden smelted ingot plus sword":
+            project = try AddOnProject.materialFurnaceSet(
+                materialName: "Warden",
+                color: .black,
+                sourceItem: "minecraft:netherite_ingot",
+                shortDescription: "A netherite Warden furnace set smelted ingot plus sword.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
         default:
             return nil
         }
@@ -824,7 +916,17 @@ enum ExamplePromptResponseCache {
             "A lapis block set named Deepsea with ingot and block",
             "A gold block set named Gilded with ingot and block",
             "An amethyst block set named Geode with ingot and block",
-            "A netherite block set named Warden with ingot and block"
+            "A netherite block set named Warden with ingot and block",
+            "A diamond furnace set: smelt Azure ingot and forge a sword",
+            "An emerald furnace set named Verdant smelted in a furnace",
+            "A blaze rod furnace set named Ember with furnace-smelted ingot",
+            "A quartz furnace set named Frostbite smelted then forged",
+            "A redstone furnace set named Pulse with furnace recipe",
+            "An iron furnace set named Ironclad smelted in furnace",
+            "A lapis furnace set named Deepsea with furnace-smelted ingot",
+            "A gold furnace set named Gilded smelted sword set",
+            "An amethyst furnace set named Geode with furnace ingot",
+            "A netherite furnace set named Warden smelted ingot plus sword"
         ]
     }
 }
