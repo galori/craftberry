@@ -1,0 +1,43 @@
+name: E2E (physical device)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Only one E2E run at a time — the single iPhone 13 Pro cannot parallelize.
+concurrency:
+  group: e2e-physical-device
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Minecraft E2E on self-hosted iPhone 13 Pro
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: xcodebuild -version
+
+      - name: Verify physical iPhone is connected
+        run: |
+          echo "Checking for connected physical iPhone..."
+          scripts/ios-device.sh list
+          echo "Device check done."
+
+      - name: Run Minecraft E2E (all scenarios)
+        run: |
+          # Reuses the existing "craftberry test" world between scenarios;
+          # only Generated-by-Craftberry packs are cleaned after each run.
+          # This is ~20-30 min for all 7 scenarios.
+          scripts/ios-device.sh minecraft-e2e-all
+
+      - name: Upload xcresult bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-xcresults
+          path: .build/ios-device/*.xcresult
+          if-no-files-found: warn
+          retention-days: 7
