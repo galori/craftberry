@@ -54,6 +54,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneArmorSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-armor-set")
         let usesRedstoneConsumableSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-consumable-set")
         let usesRedstoneBlockSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-block-set")
+        let usesRedstoneSmithingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-smithing-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
@@ -100,6 +101,18 @@ private struct UITestingLLMClient: LLMClient {
                 sourceItem: "minecraft:redstone",
                 sourceCount: 4,
                 shortDescription: "A redstone melee kit with a custom ingot and four weapon recipes.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneSmithingSet {
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                attackBonus: 10,
+                durability: 500,
+                shortDescription: "A redstone smithing kit with a smithing-upgraded sword and armor trim.",
                 originalPrompt: prompt,
                 identity: identity
             )
