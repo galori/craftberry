@@ -14,9 +14,9 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// Every prompt must stay inside the active capability profile: only materials from
 /// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, protection
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
-/// set, armor set, consumable set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
+/// set, armor set, consumable set, block set, furnace set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -115,5 +115,18 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold block set named Gilded with ingot and block"),
         ExamplePrompt(emoji: "💜", text: "An amethyst block set named Geode with ingot and block"),
         ExamplePrompt(emoji: "🗿", text: "A netherite block set named Warden with ingot and block")
+    ]
+
+    private static let furnaceSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🔥", text: "A diamond furnace set: smelt Azure ingot and forge a sword"),
+        ExamplePrompt(emoji: "🏺", text: "An emerald furnace set named Verdant smelted in a furnace"),
+        ExamplePrompt(emoji: "⚒️", text: "A blaze rod furnace set named Ember with furnace-smelted ingot"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz furnace set named Frostbite smelted then forged"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone furnace set named Pulse with furnace recipe"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron furnace set named Ironclad smelted in furnace"),
+        ExamplePrompt(emoji: "💙", text: "A lapis furnace set named Deepsea with furnace-smelted ingot"),
+        ExamplePrompt(emoji: "🪙", text: "A gold furnace set named Gilded smelted sword set"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst furnace set named Geode with furnace ingot"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite furnace set named Warden smelted ingot plus sword")
     ]
 }

@@ -20,8 +20,15 @@ public struct RecipeBook: Equatable, Sendable {
             },
             uniquingKeysWith: { first, _ in first }
         )
+        let furnaceByResult = Dictionary(
+            project.furnaceRecipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
+                guard case .generated(let id) = recipe.result.item else { return nil }
+                return (id, .furnace(recipe))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
         rows = project.items.compactMap { item in
-            let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id]
+            let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id] ?? furnaceByResult[item.id]
             return RecipeBookRow(
                 item: item,
                 visualResource: visualsByID[item.visualResourceID],
@@ -43,6 +50,9 @@ public struct RecipeBook: Equatable, Sendable {
         case .shapeless(let shapeless):
             let counts = ingredientCounts(shapeless.ingredients)
             return ingredientSentence(counts: counts, itemsByID: itemsByID) + " -> \(item.displayName)"
+        case .furnace(let furnace):
+            let name = IngredientLabel(reference: furnace.input, itemsByID: itemsByID).displayName
+            return "Smelt \(name) -> \(item.displayName)"
         }
     }
 
@@ -84,11 +94,13 @@ public struct RecipeBookRow: Equatable, Sendable, Identifiable {
 public enum RecipeBookRecipe: Equatable, Sendable {
     case shaped(ShapedRecipeDefinition)
     case shapeless(ShapelessRecipeDefinition)
+    case furnace(FurnaceRecipeDefinition)
 
     public var result: RecipeResult {
         switch self {
         case .shaped(let recipe): recipe.result
         case .shapeless(let recipe): recipe.result
+        case .furnace(let recipe): recipe.result
         }
     }
 
@@ -96,6 +108,7 @@ public enum RecipeBookRecipe: Equatable, Sendable {
         switch self {
         case .shaped(let recipe): Array(recipe.ingredients.values)
         case .shapeless(let recipe): recipe.ingredients
+        case .furnace(let recipe): [recipe.input]
         }
     }
 
@@ -114,6 +127,8 @@ public enum RecipeBookRecipe: Equatable, Sendable {
             return (0..<9).map { index in
                 index < recipe.ingredients.count ? recipe.ingredients[index] : nil
             }
+        case .furnace(let recipe):
+            return [recipe.input] + Array(repeating: nil, count: 8)
         }
     }
 }

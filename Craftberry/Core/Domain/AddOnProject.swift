@@ -286,6 +286,22 @@ public struct ShapelessRecipeDefinition: Codable, Equatable, Sendable {
     }
 }
 
+public struct FurnaceRecipeDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let tags: [String]
+    public let input: ContentReference
+    public let result: RecipeResult
+    public let unlock: [ContentReference]
+
+    public init(id: ContentID, tags: [String], input: ContentReference, result: RecipeResult, unlock: [ContentReference]) {
+        self.id = id
+        self.tags = tags
+        self.input = input
+        self.result = result
+        self.unlock = unlock
+    }
+}
+
 public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case swordPixelArt
     case ingotPixelArt
@@ -341,10 +357,11 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case block(BlockDefinition)
     case shapedRecipe(ShapedRecipeDefinition)
     case shapelessRecipe(ShapelessRecipeDefinition)
+    case furnaceRecipe(FurnaceRecipeDefinition)
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, furnaceRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -353,6 +370,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .block: self = .block(try values.decode(BlockDefinition.self, forKey: .value))
         case .shapedRecipe: self = .shapedRecipe(try values.decode(ShapedRecipeDefinition.self, forKey: .value))
         case .shapelessRecipe: self = .shapelessRecipe(try values.decode(ShapelessRecipeDefinition.self, forKey: .value))
+        case .furnaceRecipe: self = .furnaceRecipe(try values.decode(FurnaceRecipeDefinition.self, forKey: .value))
         case .visualResource: self = .visualResource(try values.decode(VisualResource.self, forKey: .value))
         }
     }
@@ -371,6 +389,9 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
             try values.encode(recipe, forKey: .value)
         case .shapelessRecipe(let recipe):
             try values.encode(Kind.shapelessRecipe, forKey: .type)
+            try values.encode(recipe, forKey: .value)
+        case .furnaceRecipe(let recipe):
+            try values.encode(Kind.furnaceRecipe, forKey: .type)
             try values.encode(recipe, forKey: .value)
         case .visualResource(let resource):
             try values.encode(Kind.visualResource, forKey: .type)
@@ -466,7 +487,11 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         content.compactMap { if case .shapelessRecipe(let recipe) = $0 { recipe } else { nil } }
     }
 
-    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) }
+    public var furnaceRecipes: [FurnaceRecipeDefinition] {
+        content.compactMap { if case .furnaceRecipe(let recipe) = $0 { recipe } else { nil } }
+    }
+
+    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) + furnaceRecipes.map(\.id) }
 
     public var blocks: [BlockDefinition] {
         content.compactMap { if case .block(let block) = $0 { block } else { nil } }
@@ -1033,6 +1058,38 @@ extension AddOnProject {
             originalPrompt: originalPrompt,
             content: [.item(ingot), .item(food), .item(fuel), .shapelessRecipe(ingotRecipe), .shapedRecipe(foodRecipe), .shapedRecipe(fuelRecipe)] + visuals.map(AddOnContentNode.visualResource)
         )
+    }
+
+    public static func materialFurnaceSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        attackBonus: Int = 10,
+        durability: Int = 500,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...30).contains(attackBonus) else { throw AddOnProjectError.invalidAttackBonus }
+        guard (50...2_000).contains(durability) else { throw AddOnProjectError.invalidDurability }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let swordID = ContentID("\(stem)_sword")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let sword = ItemDefinition(id: swordID, displayName: "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
+        let furnaceRecipe = FurnaceRecipeDefinition(id: ContentID("\(stem)_ingot_furnace_recipe"), tags: ["furnace"], input: .vanilla(sourceItem), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let swordRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_sword_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(swordID), count: 1), unlock: [.generated(ingotID)])
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: swordID, kind: .swordPixelArt, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(sword), .furnaceRecipe(furnaceRecipe), .shapedRecipe(swordRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }
 }
 
