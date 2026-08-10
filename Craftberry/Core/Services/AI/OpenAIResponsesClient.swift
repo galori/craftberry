@@ -62,38 +62,40 @@ public struct OpenAIResponsesClient: LLMClient {
 
         switch intent.outcome {
         case .unsupported:
-            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil, intent.materialConsumableSet == nil, intent.materialBlockSet == nil, intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil, intent.materialBrewingSet == nil, intent.materialOreSet == nil, intent.materialCropSet == nil else { throw LLMClientError.invalidResponse }
+            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil, intent.materialConsumableSet == nil, intent.materialBlockSet == nil, intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil, intent.materialBrewingSet == nil, intent.materialOreSet == nil, intent.materialCropSet == nil, intent.materialStructureSet == nil else { throw LLMClientError.invalidResponse }
             return ProjectGeneration(outcome: .unsupported, message: intent.message, project: nil)
         case .ready:
             let shortDescription = intent.shortDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !shortDescription.isEmpty else { throw LLMClientError.invalidResponse }
             let identity = identityGenerator()
             let project: AddOnProject
-            switch (intent.sword, intent.materialSwordSet, intent.materialToolSet, intent.materialWeaponSet, intent.materialArmorSet, intent.materialConsumableSet, intent.materialBlockSet, intent.materialFurnaceSet, intent.materialSmithingSet, intent.materialBrewingSet, intent.materialOreSet, intent.materialCropSet) {
-            case let (.some(sword), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            switch (intent.sword, intent.materialSwordSet, intent.materialToolSet, intent.materialWeaponSet, intent.materialArmorSet, intent.materialConsumableSet, intent.materialBlockSet, intent.materialFurnaceSet, intent.materialSmithingSet, intent.materialBrewingSet, intent.materialOreSet, intent.materialCropSet, intent.materialStructureSet) {
+            case let (.some(sword), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.sword(displayName: sword.displayName, color: sword.color, attackBonus: sword.attackBonus, durability: sword.durability, craftingIngredient: sword.craftingIngredient.bedrockIdentifier, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialSwordSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, swordDisplayName: material.swordDisplayName, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialToolSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialWeaponSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialArmorSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, protection: material.protection, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialConsumableSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, nutrition: material.nutrition, saturationModifier: material.saturationModifier, canAlwaysEat: material.canAlwaysEat, fuelDuration: material.fuelDuration, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialBlockSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialFurnaceSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil):
                 project = try AddOnProject.materialSmithingSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil):
                 project = try AddOnProject.materialBrewingSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil):
                 project = try AddOnProject.materialOreSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material)):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil):
                 project = try AddOnProject.materialCropSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material)):
+                project = try AddOnProject.materialStructureSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
             default: throw LLMClientError.invalidResponse
             }
             let report = AddOnProjectValidator.validate(project, profile: .current)
@@ -130,6 +132,7 @@ private struct ProjectIntentGeneration: Decodable {
     let materialBrewingSet: MaterialBrewingSetIntent?
     let materialOreSet: MaterialBlockSetIntent?
     let materialCropSet: MaterialCropSetIntent?
+    let materialStructureSet: MaterialStructureSetIntent?
 }
 
 private struct MaterialSwordSetIntent: Decodable {
@@ -220,6 +223,15 @@ private struct MaterialCropSetIntent: Decodable {
     let sourceCount: Int
 }
 
+private struct MaterialStructureSetIntent: Decodable {
+    let materialName: String
+    let color: PixelArtColor
+    let sourceItem: FoundationSwordIngredient
+    let sourceCount: Int
+    let destroyTime: Double
+    let mapColor: String
+}
+
 private struct SwordIntent: Decodable {
     let displayName: String
     let color: PixelArtColor
@@ -300,7 +312,7 @@ private struct OpenAIRequestDocument: Encodable {
     }
 
     private static let instructions = """
-    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, one named material ingot plus a matching helmet/chestplate/leggings/boots armor set, one named material ingot plus food and fuel consumables, one named material ingot plus its storage block, one named material ingot plus a furnace-smelted ingot and its sword, one named material ingot plus a smithing-upgraded sword and armor trim using that ingot, or one named material ingot plus a brewing-stand elixir that upgrades a potion via the ingot, one named material ingot plus its ore block, or one named material seed plus its crop block and produce.
+    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, one named material ingot plus a matching helmet/chestplate/leggings/boots armor set, one named material ingot plus food and fuel consumables, one named material ingot plus its storage block, one named material ingot plus a furnace-smelted ingot and its sword, one named material ingot plus a smithing-upgraded sword and armor trim using that ingot, or one named material ingot plus a brewing-stand elixir that upgrades a potion via the ingot, one named material ingot plus its ore block, one named material seed plus its crop block and produce, or one named material ingot plus its storage block and a 3x3 hut structure built from that block.
     A material set makes a shapeless ingot from 1 through 9 copies of one supported vanilla material, then a sword from two ingots and a stick. Defaults are Azure, blue, diamond x4, attack 10, durability 500, names "Azure Ingot" and "Azure Sword". Never output Bedrock JSON, identifiers, UUIDs, filenames, code, markdown, or fields outside the schema.
     A material tool set uses the same ingot recipe and additionally crafts pickaxe, axe, shovel, and hoe variants from that ingot and sticks.
     A material weapon set uses the same ingot recipe and additionally crafts dagger, spear, and hammer variants from that ingot and sticks.
@@ -312,6 +324,7 @@ private struct OpenAIRequestDocument: Encodable {
     A material brewing set uses the same ingot recipe and additionally brews an elixir at the brewing stand from a potion plus the ingot, then converts it to a splash potion with gunpowder; it uses the same defaults and limits as the sword set.
     A material ore set uses the same ingot recipe and additionally crafts an ore block from 9 ingots (3x3) that drops the ingot when mined; destroyTime and mapColor use the same defaults and limits as the block set.
     A material crop set makes seeds from 1 through 9 copies of one supported vanilla material (4 seeds), plus a produce food and a crop block with 8 growth stages (0..7) that drops produce when broken.
+    A material structure set extends the block set with a 3x3 hut structure built from that block and placed via a structure template feature; it uses the same ingot/block defaults and limits as the block set.
     If unsupported, set all intents and shortDescription to null. If ready, populate exactly one intent and write shortDescription as one short user-facing pack overview sentence.
     """
 
@@ -462,6 +475,18 @@ private struct OpenAIRequestDocument: Encodable {
     ])])
 
     private static let materialOreSetProperty: JSONValue = materialBlockSetProperty
+    private static let materialStructureSetProperty: JSONValue = .object(["anyOf": .array([
+        .object(["type": .string("null")]),
+        .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["materialName", "color", "sourceItem", "sourceCount", "destroyTime", "mapColor"].map(JSONValue.string)), "properties": .object([
+            "materialName": .object(["type": .string("string"), "minLength": .integer(1), "maxLength": .integer(24)]),
+            "color": .object(["type": .string("string"), "enum": .array(PixelArtColor.allCases.map { .string($0.rawValue) })]),
+            "sourceItem": .object(["type": .string("string"), "enum": .array(FoundationSwordIngredient.allCases.map { .string($0.rawValue) })]),
+            "sourceCount": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(9)]),
+            "destroyTime": .object(["type": .string("number"), "minimum": .integer(0), "maximum": .integer(10)]),
+            "mapColor": .object(["type": .string("string"), "enum": .array(BlockMapColor.allCases.map { .string($0.rawValue) })])
+        ])])
+    ])])
+
     private static let materialCropSetProperty: JSONValue = .object(["anyOf": .array([
         .object(["type": .string("null")]),
         .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["materialName", "color", "sourceItem", "sourceCount"].map(JSONValue.string)), "properties": .object([
@@ -475,7 +500,7 @@ private struct OpenAIRequestDocument: Encodable {
     private static let schema: JSONValue = .object([
         "type": .string("object"),
         "additionalProperties": .bool(false),
-        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet", "materialConsumableSet", "materialBlockSet", "materialFurnaceSet", "materialSmithingSet", "materialBrewingSet", "materialOreSet", "materialCropSet"].map(JSONValue.string)),
+        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet", "materialConsumableSet", "materialBlockSet", "materialFurnaceSet", "materialSmithingSet", "materialBrewingSet", "materialOreSet", "materialCropSet", "materialStructureSet"].map(JSONValue.string)),
         "properties": .object([
             "schemaVersion": .object(["type": .string("integer"), "const": .integer(1)]),
             "outcome": .object([
@@ -508,7 +533,8 @@ private struct OpenAIRequestDocument: Encodable {
             "materialSmithingSet": materialSmithingSetProperty,
             "materialBrewingSet": materialBrewingSetProperty,
             "materialOreSet": materialOreSetProperty,
-            "materialCropSet": materialCropSetProperty
+            "materialCropSet": materialCropSetProperty,
+            "materialStructureSet": materialStructureSetProperty
         ])
     ])
 }

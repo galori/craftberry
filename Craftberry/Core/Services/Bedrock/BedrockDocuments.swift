@@ -23,50 +23,11 @@ struct ManifestDocument: Encodable {
         let type: String
         let uuid: String
         let version: [Int]
-        let language: String?
-        let entry: String?
-
-        init(type: String, uuid: String, version: [Int], language: String? = nil, entry: String? = nil) {
-            self.type = type
-            self.uuid = uuid
-            self.version = version
-            self.language = language
-            self.entry = entry
-        }
     }
 
     struct Dependency: Encodable {
-        var uuid: String?
-        var version: [Int]
-        var moduleName: String?
-
-        init(uuid: String, version: [Int]) {
-            self.uuid = uuid
-            self.version = version
-            self.moduleName = nil
-        }
-
-        init(moduleName: String, version: String) {
-            uuid = nil
-            self.moduleName = moduleName
-            self.version = version.split(separator: ".").compactMap { Int($0) }
-            _versionString = version
-        }
-
-        private var _versionString: String?
-
-        enum CodingKeys: String, CodingKey { case uuid, version, moduleName = "module_name" }
-
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            if let uuid { try container.encode(uuid, forKey: .uuid) }
-            if let moduleName { try container.encode(moduleName, forKey: .moduleName) }
-            if let raw = _versionString {
-                try container.encode(raw, forKey: .version)
-            } else {
-                try container.encode(version, forKey: .version)
-            }
-        }
+        let uuid: String
+        let version: [Int]
     }
 
     enum CodingKeys: String, CodingKey {
@@ -618,6 +579,85 @@ struct BlocksDocument: Encodable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(entries)
+    }
+}
+
+struct StructureTemplateFeatureDocument: Encodable {
+    let formatVersion: String
+    let feature: Feature
+
+    struct Feature: Encodable {
+        let description: Description
+        let structureName: String
+        let constraints: Constraints
+        let adjustmentRadius: Int?
+
+        struct Description: Encodable { let identifier: String }
+        struct Constraints: Encodable {
+            let grounded: Empty?
+            let unburied: Empty?
+            struct Empty: Encodable {}
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case description
+            case structureName = "structure_name"
+            case constraints
+            case adjustmentRadius = "adjustment_radius"
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case feature = "minecraft:structure_template_feature"
+    }
+}
+
+struct FeatureRuleDocument: Encodable {
+    let formatVersion: String
+    let rules: Rules
+
+    struct Rules: Encodable {
+        let description: Description
+        let conditions: Conditions
+        let distribution: Distribution
+
+        struct Description: Encodable {
+            let identifier: String
+            let placesFeature: String
+            enum CodingKeys: String, CodingKey {
+                case identifier
+                case placesFeature = "places_feature"
+            }
+        }
+        struct Conditions: Encodable {
+            let placementPass: String
+            let biomeFilter: [BiomeFilter]
+            struct BiomeFilter: Encodable {
+                let test: String
+                let `operator`: String
+                let value: String
+            }
+            enum CodingKeys: String, CodingKey {
+                case placementPass = "placement_pass"
+                case biomeFilter = "minecraft:biome_filter"
+            }
+        }
+        struct Distribution: Encodable {
+            let iterations: Int
+            let x: DistributionAxis
+            let y: DistributionAxis
+            let z: DistributionAxis
+            struct DistributionAxis: Encodable {
+                let distribution: String
+                let extent: [Int]
+            }
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case rules = "minecraft:feature_rules"
     }
 }
 
