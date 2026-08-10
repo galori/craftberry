@@ -489,6 +489,60 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_produce")
     }
 
+    func testCompilerEmitsMaterialEntitySetWithSpawnAndLoot() throws {
+        let project = try AddOnProject.materialEntitySet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, health: 10, originalPrompt: "entity", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        addTeardownBlock { _ = try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+        XCTAssertTrue(behavior.contains { $0.path == "entities/azure_a1b2c3_creature.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "spawn_rules/azure_a1b2c3_spawn_rule.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "loot_tables/entities/azure_a1b2c3_creature.json" })
+        XCTAssertTrue(resources.contains { $0.path == "entity/azure_a1b2c3_creature.entity.json" })
+        // Entity pinned to chicken 1.26.10
+        let entity = try json(named: "entities/azure_a1b2c3_creature.json", in: behavior)
+        XCTAssertEqual(entity["format_version"] as? String, "1.26.10")
+        let entityBody = try XCTUnwrap(entity["minecraft:entity"] as? [String: Any])
+        let desc = try XCTUnwrap(entityBody["description"] as? [String: Any])
+        XCTAssertEqual(desc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual(desc["is_spawnable"] as? Bool, true)
+        XCTAssertEqual(desc["spawn_category"] as? String, "creature")
+        let components = try XCTUnwrap(entityBody["components"] as? [String: Any])
+        let health = try XCTUnwrap(components["minecraft:health"] as? [String: Any])
+        XCTAssertEqual(health["value"] as? Int, 10)
+        // Spawn rule pinned to chicken 1.8.0
+        let spawn = try json(named: "spawn_rules/azure_a1b2c3_spawn_rule.json", in: behavior)
+        XCTAssertEqual(spawn["format_version"] as? String, "1.8.0")
+        let spawnBody = try XCTUnwrap(spawn["minecraft:spawn_rules"] as? [String: Any])
+        let spawnDesc = try XCTUnwrap(spawnBody["description"] as? [String: Any])
+        XCTAssertEqual(spawnDesc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual(spawnDesc["population_control"] as? String, "animal")
+        // Loot
+        let loot = try json(named: "loot_tables/entities/azure_a1b2c3_creature.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "minecraft:feather")
+        // Client entity pinned to 1.10.0 with pig geometry
+        let client = try json(named: "entity/azure_a1b2c3_creature.entity.json", in: resources)
+        XCTAssertEqual(client["format_version"] as? String, "1.10.0")
+        let clientBody = try XCTUnwrap(client["minecraft:client_entity"] as? [String: Any])
+        let clientDesc = try XCTUnwrap(clientBody["description"] as? [String: Any])
+        XCTAssertEqual(clientDesc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual((clientDesc["materials"] as? [String: String])?["default"], "entity_alphatest")
+        XCTAssertEqual((clientDesc["geometry"] as? [String: String])?["default"], "geometry.pig")
+        XCTAssertEqual((clientDesc["render_controllers"] as? [String])?.first, "controller.render.pig")
+        let spawnEgg = try XCTUnwrap(clientDesc["spawn_egg"] as? [String: String])
+        XCTAssertEqual(spawnEgg["texture"], "azure_a1b2c3_spawn_egg")
+        // Spawn egg item
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_spawn_egg.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_spawn_egg_recipe.json" })
+        let textureMap = try json(named: "textures/item_texture.json", in: resources)
+        let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
+        XCTAssertNotNil(textureData["azure_a1b2c3_spawn_egg"])
+    }
+
     private func makeProject() throws -> AddOnProject {
         try AddOnProject.sword(
             displayName: "Azure Sword",

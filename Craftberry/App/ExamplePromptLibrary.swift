@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -171,4 +171,17 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "❄️", text: "A quartz crop set named Frostbite seeds and harvest"),
         ExamplePrompt(emoji: "🧪", text: "A redstone crop set named Pulse with seeds, crop, and produce")
     ]
+    private static let entitySets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🐣", text: "A diamond entity set: Azure ingot plus friendly creature"),
+        ExamplePrompt(emoji: "🐥", text: "An emerald entity set named Verdant with a passive creature"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod entity set named Ember with a gentle creature"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz entity set named Frostbite with a cute creature"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone entity set named Pulse with a friendly mob"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron entity set named Ironclad with a passive creature"),
+        ExamplePrompt(emoji: "💙", text: "A lapis entity set named Deepsea with a water-friendly creature"),
+        ExamplePrompt(emoji: "🪙", text: "A gold entity set named Gilded with a golden creature"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst entity set named Geode with a crystal creature"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite entity set named Warden with a sturdy creature")
+    ]
+
 }

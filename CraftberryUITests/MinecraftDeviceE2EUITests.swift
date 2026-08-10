@@ -98,6 +98,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         try MinecraftE2EHarness(testCase: self).run(.redstoneCropSet)
         #endif
     }
+
+    func testCraftberryRedstoneEntitySetCanBeImportedActivatedAndCraftedIntoSpawnEgg() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).run(.redstoneEntitySet)
+        #endif
+    }
 }
 
 /// Where each recipe's output lands in the hotbar.
@@ -371,6 +379,16 @@ extension MinecraftE2EScenario {
         behaviorPackName: "Redstone Behavior",
         resourcePackName: "Redstone Resources",
         craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Redstone Seeds", ingredients: [.init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])], beforePickupVerification: nil, afterPickupVerification: .text("Seeds"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
+    )
+
+    static let redstoneEntitySet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-entity-set",
+        prompt: "Generate a redstone entity set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Spawn Egg",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Redstone Spawn Egg", ingredients: [.init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleCenter, .middleRight, .bottomLeft, .bottomCenter, .bottomRight])], beforePickupVerification: nil, afterPickupVerification: .text("Spawn"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
     )
 
     static let redstoneBlockSet = MinecraftE2EScenario(
