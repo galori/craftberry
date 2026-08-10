@@ -273,6 +273,30 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let document = ShapelessRecipeDocument(formatVersion: profile.recipeFormatVersion, recipe: .init(description: .init(identifier: identifier(for: recipe.id, namespace: project.namespace)), tags: recipe.tags, ingredients: ingredients, result: .init(item: resultIdentifier, count: recipe.result.count), unlock: unlock))
             entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
         }
+        for recipe in project.furnaceRecipes.sorted(by: furnaceRecipeOrder) {
+            let resultIdentifier = try resultIdentifier(for: recipe.result.item, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).result")
+            let furnaceInput: FurnaceRecipeDocument.InputValue = {
+                switch recipe.input {
+                case .vanilla(let identifier): return .item(identifier)
+                case .generated(let id): return .item(identifier(for: id, namespace: project.namespace))
+                case .tag(let identifier): return .tag(identifier)
+                }
+            }()
+            let unlock = try recipe.unlock.enumerated().map { index, reference in
+                try ingredient(for: reference, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).unlock.\(index)")
+            }
+            let document = FurnaceRecipeDocument(
+                formatVersion: profile.recipeFormatVersion,
+                recipe: FurnaceRecipeDocument.Recipe(
+                    description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
+                    tags: recipe.tags,
+                    input: furnaceInput,
+                    output: resultIdentifier,
+                    unlock: unlock
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+        }
         entries.append(
             ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
         )
@@ -510,6 +534,10 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
     }
 
     private func shapelessRecipeOrder(_ lhs: ShapelessRecipeDefinition, _ rhs: ShapelessRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func furnaceRecipeOrder(_ lhs: FurnaceRecipeDefinition, _ rhs: FurnaceRecipeDefinition) -> Bool {
         lhs.id.rawValue < rhs.id.rawValue
     }
 }

@@ -367,7 +367,19 @@ public enum AddOnProjectValidator {
                 validate(reference, path: "\(recipePath).ingredients.\(index)", itemIDs: itemIDs, profile: profile, issues: &issues)
             }
         }
-        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes) {
+        for recipe in project.furnaceRecipes {
+            let recipePath = "content.recipes.\(recipe.id.rawValue)"
+            if recipe.tags.isEmpty {
+                issues.append(CompilationIssue(severity: .error, code: "furnace_recipe_tags_required", path: "\(recipePath).tags", message: "Furnace recipes require at least one tag."))
+            }
+            if recipe.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                issues.append(CompilationIssue(severity: .error, code: "furnace_recipe_tag_empty", path: "\(recipePath).tags", message: "Furnace recipe tags cannot be empty."))
+            }
+            validateRecipeResult(recipe.result, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
+            validateUnlock(recipe.unlock, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.input, path: "\(recipePath).input", itemIDs: itemIDs, profile: profile, issues: &issues)
+        }
+        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes, project.furnaceRecipes) {
             issues.append(
                 CompilationIssue(
                     severity: .error,
@@ -380,7 +392,7 @@ public enum AddOnProjectValidator {
         return CompilationReport(profileID: profile.id, issues: issues)
     }
 
-    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition]) -> Bool {
+    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition], _ furnaceRecipes: [FurnaceRecipeDefinition]) -> Bool {
         var dependencies: [ContentID: Set<ContentID>] = [:]
         for recipe in recipes {
             guard case .generated(let resultID) = recipe.result.item else { continue }
@@ -397,6 +409,12 @@ public enum AddOnProjectValidator {
             let generatedIngredients = recipe.ingredients.reduce(into: Set<ContentID>()) { ids, reference in
                 if case .generated(let id) = reference { ids.insert(id) }
             }
+            dependencies[resultID, default: []].formUnion(generatedIngredients)
+        }
+        for recipe in furnaceRecipes {
+            guard case .generated(let resultID) = recipe.result.item else { continue }
+            var generatedIngredients = Set<ContentID>()
+            if case .generated(let id) = recipe.input { generatedIngredients.insert(id) }
             dependencies[resultID, default: []].formUnion(generatedIngredients)
         }
 
