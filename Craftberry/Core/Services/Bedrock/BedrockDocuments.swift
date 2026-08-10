@@ -23,11 +23,50 @@ struct ManifestDocument: Encodable {
         let type: String
         let uuid: String
         let version: [Int]
+        let language: String?
+        let entry: String?
+
+        init(type: String, uuid: String, version: [Int], language: String? = nil, entry: String? = nil) {
+            self.type = type
+            self.uuid = uuid
+            self.version = version
+            self.language = language
+            self.entry = entry
+        }
     }
 
     struct Dependency: Encodable {
-        let uuid: String
-        let version: [Int]
+        var uuid: String?
+        var version: [Int]
+        var moduleName: String?
+
+        init(uuid: String, version: [Int]) {
+            self.uuid = uuid
+            self.version = version
+            self.moduleName = nil
+        }
+
+        init(moduleName: String, version: String) {
+            uuid = nil
+            self.moduleName = moduleName
+            self.version = version.split(separator: ".").compactMap { Int($0) }
+            _versionString = version
+        }
+
+        private var _versionString: String?
+
+        enum CodingKeys: String, CodingKey { case uuid, version, moduleName = "module_name" }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            if let uuid { try container.encode(uuid, forKey: .uuid) }
+            if let moduleName { try container.encode(moduleName, forKey: .moduleName) }
+            if let raw = _versionString {
+                try container.encode(raw, forKey: .version)
+            } else {
+                try container.encode(version, forKey: .version)
+            }
+        }
     }
 
     enum CodingKeys: String, CodingKey {

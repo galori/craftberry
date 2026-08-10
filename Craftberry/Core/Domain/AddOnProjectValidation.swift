@@ -496,6 +496,21 @@ public enum AddOnProjectValidator {
                 )
             )
         }
+        if project.mechanics.count > 1 {
+            issues.append(CompilationIssue(severity: .error, code: "too_many_mechanics", path: "content.mechanics", message: "At most one scripted mechanic is supported in this slice."))
+        }
+        for mechanic in project.mechanics {
+            let mPath = "content.mechanics.\(mechanic.id.rawValue)"
+            if !itemIDs.contains(mechanic.targetItemID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_mechanic_target", path: "\(mPath).targetItemID", message: "Mechanic references missing item \(mechanic.targetItemID.rawValue)."))
+            }
+            if !(5...60).contains(mechanic.action.effect.durationSeconds) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_duration", path: "\(mPath).action.effect.durationSeconds", message: "Mechanic effect duration must be between 5 and 60 seconds."))
+            }
+            if !(0...4).contains(mechanic.action.effect.amplifier) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_amplifier", path: "\(mPath).action.effect.amplifier", message: "Mechanic effect amplifier must be between 0 and 4."))
+            }
+        }
         return CompilationReport(profileID: profile.id, issues: issues)
     }
 

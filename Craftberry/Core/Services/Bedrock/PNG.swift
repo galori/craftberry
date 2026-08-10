@@ -160,6 +160,7 @@ public enum PixelArtTextureRenderer {
         case .orePixelArt: renderOre(color: resource.color, pixelScale: pixelScale)
         case .oreTerrain: renderOreTerrain(color: resource.color, pixelScale: pixelScale)
         case .entityPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
+        case .charmPixelArt: renderCharm(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -760,6 +761,23 @@ public enum PixelArtTextureRenderer {
 
     private static func renderCoal(pixelScale: Int) -> Data {
         renderRawOreChunk(main: .coalMain, highlight: .coalHighlight, shadow: .coalShadow, pixelScale: pixelScale, flecks: [(12, 12), (21, 13), (16, 19)], fleckColor: .coalGleam)
+    }
+
+    private static func renderCharm(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) { pixels[row * side + column] = color }
+            }
+        }
+        fill(10, 6, 12, 20, .outline)
+        fill(11, 7, 10, 18, palette.main)
+        fill(12, 8, 6, 6, palette.highlight)
+        fill(12, 19, 8, 4, palette.shadow)
+        fill(15, 11, 2, 2, .hiltHighlight)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 }
 

@@ -424,4 +424,39 @@ extension MinecraftE2EScenario {
             finalHotbarTap: nil
         )
     )
+
+    static let redstoneScriptedSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-scripted-set",
+        prompt: "Generate a redstone scripted set crafted from redstone",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Charm",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Ingot",
+                    ingredients: [
+                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: true
+                ),
+                .init(
+                    outputName: "Redstone Charm",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleCenter]),
+                        .init(searchText: "stick", resultColumn: 3, destinations: [.bottomCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Charm"),
+                    outputDestination: slotAfterIngredientsReturn,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        )
+    )
 }

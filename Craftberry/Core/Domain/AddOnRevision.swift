@@ -26,6 +26,7 @@ public extension AddOnContentNode {
         case .brewingMixRecipe(let recipe): recipe.id
         case .brewingContainerRecipe(let recipe): recipe.id
         case .visualResource(let resource): resource.id
+        case .mechanic(let mechanic): mechanic.id
         }
     }
 }
@@ -66,6 +67,7 @@ public struct ChangeSummary: Equatable, Sendable {
         case .brewingMixRecipe(let v): return "brewingMixRecipe:\(v.id.rawValue)"
         case .brewingContainerRecipe(let v): return "brewingContainerRecipe:\(v.id.rawValue)"
         case .visualResource(let v): return "visualResource:\(v.id.rawValue)"
+        case .mechanic(let v): return "mechanic:\(v.id.rawValue)"
         }
     }
 
