@@ -29,11 +29,15 @@ final class CreationViewModel: ObservableObject {
     private let client: any LLMClient
     private let compiler: any AddOnCompiling
     private let artifactDirectoryProvider: @MainActor () throws -> URL
+    private let revisionService: AddOnRevisionService
+
+    @Published private(set) var lastRevisionSummary: ChangeSummary?
 
     init(
         apiKey: String,
         compiler: any AddOnCompiling = BedrockAddOnCompiler(),
         client: (any LLMClient)? = nil,
+        revisionService: AddOnRevisionService? = nil,
         artifactDirectoryProvider: @escaping @MainActor () throws -> URL = CreationViewModel.defaultArtifactDirectory
     ) {
         if let client {
@@ -43,6 +47,7 @@ final class CreationViewModel: ObservableObject {
         }
         self.compiler = compiler
         self.artifactDirectoryProvider = artifactDirectoryProvider
+        self.revisionService = revisionService ?? AddOnRevisionService(compiler: compiler)
     }
 
     func generate() async {
@@ -89,7 +94,61 @@ final class CreationViewModel: ObservableObject {
         }
     }
 
+    func loadProject(from sidecarURL: URL) -> AddOnProject? {
+        try? revisionService.loadProject(from: sidecarURL)
+    }
+
+    func revise(project baseProject: AddOnProject, newPrompt: String) async {
+        let trimmed = newPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            state = .failed("Describe the revision you want to make.")
+            return
+        }
+        state = .generating
+        do {
+            let directory = try artifactDirectoryProvider()
+            let client = client
+            let revisionService = revisionService
+            let result = try await revisionService.revise(
+                baseProject: baseProject,
+                newPrompt: trimmed,
+                client: client,
+                outputDirectory: directory
+            )
+            lastRevisionSummary = result.changeSummary
+            state = .built(result.project, result.compilationResult)
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    func reviseStoredProject(projectID: UUID, newPrompt: String) async {
+        let trimmed = newPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            state = .failed("Describe the revision you want to make.")
+            return
+        }
+        state = .generating
+        do {
+            let directory = try artifactDirectoryProvider()
+            let baseProject = try revisionService.loadProject(for: projectID, in: directory)
+            let client = client
+            let revisionService = revisionService
+            let result = try await revisionService.revise(
+                baseProject: baseProject,
+                newPrompt: trimmed,
+                client: client,
+                outputDirectory: directory
+            )
+            lastRevisionSummary = result.changeSummary
+            state = .built(result.project, result.compilationResult)
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
     func reset() {
+        lastRevisionSummary = nil
         state = .editing
     }
 
