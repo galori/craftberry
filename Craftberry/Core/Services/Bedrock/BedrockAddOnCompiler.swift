@@ -154,23 +154,48 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         ]
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
+            // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
+            // behavior_pack blocks use description.states with range {min,max} and permutations on query.block_state.
+            // See resource_pack/blocks.json and metadata/json_schemas/server/block/1.21.110/States.json at 921fafb0.
+            let growthStateKey = "craftberry:growth"
+            let states: [String: BlockDocument.Description.StateValue]? = {
+                guard let stages = block.growthStages else { return nil }
+                return [growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
+            }()
+            let permutations: [BlockDocument.Block.Permutation]? = {
+                guard let stages = block.growthStages else { return nil }
+                // Emit one permutation per growth stage to prove states wiring; keep components minimal.
+                return (0..<stages).map { stage in
+                    // Filter to that exact growth value; vanilla wheat uses similar query.block_state checks.
+                    .init(condition: "query.block_state('\(growthStateKey)') == \(stage)", components: nil)
+                }
+            }()
             let document = BlockDocument(
                 formatVersion: profile.blockFormatVersion,
                 block: BlockDocument.Block(
                     description: BlockDocument.Description(
                         identifier: identifier,
-                        menuCategory: BlockDocument.MenuCategory(category: "construction", group: "minecraft:itemGroup.name.blocks")
+                        menuCategory: BlockDocument.MenuCategory(category: "construction", group: "minecraft:itemGroup.name.blocks"),
+                        states: states
                     ),
                     components: BlockDocument.Components(
                         destroyTime: block.destroyTime,
                         mapColor: BlockDocument.MapColor(color: block.mapColor),
                         lightDampening: 15,
                         loot: "loot_tables/blocks/\(block.id.rawValue).json"
-                    )
+                    ),
+                    permutations: permutations
                 )
             )
             entries.append(ZipArchiveEntry(path: "blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
-            let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: identifier, weight: 1)])])
+            // Ore loot drops the ingot; crop loot drops produce; storage self-drops. No worldgen features emitted:
+            // feature placement (features/ + feature_rules/) would require scatter/ore placement configs not yet
+            // stable against the pinned 921fafb0 samples without Blockception vendoring, so this slice stays block+loot only.
+            let lootName: String = {
+                if let dropID = block.lootDropID { return self.identifier(for: dropID, namespace: project.namespace) }
+                return identifier
+            }()
+            let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)])])
             entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
         }
         for item in project.items.sorted(by: contentOrder) {
