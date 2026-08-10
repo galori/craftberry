@@ -15,6 +15,9 @@ public extension AddOnContentNode {
         switch self {
         case .item(let item): item.id
         case .block(let block): block.id
+        case .entity(let entity): entity.id
+        case .spawnRule(let rule): rule.id
+        case .entityLoot(let loot): loot.id
         case .shapedRecipe(let recipe): recipe.id
         case .shapelessRecipe(let recipe): recipe.id
         case .furnaceRecipe(let recipe): recipe.id
@@ -52,6 +55,9 @@ public struct ChangeSummary: Equatable, Sendable {
         switch node {
         case .item(let v): return "item:\(v.id.rawValue)"
         case .block(let v): return "block:\(v.id.rawValue)"
+        case .entity(let v): return "entity:\(v.id.rawValue)"
+        case .spawnRule(let v): return "spawnRule:\(v.id.rawValue)"
+        case .entityLoot(let v): return "entityLoot:\(v.id.rawValue)"
         case .shapedRecipe(let v): return "shapedRecipe:\(v.id.rawValue)"
         case .shapelessRecipe(let v): return "shapelessRecipe:\(v.id.rawValue)"
         case .furnaceRecipe(let v): return "furnaceRecipe:\(v.id.rawValue)"

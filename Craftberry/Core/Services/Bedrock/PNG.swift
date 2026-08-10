@@ -159,6 +159,7 @@ public enum PixelArtTextureRenderer {
         case .cropTerrain: renderCropTerrain(color: resource.color, pixelScale: pixelScale)
         case .orePixelArt: renderOre(color: resource.color, pixelScale: pixelScale)
         case .oreTerrain: renderOreTerrain(color: resource.color, pixelScale: pixelScale)
+        case .spawnEggPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -738,6 +739,22 @@ public enum PixelArtTextureRenderer {
         fill(12, 25, 8, 1, shadow)
 
         for fleck in flecks { set(fleck.x, fleck.y, fleckColor) }
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderEntitySpawnEgg(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ c: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + h) * scale) {
+                for col in max(0, x * scale)..<min(side, (x + w) * scale) { pixels[row * side + col] = c }
+            }
+        }
+        fill(10, 6, 12, 2, .outline); fill(8, 8, 16, 4, .outline); fill(7, 12, 18, 10, .outline); fill(8, 22, 16, 4, .outline); fill(10, 26, 12, 2, .outline)
+        fill(11, 7, 10, 1, palette.highlight); fill(9, 9, 14, 3, palette.highlight); fill(8, 13, 16, 6, palette.main)
+        fill(9, 19, 14, 5, palette.main); fill(11, 24, 10, 2, palette.shadow)
+        fill(11, 13, 3, 3, palette.shadow); fill(17, 16, 3, 3, .outline); fill(10, 20, 2, 2, palette.highlight)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 
