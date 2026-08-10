@@ -97,12 +97,60 @@ public enum AddOnProjectValidator {
             noun: "block",
             to: &issues
         )
+        appendDuplicateIssues(
+            values: project.entities.map(\.id),
+            code: "duplicate_entity_id",
+            path: "content.entities",
+            noun: "entity",
+            to: &issues
+        )
+        appendDuplicateIssues(
+            values: project.spawnRules.map(\.id),
+            code: "duplicate_spawn_rule_id",
+            path: "content.spawnRules",
+            noun: "spawn rule",
+            to: &issues
+        )
+        appendDuplicateIssues(
+            values: project.entityLootTables.map(\.id),
+            code: "duplicate_entity_loot_id",
+            path: "content.entityLootTables",
+            noun: "entity loot",
+            to: &issues
+        )
         let itemIDs = Set(project.items.map(\.id))
         let visualResourceIDs = Set(project.visualResources.map(\.id))
         let visualResourceKinds = project.visualResources.reduce(into: [ContentID: VisualResourceKind]()) { kinds, resource in
             kinds[resource.id] = resource.kind
         }
         validateContentIDs(project, issues: &issues)
+        let entityIDs = Set(project.entities.map(\.id))
+        for entity in project.entities {
+            let path = "content.entities.\(entity.id.rawValue)"
+            if !(4...40).contains(entity.health) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_entity_health", path: "\(path).health", message: "Entity health must be between 4 and 40."))
+            }
+            if !visualResourceIDs.contains(entity.spawnEggResourceID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_entity_spawn_egg_resource", path: "\(path).spawnEggResourceID", message: "Entity references missing spawn egg visual resource \(entity.spawnEggResourceID.rawValue)."))
+            } else if visualResourceKinds[entity.spawnEggResourceID] != .entityPixelArt {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_entity_spawn_egg_resource", path: "\(path).spawnEggResourceID", message: "Entity spawn egg resource \(entity.spawnEggResourceID.rawValue) must be a entityPixelArt visual."))
+            }
+            if entity.displayName.contains("\n") || entity.displayName.contains("\r") {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_localization_value", path: "\(path).displayName", message: "Entity display names cannot contain line breaks."))
+            }
+        }
+        for rule in project.spawnRules {
+            let path = "content.spawnRules.\(rule.id.rawValue)"
+            if !entityIDs.contains(rule.entityID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_spawn_rule_entity", path: "\(path).entityID", message: "Spawn rule references missing entity \(rule.entityID.rawValue)."))
+            }
+        }
+        for loot in project.entityLootTables {
+            let path = "content.entityLootTables.\(loot.id.rawValue)"
+            if !entityIDs.contains(loot.entityID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_entity_loot_entity", path: "\(path).entityID", message: "Entity loot references missing entity \(loot.entityID.rawValue)."))
+            }
+        }
         for block in project.blocks {
             let blockPath = "content.blocks.\(block.id.rawValue)"
             if !(0.5...10.0).contains(block.destroyTime) {
@@ -113,8 +161,18 @@ public enum AddOnProjectValidator {
             }
             if !visualResourceIDs.contains(block.terrainResourceID) {
                 issues.append(CompilationIssue(severity: .error, code: "missing_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block references missing terrain visual resource \(block.terrainResourceID.rawValue)."))
-            } else if visualResourceKinds[block.terrainResourceID] != .blockTerrain {
-                issues.append(CompilationIssue(severity: .error, code: "invalid_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block terrain resource \(block.terrainResourceID.rawValue) must be a blockTerrain visual."))
+            } else {
+                let kind = visualResourceKinds[block.terrainResourceID]
+                let allowed: Set<VisualResourceKind> = [.blockTerrain, .oreTerrain, .cropTerrain]
+                if kind == nil || !allowed.contains(kind!) {
+                    issues.append(CompilationIssue(severity: .error, code: "invalid_block_terrain_resource", path: "\(blockPath).terrainResourceID", message: "Block terrain resource \(block.terrainResourceID.rawValue) must be a terrain visual."))
+                }
+            }
+            if let stages = block.growthStages, !(2...16).contains(stages) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_block_growth_stages", path: "\(blockPath).growthStages", message: "Crop growth stages must be between 2 and 16."))
+            }
+            if let loot = block.lootDropID, !itemIDs.contains(loot) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_block_loot_item", path: "\(blockPath).lootDropID", message: "Block loot target \(loot.rawValue) must be a generated item."))
             }
             if !itemIDs.contains(block.id) {
                 issues.append(CompilationIssue(severity: .error, code: "missing_block_item", path: "\(blockPath).id", message: "Block \(block.id.rawValue) requires a matching placeable item."))
@@ -437,6 +495,21 @@ public enum AddOnProjectValidator {
                     message: "Generated item recipes contain a dependency cycle."
                 )
             )
+        }
+        if project.mechanics.count > 1 {
+            issues.append(CompilationIssue(severity: .error, code: "too_many_mechanics", path: "content.mechanics", message: "At most one scripted mechanic is supported in this slice."))
+        }
+        for mechanic in project.mechanics {
+            let mPath = "content.mechanics.\(mechanic.id.rawValue)"
+            if !itemIDs.contains(mechanic.targetItemID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_mechanic_target", path: "\(mPath).targetItemID", message: "Mechanic references missing item \(mechanic.targetItemID.rawValue)."))
+            }
+            if !(5...60).contains(mechanic.action.effect.durationSeconds) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_duration", path: "\(mPath).action.effect.durationSeconds", message: "Mechanic effect duration must be between 5 and 60 seconds."))
+            }
+            if !(0...4).contains(mechanic.action.effect.amplifier) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_amplifier", path: "\(mPath).action.effect.amplifier", message: "Mechanic effect amplifier must be between 0 and 4."))
+            }
         }
         return CompilationReport(profileID: profile.id, issues: issues)
     }

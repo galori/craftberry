@@ -7,6 +7,77 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsScriptedCharmMechanicWithReviewedTemplateAndManifest() throws {
+        let project = try AddOnProject.materialScriptedSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, effectKind: .regeneration, effectDurationSeconds: 10, effectAmplifier: 1, originalPrompt: "scripted", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_charm.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "scripts/main.js" })
+        XCTAssertTrue(resources.contains { $0.path == "textures/items/azure_a1b2c3_charm.png" })
+
+        let script = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/main.js" }))
+        let scriptString = String(decoding: script.data, as: UTF8.self)
+        let expected = BedrockAddOnCompiler().scriptTemplate(for: project.mechanics.first!, namespace: project.namespace)
+        XCTAssertEqual(scriptString, expected)
+        XCTAssertTrue(scriptString.contains("import { world } from \"@minecraft/server\";"))
+        XCTAssertTrue(scriptString.contains("craftberry:azure_a1b2c3_charm"))
+        XCTAssertTrue(scriptString.contains("regeneration"))
+        XCTAssertTrue(scriptString.contains("200"))
+        XCTAssertTrue(scriptString.contains("amplifier: 1"))
+
+        let manifest = try json(named: "manifest.json", in: behavior)
+        let modules = try XCTUnwrap(manifest["modules"] as? [[String: Any]])
+        XCTAssertTrue(modules.contains { $0["type"] as? String == "script" && $0["entry"] as? String == "scripts/main.js" && $0["language"] as? String == "javascript" })
+        let deps = try XCTUnwrap(manifest["dependencies"] as? [[String: Any]])
+        XCTAssertTrue(deps.contains { $0["module_name"] as? String == "@minecraft/server" })
+
+        XCTAssertFalse(scriptString.contains("eval"))
+        XCTAssertFalse(scriptString.contains("Function("))
+    }
+
+    func testScriptedMechanicValidationRejectsInvalidTargetAndBounds() throws {
+        let project = try AddOnProject.materialScriptedSet(materialName: "Azure", sourceItem: "minecraft:diamond", originalPrompt: "scripted", identity: makeIdentity())
+        let duplicate = project.mechanics.first!
+        var dupProject = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content + [.mechanic(duplicate)]
+        )
+        let reportDup = AddOnProjectValidator.validate(dupProject, profile: .current)
+        XCTAssertTrue(reportDup.errors.contains { $0.code == "too_many_mechanics" })
+
+        let badEffect = MechanicDefinition(id: ContentID("bad"), targetItemID: ContentID("azure_a1b2c3_charm"), event: .onInteract, condition: .none, action: MechanicAction(effect: MechanicEffect(kind: .speed, durationSeconds: 999, amplifier: 0)))
+        let badProject = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content.filter { if case .mechanic = $0 { return false } else { return true } } + [.mechanic(badEffect)]
+        )
+        let reportBad = AddOnProjectValidator.validate(badProject, profile: .current)
+        XCTAssertTrue(reportBad.errors.contains { $0.code == "invalid_mechanic_duration" })
+
+        XCTAssertThrowsError(try ValidatedUpload(fileName: "evil.exe", mimeType: "application/octet-stream", data: Data([0x00])))
+        XCTAssertThrowsError(try ValidatedUpload(fileName: "big.png", mimeType: "image/png", data: Data(repeating: 0, count: ValidatedUpload.maxBytes + 1)))
+        XCTAssertNoThrow(try ValidatedUpload(fileName: "ok.png", mimeType: "image/png", data: Data([0x89, 0x50, 0x4E, 0x47])))
+    }
+
     func testCompilerEmitsMaterialBrewingSetRecipesAndTextures() throws {
         let project = try AddOnProject.materialBrewingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "brewing", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
@@ -440,6 +511,107 @@ final class BedrockCompilerTests: XCTestCase {
         let languages = try XCTUnwrap(resourcePack.first(where: { $0.path == "texts/languages.json" }))
         let languagesJSON = try XCTUnwrap(try JSONSerialization.jsonObject(with: languages.data) as? [String])
         XCTAssertEqual(languagesJSON, ["en_US"])
+    }
+
+    func testCompilerEmitsMaterialOreSetWithLootAndBlock() throws {
+        let project = try AddOnProject.materialOreSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "ore", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+        XCTAssertTrue(behavior.contains { $0.path == "blocks/azure_a1b2c3_ore.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "loot_tables/blocks/azure_a1b2c3_ore.json" })
+        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_ore.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_ingot")
+        let block = try json(named: "blocks/azure_a1b2c3_ore.json", in: behavior)
+        let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
+        let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
+        XCTAssertNil(desc["states"])
+        XCTAssertEqual(block["format_version"] as? String, "1.21.100")
+        let terrain = try json(named: "textures/terrain_texture.json", in: resources)
+        XCTAssertNotNil((terrain["texture_data"] as? [String: Any])?["azure_a1b2c3_ore"])
+    }
+
+    func testCompilerEmitsMaterialCropSetWithStatesAndPermutations() throws {
+        let project = try AddOnProject.materialCropSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "crop", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_seed_behavior.mcpack", in: outer)
+        let block = try json(named: "blocks/azure_a1b2c3_crop.json", in: behavior)
+        let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
+        let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
+        let states = try XCTUnwrap(desc["states"] as? [String: Any])
+        let growth = try XCTUnwrap(states["craftberry:growth"] as? [String: Any])
+        let values = try XCTUnwrap(growth["values"] as? [String: Any])
+        XCTAssertEqual(values["min"] as? Int, 0)
+        XCTAssertEqual(values["max"] as? Int, 7)
+        let perms = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
+        XCTAssertEqual(perms.count, 8)
+        XCTAssertTrue(perms.allSatisfy { ($0["condition"] as? String)?.contains("craftberry:growth") == true })
+        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_produce")
+    }
+
+    func testCompilerEmitsMaterialEntitySetWithSpawnAndLoot() throws {
+        let project = try AddOnProject.materialEntitySet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, health: 10, originalPrompt: "entity", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        addTeardownBlock { _ = try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+        XCTAssertTrue(behavior.contains { $0.path == "entities/azure_a1b2c3_creature.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "spawn_rules/azure_a1b2c3_spawn_rule.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "loot_tables/entities/azure_a1b2c3_creature.json" })
+        XCTAssertTrue(resources.contains { $0.path == "entity/azure_a1b2c3_creature.entity.json" })
+        // Entity pinned to chicken 1.26.10
+        let entity = try json(named: "entities/azure_a1b2c3_creature.json", in: behavior)
+        XCTAssertEqual(entity["format_version"] as? String, "1.26.10")
+        let entityBody = try XCTUnwrap(entity["minecraft:entity"] as? [String: Any])
+        let desc = try XCTUnwrap(entityBody["description"] as? [String: Any])
+        XCTAssertEqual(desc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual(desc["is_spawnable"] as? Bool, true)
+        XCTAssertEqual(desc["spawn_category"] as? String, "creature")
+        let components = try XCTUnwrap(entityBody["components"] as? [String: Any])
+        let health = try XCTUnwrap(components["minecraft:health"] as? [String: Any])
+        XCTAssertEqual(health["value"] as? Int, 10)
+        // Spawn rule pinned to chicken 1.8.0
+        let spawn = try json(named: "spawn_rules/azure_a1b2c3_spawn_rule.json", in: behavior)
+        XCTAssertEqual(spawn["format_version"] as? String, "1.8.0")
+        let spawnBody = try XCTUnwrap(spawn["minecraft:spawn_rules"] as? [String: Any])
+        let spawnDesc = try XCTUnwrap(spawnBody["description"] as? [String: Any])
+        XCTAssertEqual(spawnDesc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual(spawnDesc["population_control"] as? String, "animal")
+        // Loot
+        let loot = try json(named: "loot_tables/entities/azure_a1b2c3_creature.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "minecraft:feather")
+        // Client entity pinned to 1.10.0 with pig geometry
+        let client = try json(named: "entity/azure_a1b2c3_creature.entity.json", in: resources)
+        XCTAssertEqual(client["format_version"] as? String, "1.10.0")
+        let clientBody = try XCTUnwrap(client["minecraft:client_entity"] as? [String: Any])
+        let clientDesc = try XCTUnwrap(clientBody["description"] as? [String: Any])
+        XCTAssertEqual(clientDesc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual((clientDesc["materials"] as? [String: String])?["default"], "entity_alphatest")
+        XCTAssertEqual((clientDesc["geometry"] as? [String: String])?["default"], "geometry.pig")
+        XCTAssertEqual((clientDesc["render_controllers"] as? [String])?.first, "controller.render.pig")
+        let spawnEgg = try XCTUnwrap(clientDesc["spawn_egg"] as? [String: String])
+        XCTAssertEqual(spawnEgg["texture"], "azure_a1b2c3_spawn_egg")
+        // Spawn egg item
+        XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_spawn_egg.json" })
+        XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_spawn_egg_recipe.json" })
+        let textureMap = try json(named: "textures/item_texture.json", in: resources)
+        let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
+        XCTAssertNotNil(textureData["azure_a1b2c3_spawn_egg"])
     }
 
     private func makeProject() throws -> AddOnProject {

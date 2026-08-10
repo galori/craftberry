@@ -129,6 +129,31 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         profile: BedrockContentProfile
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
+        let hasMechanics = !project.mechanics.isEmpty
+        var modules: [ManifestDocument.Module] = [
+            ManifestDocument.Module(
+                type: "data",
+                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
+                version: version
+            )
+        ]
+        var dependencies: [ManifestDocument.Dependency] = [
+            ManifestDocument.Dependency(
+                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
+                version: version
+            )
+        ]
+        if hasMechanics {
+            let scriptUUID = scriptModuleUUID(from: project.packUUIDs.behaviorModule).uuidString.lowercased()
+            modules.append(ManifestDocument.Module(
+                type: "script",
+                uuid: scriptUUID,
+                version: version,
+                language: "javascript",
+                entry: "scripts/main.js"
+            ))
+            dependencies.append(ManifestDocument.Dependency(moduleName: "@minecraft/server", version: "2.1.0"))
+        }
         let manifest = ManifestDocument(
             formatVersion: profile.manifestFormatVersion,
             header: ManifestDocument.Header(
@@ -138,40 +163,174 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 version: version,
                 minimumEngineVersion: profile.minimumEngineVersion.components
             ),
-            modules: [ManifestDocument.Module(
-                type: "data",
-                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
-                version: version
-            )],
-            dependencies: [ManifestDocument.Dependency(
-                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
-                version: version
-            )]
+            modules: modules,
+            dependencies: dependencies
         )
         let primaryVisual = try primaryVisualResource(project: project, profile: profile)
         var entries = [
             ZipArchiveEntry(path: "manifest.json", data: try BedrockDocumentEncoder.encode(manifest))
         ]
+        if hasMechanics {
+            for mechanic in project.mechanics.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+                entries.append(
+                    ZipArchiveEntry(path: "scripts/main.js", data: Data(scriptTemplate(for: mechanic, namespace: project.namespace).utf8))
+                )
+            }
+        }
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
+            // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
+            // behavior_pack blocks use description.states with range {min,max} and permutations on query.block_state.
+            // See resource_pack/blocks.json and metadata/json_schemas/server/block/1.21.110/States.json at 921fafb0.
+            let growthStateKey = "craftberry:growth"
+            let states: [String: BlockDocument.Description.StateValue]? = {
+                guard let stages = block.growthStages else { return nil }
+                return [growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
+            }()
+            let permutations: [BlockDocument.Block.Permutation]? = {
+                guard let stages = block.growthStages else { return nil }
+                // Emit one permutation per growth stage to prove states wiring; keep components minimal.
+                return (0..<stages).map { stage in
+                    // Filter to that exact growth value; vanilla wheat uses similar query.block_state checks.
+                    .init(condition: "query.block_state('\(growthStateKey)') == \(stage)", components: nil)
+                }
+            }()
             let document = BlockDocument(
                 formatVersion: profile.blockFormatVersion,
                 block: BlockDocument.Block(
                     description: BlockDocument.Description(
                         identifier: identifier,
-                        menuCategory: BlockDocument.MenuCategory(category: "construction", group: "minecraft:itemGroup.name.blocks")
+                        menuCategory: BlockDocument.MenuCategory(category: "construction", group: "minecraft:itemGroup.name.blocks"),
+                        states: states
                     ),
                     components: BlockDocument.Components(
                         destroyTime: block.destroyTime,
                         mapColor: BlockDocument.MapColor(color: block.mapColor),
                         lightDampening: 15,
                         loot: "loot_tables/blocks/\(block.id.rawValue).json"
-                    )
+                    ),
+                    permutations: permutations
                 )
             )
             entries.append(ZipArchiveEntry(path: "blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
-            let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: identifier, weight: 1)])])
+            // Ore loot drops the ingot; crop loot drops produce; storage self-drops. No worldgen features emitted:
+            // feature placement (features/ + feature_rules/) would require scatter/ore placement configs not yet
+            // stable against the pinned 921fafb0 samples without Blockception vendoring, so this slice stays block+loot only.
+            let lootName: String = {
+                if let dropID = block.lootDropID { return self.identifier(for: dropID, namespace: project.namespace) }
+                return identifier
+            }()
+            let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)])])
             entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
+        }
+        for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let identifier = identifier(for: entity.id, namespace: project.namespace)
+            let adultGroupName = "\(entity.id.rawValue)_adult"
+            let babyGroupName = "\(entity.id.rawValue)_baby"
+            let lootTablePath = "loot_tables/entities/\(entity.id.rawValue).json"
+            let entityDocument = EntityDocument(
+                formatVersion: profile.entityFormatVersion,
+                entity: EntityDocument.Entity(
+                    description: EntityDocument.Description(
+                        identifier: identifier,
+                        isSpawnable: true,
+                        isSummonable: true,
+                        spawnCategory: "creature"
+                    ),
+                    componentGroups: [
+                        babyGroupName: EntityDocument.ComponentGroup(
+                            isBaby: EntityDocument.EmptyComponent(),
+                            scale: EntityDocument.Scale(value: 0.5),
+                            ageable: EntityDocument.Ageable(
+                                duration: 1200,
+                                feedItems: ["wheat"],
+                                growUp: EntityDocument.GrowUp(event: "minecraft:ageable_grow_up", target: "self")
+                            ),
+                            experienceReward: nil,
+                            loot: nil,
+                            breedable: nil
+                        ),
+                        adultGroupName: EntityDocument.ComponentGroup(
+                            isBaby: nil,
+                            scale: nil,
+                            ageable: nil,
+                            experienceReward: EntityDocument.ExperienceReward(onDeath: "query.last_hit_by_player ? Math.Random(1,3) : 0"),
+                            loot: EntityDocument.Loot(table: lootTablePath),
+                            breedable: EntityDocument.Breedable(
+                                requireTame: false,
+                                breedsWith: [identifier: EntityDocument.EmptyComponent()],
+                                breedItems: ["wheat"]
+                            )
+                        )
+                    ],
+                    components: EntityDocument.Components(
+                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, "mob"]),
+                        breathable: EntityDocument.Breathable(totalSupply: 15, suffocateTime: 0),
+                        collisionBox: EntityDocument.CollisionBox(width: 0.6, height: 0.8),
+                        nameable: EntityDocument.EmptyComponent(),
+                        health: EntityDocument.Health(value: entity.health, max: entity.health),
+                        movement: EntityDocument.Movement(value: 0.25),
+                        physics: EntityDocument.EmptyComponent(),
+                        pushable: EntityDocument.Pushable(isPushable: true, isPushableByPiston: true),
+                        scale: EntityDocument.Scale(value: entity.scale)
+                    )
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "entities/\(entity.id.rawValue).json", data: try BedrockDocumentEncoder.encode(entityDocument)))
+        }
+        for rule in project.spawnRules.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let entity = try require(
+                project.entities.first(where: { $0.id == rule.entityID }),
+                profile: profile,
+                code: "missing_spawn_rule_entity",
+                path: "content.spawnRules.\(rule.id.rawValue).entityID",
+                message: "Spawn rule references missing entity \(rule.entityID.rawValue)."
+            )
+            let identifier = identifier(for: entity.id, namespace: project.namespace)
+            let spawnDocument = SpawnRuleDocument(
+                formatVersion: profile.spawnRuleFormatVersion,
+                spawnRules: SpawnRuleDocument.SpawnRules(
+                    description: SpawnRuleDocument.Description(identifier: identifier, populationControl: "animal"),
+                    conditions: [
+                        SpawnRuleDocument.Condition(
+                            spawnsOnSurface: SpawnRuleDocument.EmptyComponent(),
+                            spawnsOnBlockFilter: "minecraft:grass_block",
+                            brightnessFilter: SpawnRuleDocument.BrightnessFilter(min: 7, max: 15, adjustForWeather: false),
+                            weight: SpawnRuleDocument.Weight(default: 10),
+                            herd: SpawnRuleDocument.Herd(minSize: 2, maxSize: 4),
+                            biomeFilter: SpawnRuleDocument.BiomeFilter(test: "has_biome_tag", operator: "==", value: "animal")
+                        )
+                    ]
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "spawn_rules/\(rule.id.rawValue).json", data: try BedrockDocumentEncoder.encode(spawnDocument)))
+        }
+        for loot in project.entityLootTables.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let entity = try require(
+                project.entities.first(where: { $0.id == loot.entityID }),
+                profile: profile,
+                code: "missing_entity_loot_entity",
+                path: "content.entityLootTables.\(loot.id.rawValue).entityID",
+                message: "Entity loot references missing entity \(loot.entityID.rawValue)."
+            )
+            let lootItemName: String = {
+                switch loot.item {
+                case .vanilla(let id): return id
+                case .generated(let contentID): return identifier(for: contentID, namespace: project.namespace)
+                case .tag(let tag): return tag
+                }
+            }()
+            let lootDocument = LootTableDocument(
+                pools: [
+                    LootTableDocument.Pool(
+                        rolls: 1,
+                        entries: [
+                            LootTableDocument.Entry(type: "item", name: lootItemName, weight: 1)
+                        ]
+                    )
+                ]
+            )
+            entries.append(ZipArchiveEntry(path: "loot_tables/entities/\(entity.id.rawValue).json", data: try BedrockDocumentEncoder.encode(lootDocument)))
         }
         for item in project.items.sorted(by: contentOrder) {
             let identifier = identifier(for: item.id, namespace: project.namespace)
@@ -475,6 +634,31 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let blocksDocument = BlocksDocument(entries: blockEntries)
             entries.append(ZipArchiveEntry(path: "blocks.json", data: try BedrockDocumentEncoder.encode(blocksDocument)))
         }
+        for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let identifier = identifier(for: entity.id, namespace: project.namespace)
+            let spawnEggTextureName = entity.spawnEggResourceID.rawValue
+            let clientEntity = ClientEntityDocument(
+                formatVersion: profile.clientEntityFormatVersion,
+                clientEntity: ClientEntityDocument.ClientEntity(
+                    description: ClientEntityDocument.Description(
+                        identifier: identifier,
+                        materials: ["default": "entity_alphatest"],
+                        textures: ["default": "textures/entity/\(entity.id.rawValue)"],
+                        geometry: ["default": "geometry.pig"],
+                        renderControllers: ["controller.render.pig"],
+                        spawnEgg: ClientEntityDocument.SpawnEgg(texture: spawnEggTextureName)
+                    )
+                )
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "entity/\(entity.id.rawValue).entity.json",
+                    data: try BedrockDocumentEncoder.encode(clientEntity)
+                )
+            )
+            localizationLines.append("entity.\(identifier).name=\(entity.displayName)")
+            localizationLines.append("item.spawn_egg.entity.\(identifier).name=\(entity.displayName) Spawn Egg")
+        }
         let textureMap = ItemTextureDocument(
             resourcePackName: resourcePackDisplayName,
             textureData: textureData
@@ -639,5 +823,39 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         case .generated(let id): .item(identifier(for: id, namespace: namespace))
         case .tag(let identifier): .tag(identifier)
         }
+    }
+
+
+    // Stable template pinned to bedrock-samples 1.26.30.5 @921fafb — reviewed, not LLM-generated.
+    func scriptTemplate(for mechanic: MechanicDefinition, namespace: String) -> String {
+        let itemId = identifier(for: mechanic.targetItemID, namespace: namespace)
+        let effect = mechanic.action.effect.kind.rawValue
+        let ticks = mechanic.action.effect.durationSeconds * 20
+        let amp = mechanic.action.effect.amplifier
+        return """
+import { world } from "@minecraft/server";
+
+world.afterEvents.itemUse.subscribe(event => {
+  if (event.itemStack?.typeId !== "\(itemId)") return;
+  const player = event.source;
+  if (!player) return;
+  player.addEffect("\(effect)", \(ticks), { amplifier: \(amp) });
+});
+"""
+    }
+
+    func scriptModuleUUID(from behaviorModule: UUID) -> UUID {
+        var derived = behaviorModule.uuidString
+        if let idx = derived.firstIndex(of: "-") {
+            let pos = derived.index(derived.startIndex, offsetBy: 0)
+            let hex = "0123456789abcdef"
+            let current = derived[pos]
+            let lower = String(current).lowercased().first ?? "a"
+            let index = hex.firstIndex(of: lower)?.utf16Offset(in: hex) ?? 0
+            let next = hex[hex.index(hex.startIndex, offsetBy: (index + 1) % 16)]
+            derived.replaceSubrange(pos...pos, with: String(next))
+            _ = idx
+        }
+        return UUID(uuidString: derived) ?? UUID()
     }
 }

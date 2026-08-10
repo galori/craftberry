@@ -115,6 +115,9 @@ final class AddOnProjectTests: XCTestCase {
             itemFormatVersion: BedrockContentProfile.current.itemFormatVersion,
             recipeFormatVersion: BedrockContentProfile.current.recipeFormatVersion,
             blockFormatVersion: BedrockContentProfile.current.blockFormatVersion,
+            entityFormatVersion: BedrockContentProfile.current.entityFormatVersion,
+            spawnRuleFormatVersion: BedrockContentProfile.current.spawnRuleFormatVersion,
+            clientEntityFormatVersion: BedrockContentProfile.current.clientEntityFormatVersion,
             supportedItemTraits: [.durability],
             vanillaItemIdentifiers: BedrockContentProfile.current.vanillaItemIdentifiers,
             vanillaItemTags: BedrockContentProfile.current.vanillaItemTags
@@ -503,7 +506,7 @@ final class AddOnProjectTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            Set(report.errors.map(\.code)),
+            Set<String>(report.errors.map(\.code)),
             ["recipe_pattern_height", "recipe_result_count", "recipe_unlock_required", "unused_recipe_symbol"]
         )
     }
@@ -542,7 +545,7 @@ final class AddOnProjectTests: XCTestCase {
         let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
 
         XCTAssertEqual(
-            Set(report.errors.map(\.code)),
+            Set<String>(report.errors.map(\.code)),
             ["missing_visual_resource", "undefined_recipe_symbol"]
         )
     }
@@ -565,7 +568,7 @@ final class AddOnProjectTests: XCTestCase {
         let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
 
         XCTAssertEqual(
-            Set(report.errors.map(\.code)),
+            Set<String>(report.errors.map(\.code)),
             ["duplicate_recipe_id", "duplicate_visual_resource_id"]
         )
     }
@@ -609,7 +612,7 @@ final class AddOnProjectTests: XCTestCase {
         let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
 
         XCTAssertEqual(
-            Set(report.errors.map(\.code)),
+            Set<String>(report.errors.map(\.code)),
             ["duplicate_pack_uuid", "invalid_attack_bonus", "invalid_durability", "invalid_stack_size"]
         )
     }
@@ -673,7 +676,7 @@ final class AddOnProjectTests: XCTestCase {
         let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
 
         XCTAssertEqual(
-            Set(report.errors.map(\.code)),
+            Set<String>(report.errors.map(\.code)),
             ["invalid_localization_value", "invalid_menu_group"]
         )
     }
@@ -689,6 +692,9 @@ final class AddOnProjectTests: XCTestCase {
             itemFormatVersion: BedrockContentProfile.current.itemFormatVersion,
             recipeFormatVersion: BedrockContentProfile.current.recipeFormatVersion,
             blockFormatVersion: BedrockContentProfile.current.blockFormatVersion,
+            entityFormatVersion: BedrockContentProfile.current.entityFormatVersion,
+            spawnRuleFormatVersion: BedrockContentProfile.current.spawnRuleFormatVersion,
+            clientEntityFormatVersion: BedrockContentProfile.current.clientEntityFormatVersion,
             supportedItemTraits: [.durability, .handEquipped],
             vanillaItemIdentifiers: BedrockContentProfile.current.vanillaItemIdentifiers,
             vanillaItemTags: BedrockContentProfile.current.vanillaItemTags
@@ -708,7 +714,7 @@ final class AddOnProjectTests: XCTestCase {
         let report = AddOnProjectValidator.validate(invalidProject, profile: profile)
 
         XCTAssertEqual(
-            Set(report.errors.map(\.code)),
+            Set<String>(report.errors.map(\.code)),
             ["unsupported_project_schema_version", "unsupported_item_trait"]
         )
     }

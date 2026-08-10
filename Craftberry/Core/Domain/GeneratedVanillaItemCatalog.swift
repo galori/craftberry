@@ -40,5 +40,5 @@ enum GeneratedVanillaItemCatalog {
         "minecraft:nether_wart"
     ]
 
-    static let identifiers = materialSources.union(["minecraft:stick"]).union(smithingTemplates).union(smithingBases).union(brewingInputs).union(brewingReagents)
+    static let identifiers = materialSources.union(["minecraft:stick", "minecraft:egg", "minecraft:feather", "minecraft:wheat", "minecraft:wheat_seeds"]).union(smithingTemplates).union(smithingBases).union(brewingInputs).union(brewingReagents)
 }

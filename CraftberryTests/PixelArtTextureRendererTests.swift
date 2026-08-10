@@ -33,7 +33,7 @@ final class PixelArtTextureRendererTests: XCTestCase {
             let expected: PNGDimensions
             switch kind {
             case .armorLayerOne, .armorLayerTwo: expected = PNGDimensions(width: 64, height: 32)
-            case .blockTerrain: expected = PNGDimensions(width: 16, height: 16)
+            case .blockTerrain, .oreTerrain, .cropTerrain: expected = PNGDimensions(width: 16, height: 16)
             default: expected = PNGDimensions(width: 32, height: 32)
             }
             XCTAssertEqual(Array(data.prefix(8)), [137, 80, 78, 71, 13, 10, 26, 10], "missing PNG signature for \(kind)")

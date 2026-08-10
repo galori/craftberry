@@ -389,6 +389,94 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case blockPixelArt
     case blockTerrain
     case elixirPixelArt
+    case seedPixelArt
+    case cropTerrain
+    case orePixelArt
+    case oreTerrain
+    case entityPixelArt
+    case charmPixelArt
+}
+
+public enum MechanicEventKind: String, Codable, Sendable, CaseIterable {
+    case onInteract
+}
+
+public enum MechanicConditionKind: String, Codable, Sendable, CaseIterable {
+    case none
+}
+
+public enum MechanicEffectKind: String, Codable, Sendable, CaseIterable {
+    case speed
+    case regeneration
+    case jumpBoost = "jump_boost"
+    case resistance
+    case strength
+    case absorption
+}
+
+public struct MechanicEffect: Codable, Equatable, Sendable {
+    public let kind: MechanicEffectKind
+    public let durationSeconds: Int
+    public let amplifier: Int
+
+    public init(kind: MechanicEffectKind, durationSeconds: Int, amplifier: Int) {
+        self.kind = kind
+        self.durationSeconds = durationSeconds
+        self.amplifier = amplifier
+    }
+}
+
+public struct MechanicAction: Codable, Equatable, Sendable {
+    public let effect: MechanicEffect
+
+    public init(effect: MechanicEffect) {
+        self.effect = effect
+    }
+}
+
+public struct MechanicDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let targetItemID: ContentID
+    public let event: MechanicEventKind
+    public let condition: MechanicConditionKind
+    public let action: MechanicAction
+
+    public init(id: ContentID, targetItemID: ContentID, event: MechanicEventKind, condition: MechanicConditionKind, action: MechanicAction) {
+        self.id = id
+        self.targetItemID = targetItemID
+        self.event = event
+        self.condition = condition
+        self.action = action
+    }
+}
+
+/// Trivial validated-upload stub — file-type/size gate only, no generative media.
+/// Kept bounded: PNG/JPEG ≤ 1 MiB.
+public enum ValidatedUploadError: LocalizedError, Equatable {
+    case unsupportedType(String)
+    case tooLarge(Int)
+    case empty
+}
+
+public struct ValidatedUpload: Equatable, Sendable {
+    public let fileName: String
+    public let mimeType: String
+    public let data: Data
+
+    public static let maxBytes = 1_048_576
+    public static let allowedMimeTypes: Set<String> = ["image/png", "image/jpeg"]
+    public static let allowedExtensions: Set<String> = ["png", "jpg", "jpeg"]
+
+    public init(fileName: String, mimeType: String, data: Data) throws {
+        guard !data.isEmpty else { throw ValidatedUploadError.empty }
+        guard data.count <= Self.maxBytes else { throw ValidatedUploadError.tooLarge(data.count) }
+        let ext = (fileName as NSString).pathExtension.lowercased()
+        guard Self.allowedExtensions.contains(ext) else { throw ValidatedUploadError.unsupportedType(ext) }
+        guard Self.allowedMimeTypes.contains(mimeType.lowercased()) else { throw ValidatedUploadError.unsupportedType(mimeType) }
+        self.fileName = fileName
+        self.mimeType = mimeType
+        self.data = data
+    }
 }
 
 public struct BlockDefinition: Codable, Equatable, Sendable {
@@ -397,16 +485,64 @@ public struct BlockDefinition: Codable, Equatable, Sendable {
     public let destroyTime: Double
     public let mapColor: String
     public let terrainResourceID: ContentID
+    public let lootDropID: ContentID?
+    public let growthStages: Int?
 
-    public init(id: ContentID, displayName: String, destroyTime: Double, mapColor: String, terrainResourceID: ContentID) {
+    public init(id: ContentID, displayName: String, destroyTime: Double, mapColor: String, terrainResourceID: ContentID, lootDropID: ContentID? = nil, growthStages: Int? = nil) {
         self.id = id
         self.displayName = displayName
         self.destroyTime = destroyTime
         self.mapColor = mapColor
         self.terrainResourceID = terrainResourceID
+        self.lootDropID = lootDropID
+        self.growthStages = growthStages
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, displayName, destroyTime, mapColor, terrainResourceID, lootDropID, growthStages }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(ContentID.self, forKey: .id)
+        self.displayName = try c.decode(String.self, forKey: .displayName)
+        self.destroyTime = try c.decode(Double.self, forKey: .destroyTime)
+        self.mapColor = try c.decode(String.self, forKey: .mapColor)
+        self.terrainResourceID = try c.decode(ContentID.self, forKey: .terrainResourceID)
+        self.lootDropID = try c.decodeIfPresent(ContentID.self, forKey: .lootDropID)
+        self.growthStages = try c.decodeIfPresent(Int.self, forKey: .growthStages)
     }
 }
 
+public struct EntityDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let displayName: String
+    public let health: Int
+    public let movement: Double
+    public let scale: Double
+    public let spawnEggResourceID: ContentID
+    public init(id: ContentID, displayName: String, health: Int, movement: Double, scale: Double, spawnEggResourceID: ContentID) {
+        self.id = id
+        self.displayName = displayName
+        self.health = health
+        self.movement = movement
+        self.scale = scale
+        self.spawnEggResourceID = spawnEggResourceID
+    }
+}
+public struct SpawnDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let entityID: ContentID
+    public init(id: ContentID, entityID: ContentID) { self.id = id; self.entityID = entityID }
+}
+public struct LootDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let entityID: ContentID
+    public let item: ContentReference
+    public let minCount: Int
+    public let maxCount: Int
+    public init(id: ContentID, entityID: ContentID, item: ContentReference, minCount: Int, maxCount: Int) {
+        self.id = id; self.entityID = entityID; self.item = item; self.minCount = minCount; self.maxCount = maxCount
+    }
+}
 public struct VisualResource: Codable, Equatable, Sendable {
     public let id: ContentID
     public let kind: VisualResourceKind
@@ -422,6 +558,9 @@ public struct VisualResource: Codable, Equatable, Sendable {
 public enum AddOnContentNode: Codable, Equatable, Sendable {
     case item(ItemDefinition)
     case block(BlockDefinition)
+    case entity(EntityDefinition)
+    case spawnRule(SpawnDefinition)
+    case entityLoot(LootDefinition)
     case shapedRecipe(ShapedRecipeDefinition)
     case shapelessRecipe(ShapelessRecipeDefinition)
     case furnaceRecipe(FurnaceRecipeDefinition)
@@ -430,15 +569,19 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case brewingMixRecipe(BrewingMixRecipeDefinition)
     case brewingContainerRecipe(BrewingContainerRecipeDefinition)
     case visualResource(VisualResource)
+    case mechanic(MechanicDefinition)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, entity, spawnRule, entityLoot, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource, mechanic }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         switch try values.decode(Kind.self, forKey: .type) {
         case .item: self = .item(try values.decode(ItemDefinition.self, forKey: .value))
         case .block: self = .block(try values.decode(BlockDefinition.self, forKey: .value))
+        case .entity: self = .entity(try values.decode(EntityDefinition.self, forKey: .value))
+        case .spawnRule: self = .spawnRule(try values.decode(SpawnDefinition.self, forKey: .value))
+        case .entityLoot: self = .entityLoot(try values.decode(LootDefinition.self, forKey: .value))
         case .shapedRecipe: self = .shapedRecipe(try values.decode(ShapedRecipeDefinition.self, forKey: .value))
         case .shapelessRecipe: self = .shapelessRecipe(try values.decode(ShapelessRecipeDefinition.self, forKey: .value))
         case .furnaceRecipe: self = .furnaceRecipe(try values.decode(FurnaceRecipeDefinition.self, forKey: .value))
@@ -447,6 +590,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .brewingMixRecipe: self = .brewingMixRecipe(try values.decode(BrewingMixRecipeDefinition.self, forKey: .value))
         case .brewingContainerRecipe: self = .brewingContainerRecipe(try values.decode(BrewingContainerRecipeDefinition.self, forKey: .value))
         case .visualResource: self = .visualResource(try values.decode(VisualResource.self, forKey: .value))
+        case .mechanic: self = .mechanic(try values.decode(MechanicDefinition.self, forKey: .value))
         }
     }
 
@@ -459,6 +603,15 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .block(let block):
             try values.encode(Kind.block, forKey: .type)
             try values.encode(block, forKey: .value)
+        case .entity(let entity):
+            try values.encode(Kind.entity, forKey: .type)
+            try values.encode(entity, forKey: .value)
+        case .spawnRule(let rule):
+            try values.encode(Kind.spawnRule, forKey: .type)
+            try values.encode(rule, forKey: .value)
+        case .entityLoot(let loot):
+            try values.encode(Kind.entityLoot, forKey: .type)
+            try values.encode(loot, forKey: .value)
         case .shapedRecipe(let recipe):
             try values.encode(Kind.shapedRecipe, forKey: .type)
             try values.encode(recipe, forKey: .value)
@@ -483,6 +636,9 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .visualResource(let resource):
             try values.encode(Kind.visualResource, forKey: .type)
             try values.encode(resource, forKey: .value)
+        case .mechanic(let mechanic):
+            try values.encode(Kind.mechanic, forKey: .type)
+            try values.encode(mechanic, forKey: .value)
         }
     }
 }
@@ -599,9 +755,21 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     public var blocks: [BlockDefinition] {
         content.compactMap { if case .block(let block) = $0 { block } else { nil } }
     }
-
+    public var entities: [EntityDefinition] {
+        content.compactMap { if case .entity(let entity) = $0 { entity } else { nil } }
+    }
+    public var spawnRules: [SpawnDefinition] {
+        content.compactMap { if case .spawnRule(let rule) = $0 { rule } else { nil } }
+    }
+    public var entityLootTables: [LootDefinition] {
+        content.compactMap { if case .entityLoot(let loot) = $0 { loot } else { nil } }
+    }
     public var visualResources: [VisualResource] {
         content.compactMap { if case .visualResource(let resource) = $0 { resource } else { nil } }
+    }
+
+    public var mechanics: [MechanicDefinition] {
+        content.compactMap { if case .mechanic(let m) = $0 { m } else { nil } }
     }
 
     public func migratedToCurrentSchema() throws -> AddOnProject {
@@ -1295,6 +1463,164 @@ extension AddOnProject {
         ]
         return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(elixir), .shapelessRecipe(ingotRecipe), .brewingMixRecipe(brewingMixRecipe), .brewingContainerRecipe(brewingContainerRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }
+
+    public static func materialScriptedSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        effectKind: MechanicEffectKind = .regeneration,
+        effectDurationSeconds: Int = 10,
+        effectAmplifier: Int = 0,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (5...60).contains(effectDurationSeconds) else { throw AddOnProjectError.invalidMechanicDuration }
+        guard (0...4).contains(effectAmplifier) else { throw AddOnProjectError.invalidMechanicAmplifier }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let charmID = ContentID("\(stem)_charm")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let charm = ItemDefinition(id: charmID, displayName: "\(material) Charm", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.charm", traits: ItemTraits(maximumStackSize: 1), visualResourceID: charmID)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let charmRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_charm_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(charmID), count: 1), unlock: [.generated(ingotID)])
+        let mechanic = MechanicDefinition(
+            id: ContentID("\(stem)_mechanic"),
+            targetItemID: charmID,
+            event: .onInteract,
+            condition: .none,
+            action: MechanicAction(effect: MechanicEffect(kind: effectKind, durationSeconds: effectDurationSeconds, amplifier: effectAmplifier))
+        )
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: charmID, kind: .charmPixelArt, color: color)
+        ]
+        return AddOnProject(
+            id: identity.projectID,
+            namespace: identity.namespace,
+            displayName: material,
+            shortDescription: shortDescription,
+            packUUIDs: identity.packUUIDs,
+            buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
+            targetProfileID: profile.id,
+            originalPrompt: originalPrompt,
+            content: [.item(ingot), .item(charm), .shapelessRecipe(ingotRecipe), .shapedRecipe(charmRecipe), .mechanic(mechanic)] + visuals.map(AddOnContentNode.visualResource)
+        )
+    }
+
+    public static func materialOreSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        destroyTime: Double = 3.0,
+        mapColor: String = "#8A8A8A",
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (0.5...10.0).contains(destroyTime) else { throw AddOnProjectError.invalidBlockDestroyTime }
+        guard BlockMapColor.allowedHexValues.contains(mapColor) else { throw AddOnProjectError.invalidBlockMapColor }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let oreID = ContentID("\(stem)_ore")
+        let terrainID = ContentID("\(stem)_ore_terrain")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let oreItem = ItemDefinition(id: oreID, displayName: "\(material) Ore", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: oreID)
+        let oreBlock = BlockDefinition(id: oreID, displayName: "\(material) Ore", destroyTime: destroyTime, mapColor: mapColor, terrainResourceID: terrainID, lootDropID: ingotID, growthStages: nil)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let oreRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_ore_recipe"), tags: ["crafting_table"], pattern: ["III", "III", "III"], ingredients: ["I": .generated(ingotID)], result: RecipeResult(item: .generated(oreID), count: 1), unlock: [.generated(ingotID)])
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: oreID, kind: .orePixelArt, color: color),
+            VisualResource(id: terrainID, kind: .oreTerrain, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(oreItem), .block(oreBlock), .shapelessRecipe(ingotRecipe), .shapedRecipe(oreRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
+
+    public static func materialCropSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .green,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let seedID = ContentID("\(stem)_seed")
+        let cropID = ContentID("\(stem)_crop")
+        let produceID = ContentID("\(stem)_produce")
+        let terrainID = ContentID("\(stem)_crop_terrain")
+        let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.seeds", traits: ItemTraits(), visualResourceID: seedID)
+        let produce = ItemDefinition(id: produceID, displayName: "\(material) Produce", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.food", traits: ItemTraits(food: FoodTrait(nutrition: 4, saturationModifier: "0.6")), visualResourceID: produceID)
+        let cropItem = ItemDefinition(id: cropID, displayName: "\(material) Crop", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: cropID)
+        let cropBlock = BlockDefinition(id: cropID, displayName: "\(material) Crop", destroyTime: 0.5, mapColor: "#5CDBD5", terrainResourceID: terrainID, lootDropID: produceID, growthStages: 8)
+        let seedRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_seed_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(seedID), count: 4), unlock: [.vanilla(sourceItem)])
+        let visuals = [
+            VisualResource(id: seedID, kind: .seedPixelArt, color: color),
+            VisualResource(id: produceID, kind: .foodPixelArt, color: color),
+            VisualResource(id: cropID, kind: .cropTerrain, color: color),
+            VisualResource(id: terrainID, kind: .cropTerrain, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(seed), .item(produce), .item(cropItem), .block(cropBlock), .shapelessRecipe(seedRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
+
+    public static func materialEntitySet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        health: Int = 10,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard (4...40).contains(health) else { throw AddOnProjectError.invalidEntityHealth }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let entityID = ContentID("\(stem)_creature")
+        let spawnEggID = ContentID("\(stem)_spawn_egg")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.spawnEgg", traits: ItemTraits(maximumStackSize: 16), visualResourceID: spawnEggID)
+        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: health, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID)
+        let spawnRule = SpawnDefinition(id: ContentID("\(stem)_spawn_rule"), entityID: entityID)
+        let loot = LootDefinition(id: ContentID("\(stem)_loot"), entityID: entityID, item: .vanilla("minecraft:feather"), minCount: 0, maxCount: 2)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let spawnEggRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_spawn_egg_recipe"), tags: ["crafting_table"], pattern: [" I ", "IEI", " I "], ingredients: ["I": .generated(ingotID), "E": .vanilla("minecraft:egg")], result: RecipeResult(item: .generated(spawnEggID), count: 1), unlock: [.generated(ingotID)])
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: spawnEggID, kind: .entityPixelArt, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(spawnEgg), .entity(entity), .spawnRule(spawnRule), .entityLoot(loot), .shapelessRecipe(ingotRecipe), .shapedRecipe(spawnEggRecipe)] + visuals.map(AddOnContentNode.visualResource))
+    }
 }
 
 public enum AddOnProjectError: LocalizedError, Equatable {
@@ -1309,6 +1635,9 @@ public enum AddOnProjectError: LocalizedError, Equatable {
     case invalidFuelDuration
     case invalidBlockDestroyTime
     case invalidBlockMapColor
+    case invalidEntityHealth
+    case invalidMechanicDuration
+    case invalidMechanicAmplifier
     case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
@@ -1325,6 +1654,9 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .invalidFuelDuration: "Fuel duration must be between 1.0 and 200.0."
         case .invalidBlockDestroyTime: "Block destroy time must be between 0.5 and 10.0."
         case .invalidBlockMapColor: "Block map color must be a supported vanilla palette hex."
+        case .invalidEntityHealth: "Entity health must be between 4 and 40."
+        case .invalidMechanicDuration: "Mechanic effect duration must be between 5 and 60 seconds."
+        case .invalidMechanicAmplifier: "Mechanic effect amplifier must be between 0 and 4."
         case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."

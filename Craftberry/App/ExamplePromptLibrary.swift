@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + scriptedSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -154,5 +154,47 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold brewing set named Gilded brewed elixir from ingot"),
         ExamplePrompt(emoji: "💜", text: "An amethyst brewing set named Geode with brewing mix and container"),
         ExamplePrompt(emoji: "🗿", text: "A netherite brewing set named Warden brewed elixir splash")
+    ]
+
+    private static let oreSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🪨", text: "A diamond ore set: Azure ingot plus ore block"),
+        ExamplePrompt(emoji: "⛏️", text: "An emerald ore set named Verdant with ingot and ore"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod ore set named Ember with ingot and ore"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz ore set named Frostbite with ingot and ore"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone ore set named Pulse with ingot and ore")
+    ]
+
+    private static let cropSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🌱", text: "A diamond crop set: Azure seeds plus crop and produce"),
+        ExamplePrompt(emoji: "🌾", text: "An emerald crop set named Verdant with seeds and crop"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod crop set named Ember with seeds and crop"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz crop set named Frostbite seeds and harvest"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone crop set named Pulse with seeds, crop, and produce")
+    ]
+    private static let entitySets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🐣", text: "A diamond entity set: Azure ingot plus friendly creature"),
+        ExamplePrompt(emoji: "🐥", text: "An emerald entity set named Verdant with a passive creature"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod entity set named Ember with a gentle creature"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz entity set named Frostbite with a cute creature"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone entity set named Pulse with a friendly mob"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron entity set named Ironclad with a passive creature"),
+        ExamplePrompt(emoji: "💙", text: "A lapis entity set named Deepsea with a water-friendly creature"),
+        ExamplePrompt(emoji: "🪙", text: "A gold entity set named Gilded with a golden creature"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst entity set named Geode with a crystal creature"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite entity set named Warden with a sturdy creature")
+    ]
+
+
+    private static let scriptedSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "✨", text: "A diamond scripted set: Azure ingot plus charm that gives regeneration"),
+        ExamplePrompt(emoji: "🏃", text: "An emerald scripted set named Verdant with speed charm on use"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod scripted set named Ember with strength charm"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz scripted set named Frostbite with jump boost charm"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone scripted set named Pulse with resistance charm"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron scripted set named Ironclad with absorption charm"),
+        ExamplePrompt(emoji: "💙", text: "A lapis scripted set named Deepsea with regeneration charm"),
+        ExamplePrompt(emoji: "🪙", text: "A gold scripted set named Gilded charm that grants speed"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst scripted set named Geode with speed charm, 15 seconds"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite scripted set named Warden with strength charm on interact")
     ]
 }
