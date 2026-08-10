@@ -492,7 +492,7 @@ final class BedrockCompilerTests: XCTestCase {
     func testCompilerEmitsMaterialEntitySetWithSpawnAndLoot() throws {
         let project = try AddOnProject.materialEntitySet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, health: 10, originalPrompt: "entity", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        defer { try? FileManager.default.removeItem(at: directory) }
+        addTeardownBlock { _ = try? FileManager.default.removeItem(at: directory) }
         let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
         let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
         let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
