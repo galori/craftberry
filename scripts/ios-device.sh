@@ -363,8 +363,9 @@ minecraft_e2e_all_on_device() {
             flag="--fresh-world"
         fi
         # shellcheck disable=SC2086
-        if ! minecraft_e2e_on_device "$scenario" $flag; then
-            overall_status=$?
+        minecraft_e2e_on_device "$scenario" $flag
+        overall_status=$?
+        if [[ "$overall_status" -ne 0 ]]; then
             echo "minecraft-e2e-all: $scenario failed with status $overall_status — stopping." >&2
             return "$overall_status"
         fi
