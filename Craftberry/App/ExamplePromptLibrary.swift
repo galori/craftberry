@@ -14,9 +14,9 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// Every prompt must stay inside the active capability profile: only materials from
 /// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, protection
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
-/// set, armor set, consumable set, block set, furnace set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
+/// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -128,5 +128,18 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold furnace set named Gilded smelted sword set"),
         ExamplePrompt(emoji: "💜", text: "An amethyst furnace set named Geode with furnace ingot"),
         ExamplePrompt(emoji: "🗿", text: "A netherite furnace set named Warden smelted ingot plus sword")
+    ]
+
+    private static let smithingSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "⚒️", text: "A diamond smithing set: upgrade Azure sword at the smithing table"),
+        ExamplePrompt(emoji: "🛡️", text: "An emerald smithing set named Verdant with smithing upgrade"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod smithing set named Ember with armor trim"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz smithing set named Frostbite with smithing sword"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone smithing set named Pulse upgraded on smithing table"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron smithing set named Ironclad with smithing trim"),
+        ExamplePrompt(emoji: "💙", text: "A lapis smithing set named Deepsea with smithing upgrade"),
+        ExamplePrompt(emoji: "🪙", text: "A gold smithing set named Gilded smithing table upgrade"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst smithing set named Geode with ward trim"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite smithing set named Warden upgraded via smithing")
     ]
 }

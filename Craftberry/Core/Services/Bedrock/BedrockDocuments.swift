@@ -228,6 +228,83 @@ struct FurnaceRecipeDocument: Encodable {
     }
 }
 
+struct SmithingTrimRecipeDocument: Encodable {
+    let formatVersion: String
+    let recipe: Recipe
+
+    struct Recipe: Encodable {
+        let description: ShapedRecipeDocument.Description
+        let tags: [String]
+        let template: IngredientValue
+        let base: IngredientValue
+        let addition: IngredientValue
+
+        enum CodingKeys: String, CodingKey { case description, tags, template, base, addition }
+    }
+
+    enum IngredientValue: Encodable {
+        case item(String)
+        case tag(String)
+
+        func encode(to encoder: Encoder) throws {
+            switch self {
+            case .item(let value):
+                var container = encoder.singleValueContainer()
+                try container.encode(value)
+            case .tag(let value):
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(value, forKey: .tag)
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case tag }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case recipe = "minecraft:recipe_smithing_trim"
+    }
+}
+
+struct SmithingTransformRecipeDocument: Encodable {
+    let formatVersion: String
+    let recipe: Recipe
+
+    struct Recipe: Encodable {
+        let description: ShapedRecipeDocument.Description
+        let tags: [String]
+        let template: IngredientValue
+        let base: IngredientValue
+        let addition: IngredientValue
+        let result: String
+
+        enum CodingKeys: String, CodingKey { case description, tags, template, base, addition, result }
+    }
+
+    enum IngredientValue: Encodable {
+        case item(String)
+        case tag(String)
+
+        func encode(to encoder: Encoder) throws {
+            switch self {
+            case .item(let value):
+                var container = encoder.singleValueContainer()
+                try container.encode(value)
+            case .tag(let value):
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(value, forKey: .tag)
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case tag }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case recipe = "minecraft:recipe_smithing_transform"
+    }
+}
+
 struct ItemTextureDocument: Encodable {
     let resourcePackName: String
     let textureData: [String: Texture]

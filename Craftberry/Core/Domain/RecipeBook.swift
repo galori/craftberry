@@ -27,8 +27,15 @@ public struct RecipeBook: Equatable, Sendable {
             },
             uniquingKeysWith: { first, _ in first }
         )
+        let smithingByResult = Dictionary(
+            project.smithingTransformRecipes.compactMap { recipe -> (ContentID, RecipeBookRecipe)? in
+                guard case .generated(let id) = recipe.result.item else { return nil }
+                return (id, .smithingTransform(recipe))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
         rows = project.items.compactMap { item in
-            let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id] ?? furnaceByResult[item.id]
+            let recipe = shapedByResult[item.id] ?? shapelessByResult[item.id] ?? furnaceByResult[item.id] ?? smithingByResult[item.id]
             return RecipeBookRow(
                 item: item,
                 visualResource: visualsByID[item.visualResourceID],
@@ -53,6 +60,13 @@ public struct RecipeBook: Equatable, Sendable {
         case .furnace(let furnace):
             let name = IngredientLabel(reference: furnace.input, itemsByID: itemsByID).displayName
             return "Smelt \(name) -> \(item.displayName)"
+        case .smithingTransform(let smithing):
+            let template = IngredientLabel(reference: smithing.template, itemsByID: itemsByID).displayName
+            let base = IngredientLabel(reference: smithing.base, itemsByID: itemsByID).displayName
+            let addition = IngredientLabel(reference: smithing.addition, itemsByID: itemsByID).displayName
+            return "Smith \(base) + \(template) + \(addition) -> \(item.displayName)"
+        case .smithingTrim:
+            return "Trim armor with \(item.displayName)"
         }
     }
 
@@ -95,12 +109,16 @@ public enum RecipeBookRecipe: Equatable, Sendable {
     case shaped(ShapedRecipeDefinition)
     case shapeless(ShapelessRecipeDefinition)
     case furnace(FurnaceRecipeDefinition)
+    case smithingTransform(SmithingTransformRecipeDefinition)
+    case smithingTrim(SmithingTrimRecipeDefinition)
 
     public var result: RecipeResult {
         switch self {
         case .shaped(let recipe): recipe.result
         case .shapeless(let recipe): recipe.result
         case .furnace(let recipe): recipe.result
+        case .smithingTransform(let recipe): recipe.result
+        case .smithingTrim: RecipeResult(item: .vanilla("minecraft:air"), count: 1)
         }
     }
 
@@ -109,6 +127,8 @@ public enum RecipeBookRecipe: Equatable, Sendable {
         case .shaped(let recipe): Array(recipe.ingredients.values)
         case .shapeless(let recipe): recipe.ingredients
         case .furnace(let recipe): [recipe.input]
+        case .smithingTransform(let recipe): [recipe.template, recipe.base, recipe.addition]
+        case .smithingTrim(let recipe): [recipe.template, recipe.base, recipe.addition]
         }
     }
 
@@ -129,6 +149,10 @@ public enum RecipeBookRecipe: Equatable, Sendable {
             }
         case .furnace(let recipe):
             return [recipe.input] + Array(repeating: nil, count: 8)
+        case .smithingTransform(let recipe):
+            return [recipe.template, recipe.base, recipe.addition] + Array(repeating: nil, count: 6)
+        case .smithingTrim(let recipe):
+            return [recipe.template, recipe.base, recipe.addition] + Array(repeating: nil, count: 6)
         }
     }
 }

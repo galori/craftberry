@@ -297,6 +297,34 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             )
             entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
         }
+        for recipe in project.smithingTrimRecipes.sorted(by: smithingTrimRecipeOrder) {
+            let document = SmithingTrimRecipeDocument(
+                formatVersion: profile.recipeFormatVersion,
+                recipe: SmithingTrimRecipeDocument.Recipe(
+                    description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
+                    tags: recipe.tags,
+                    template: smithingIngredient(for: recipe.template, namespace: project.namespace),
+                    base: smithingIngredient(for: recipe.base, namespace: project.namespace),
+                    addition: smithingIngredient(for: recipe.addition, namespace: project.namespace)
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+        }
+        for recipe in project.smithingTransformRecipes.sorted(by: smithingTransformRecipeOrder) {
+            let resultIdentifier = try resultIdentifier(for: recipe.result.item, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).result")
+            let document = SmithingTransformRecipeDocument(
+                formatVersion: profile.recipeFormatVersion,
+                recipe: SmithingTransformRecipeDocument.Recipe(
+                    description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
+                    tags: recipe.tags,
+                    template: smithingTransformIngredient(for: recipe.template, namespace: project.namespace),
+                    base: smithingTransformIngredient(for: recipe.base, namespace: project.namespace),
+                    addition: smithingTransformIngredient(for: recipe.addition, namespace: project.namespace),
+                    result: resultIdentifier
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+        }
         entries.append(
             ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
         )
@@ -539,5 +567,29 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
 
     private func furnaceRecipeOrder(_ lhs: FurnaceRecipeDefinition, _ rhs: FurnaceRecipeDefinition) -> Bool {
         lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func smithingTrimRecipeOrder(_ lhs: SmithingTrimRecipeDefinition, _ rhs: SmithingTrimRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func smithingTransformRecipeOrder(_ lhs: SmithingTransformRecipeDefinition, _ rhs: SmithingTransformRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func smithingIngredient(for reference: ContentReference, namespace: String) -> SmithingTrimRecipeDocument.IngredientValue {
+        switch reference {
+        case .vanilla(let identifier): .item(identifier)
+        case .generated(let id): .item(identifier(for: id, namespace: namespace))
+        case .tag(let identifier): .tag(identifier)
+        }
+    }
+
+    private func smithingTransformIngredient(for reference: ContentReference, namespace: String) -> SmithingTransformRecipeDocument.IngredientValue {
+        switch reference {
+        case .vanilla(let identifier): .item(identifier)
+        case .generated(let id): .item(identifier(for: id, namespace: namespace))
+        case .tag(let identifier): .tag(identifier)
+        }
     }
 }
