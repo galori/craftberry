@@ -12,10 +12,13 @@
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
 		A10000000000000000000037 /* ExamplePromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* ExamplePromptLibrary.swift */; };
 		A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* ExamplePromptLibraryTests.swift */; };
+		A10000000000000000000055 /* CachingLLMClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000055 /* CachingLLMClientTests.swift */; };
 		A10000000000000000000039 /* PixelArtTextureRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* PixelArtTextureRendererTests.swift */; };
 		A10000000000000000000004 /* ContentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ContentIdentity.swift */; };
 		A10000000000000000000005 /* ProjectGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* ProjectGeneration.swift */; };
 		A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* OpenAIResponsesClient.swift */; };
+		A10000000000000000000053 /* CachingLLMClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000053 /* CachingLLMClient.swift */; };
+		A10000000000000000000054 /* ExamplePromptResponseCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000054 /* ExamplePromptResponseCache.swift */; };
 		A10000000000000000000007 /* BinaryEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* BinaryEncoding.swift */; };
 		A10000000000000000000008 /* PNG.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* PNG.swift */; };
 		A10000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* ZipArchive.swift */; };
@@ -79,10 +82,13 @@
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* ExamplePromptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptLibrary.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* ExamplePromptLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptLibraryTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000055 /* CachingLLMClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachingLLMClientTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* PixelArtTextureRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelArtTextureRendererTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* ContentIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentity.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* ProjectGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGeneration.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* OpenAIResponsesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClient.swift; sourceTree = "<group>"; };
+		A20000000000000000000053 /* CachingLLMClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachingLLMClient.swift; sourceTree = "<group>"; };
+		A20000000000000000000054 /* ExamplePromptResponseCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamplePromptResponseCache.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* BinaryEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryEncoding.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* PNG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNG.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
@@ -219,6 +225,7 @@
 				A20000000000000000000024 /* CreationViewModelTests.swift */,
 				A20000000000000000000043 /* ExamplePromptLibraryTests.swift */,
 				A20000000000000000000044 /* PixelArtTextureRendererTests.swift */,
+				A20000000000000000000055 /* CachingLLMClientTests.swift */,
 			);
 			path = CraftberryTests;
 			sourceTree = "<group>";
@@ -283,6 +290,8 @@
 			children = (
 				A20000000000000000000005 /* ProjectGeneration.swift */,
 				A20000000000000000000006 /* OpenAIResponsesClient.swift */,
+				A20000000000000000000053 /* CachingLLMClient.swift */,
+				A20000000000000000000054 /* ExamplePromptResponseCache.swift */,
 			);
 			path = AI;
 			sourceTree = "<group>";
@@ -435,6 +444,8 @@
 				A10000000000000000000004 /* ContentIdentity.swift in Sources */,
 				A10000000000000000000005 /* ProjectGeneration.swift in Sources */,
 				A10000000000000000000006 /* OpenAIResponsesClient.swift in Sources */,
+				A10000000000000000000053 /* CachingLLMClient.swift in Sources */,
+				A10000000000000000000054 /* ExamplePromptResponseCache.swift in Sources */,
 				A10000000000000000000007 /* BinaryEncoding.swift in Sources */,
 				A10000000000000000000008 /* PNG.swift in Sources */,
 				A10000000000000000000009 /* ZipArchive.swift in Sources */,
@@ -460,6 +471,7 @@
 				A10000000000000000000020 /* CreationViewModelTests.swift in Sources */,
 				A10000000000000000000038 /* ExamplePromptLibraryTests.swift in Sources */,
 				A10000000000000000000039 /* PixelArtTextureRendererTests.swift in Sources */,
+				A10000000000000000000055 /* CachingLLMClientTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

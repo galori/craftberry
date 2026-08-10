@@ -36,7 +36,11 @@ final class CreationViewModel: ObservableObject {
         client: (any LLMClient)? = nil,
         artifactDirectoryProvider: @escaping @MainActor () throws -> URL = CreationViewModel.defaultArtifactDirectory
     ) {
-        self.client = client ?? OpenAIResponsesClient(apiKey: apiKey)
+        if let client {
+            self.client = client
+        } else {
+            self.client = CachingLLMClient(wrapping: OpenAIResponsesClient(apiKey: apiKey))
+        }
         self.compiler = compiler
         self.artifactDirectoryProvider = artifactDirectoryProvider
     }
