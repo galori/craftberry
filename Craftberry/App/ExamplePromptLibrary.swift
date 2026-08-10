@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -141,5 +141,18 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold smithing set named Gilded smithing table upgrade"),
         ExamplePrompt(emoji: "💜", text: "An amethyst smithing set named Geode with ward trim"),
         ExamplePrompt(emoji: "🗿", text: "A netherite smithing set named Warden upgraded via smithing")
+    ]
+
+    private static let brewingSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🧪", text: "A diamond brewing set: brew Azure elixir at the brewing stand"),
+        ExamplePrompt(emoji: "⚗️", text: "An emerald brewing set named Verdant with elixir brewed from ingot"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod brewing set named Ember with brewing-stand elixir"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz brewing set named Frostbite brewed then splashed"),
+        ExamplePrompt(emoji: "💎", text: "A redstone brewing set named Pulse with brewing mix"),
+        ExamplePrompt(emoji: "⛓️", text: "An iron brewing set named Ironclad brewed at the stand"),
+        ExamplePrompt(emoji: "💙", text: "A lapis brewing set named Deepsea with potion elixir"),
+        ExamplePrompt(emoji: "🪙", text: "A gold brewing set named Gilded brewed elixir from ingot"),
+        ExamplePrompt(emoji: "💜", text: "An amethyst brewing set named Geode with brewing mix and container"),
+        ExamplePrompt(emoji: "🗿", text: "A netherite brewing set named Warden brewed elixir splash")
     ]
 }

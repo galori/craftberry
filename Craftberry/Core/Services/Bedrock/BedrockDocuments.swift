@@ -305,6 +305,46 @@ struct SmithingTransformRecipeDocument: Encodable {
     }
 }
 
+struct BrewingMixRecipeDocument: Encodable {
+    let formatVersion: String
+    let recipe: Recipe
+
+    struct Recipe: Encodable {
+        let description: ShapedRecipeDocument.Description
+        let tags: [String]
+        let input: String
+        let reagent: String
+        let output: String
+
+        enum CodingKeys: String, CodingKey { case description, tags, input, reagent, output }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case recipe = "minecraft:recipe_brewing_mix"
+    }
+}
+
+struct BrewingContainerRecipeDocument: Encodable {
+    let formatVersion: String
+    let recipe: Recipe
+
+    struct Recipe: Encodable {
+        let description: ShapedRecipeDocument.Description
+        let tags: [String]
+        let input: String
+        let reagent: String
+        let output: String
+
+        enum CodingKeys: String, CodingKey { case description, tags, input, reagent, output }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case recipe = "minecraft:recipe_brewing_container"
+    }
+}
+
 struct ItemTextureDocument: Encodable {
     let resourcePackName: String
     let textureData: [String: Texture]

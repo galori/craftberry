@@ -336,6 +336,38 @@ public struct SmithingTransformRecipeDefinition: Codable, Equatable, Sendable {
     }
 }
 
+public struct BrewingMixRecipeDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let tags: [String]
+    public let input: ContentReference
+    public let reagent: ContentReference
+    public let output: ContentReference
+
+    public init(id: ContentID, tags: [String], input: ContentReference, reagent: ContentReference, output: ContentReference) {
+        self.id = id
+        self.tags = tags
+        self.input = input
+        self.reagent = reagent
+        self.output = output
+    }
+}
+
+public struct BrewingContainerRecipeDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let tags: [String]
+    public let input: ContentReference
+    public let reagent: ContentReference
+    public let output: ContentReference
+
+    public init(id: ContentID, tags: [String], input: ContentReference, reagent: ContentReference, output: ContentReference) {
+        self.id = id
+        self.tags = tags
+        self.input = input
+        self.reagent = reagent
+        self.output = output
+    }
+}
+
 public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case swordPixelArt
     case ingotPixelArt
@@ -356,6 +388,7 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case fuelPixelArt
     case blockPixelArt
     case blockTerrain
+    case elixirPixelArt
 }
 
 public struct BlockDefinition: Codable, Equatable, Sendable {
@@ -394,10 +427,12 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case furnaceRecipe(FurnaceRecipeDefinition)
     case smithingTrimRecipe(SmithingTrimRecipeDefinition)
     case smithingTransformRecipe(SmithingTransformRecipeDefinition)
+    case brewingMixRecipe(BrewingMixRecipeDefinition)
+    case brewingContainerRecipe(BrewingContainerRecipeDefinition)
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -409,6 +444,8 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .furnaceRecipe: self = .furnaceRecipe(try values.decode(FurnaceRecipeDefinition.self, forKey: .value))
         case .smithingTrimRecipe: self = .smithingTrimRecipe(try values.decode(SmithingTrimRecipeDefinition.self, forKey: .value))
         case .smithingTransformRecipe: self = .smithingTransformRecipe(try values.decode(SmithingTransformRecipeDefinition.self, forKey: .value))
+        case .brewingMixRecipe: self = .brewingMixRecipe(try values.decode(BrewingMixRecipeDefinition.self, forKey: .value))
+        case .brewingContainerRecipe: self = .brewingContainerRecipe(try values.decode(BrewingContainerRecipeDefinition.self, forKey: .value))
         case .visualResource: self = .visualResource(try values.decode(VisualResource.self, forKey: .value))
         }
     }
@@ -436,6 +473,12 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
             try values.encode(recipe, forKey: .value)
         case .smithingTransformRecipe(let recipe):
             try values.encode(Kind.smithingTransformRecipe, forKey: .type)
+            try values.encode(recipe, forKey: .value)
+        case .brewingMixRecipe(let recipe):
+            try values.encode(Kind.brewingMixRecipe, forKey: .type)
+            try values.encode(recipe, forKey: .value)
+        case .brewingContainerRecipe(let recipe):
+            try values.encode(Kind.brewingContainerRecipe, forKey: .type)
             try values.encode(recipe, forKey: .value)
         case .visualResource(let resource):
             try values.encode(Kind.visualResource, forKey: .type)
@@ -543,7 +586,15 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         content.compactMap { if case .smithingTransformRecipe(let recipe) = $0 { recipe } else { nil } }
     }
 
-    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) + furnaceRecipes.map(\.id) + smithingTrimRecipes.map(\.id) + smithingTransformRecipes.map(\.id) }
+    public var brewingMixRecipes: [BrewingMixRecipeDefinition] {
+        content.compactMap { if case .brewingMixRecipe(let recipe) = $0 { recipe } else { nil } }
+    }
+
+    public var brewingContainerRecipes: [BrewingContainerRecipeDefinition] {
+        content.compactMap { if case .brewingContainerRecipe(let recipe) = $0 { recipe } else { nil } }
+    }
+
+    public var allRecipeIDs: [ContentID] { recipes.map(\.id) + shapelessRecipes.map(\.id) + furnaceRecipes.map(\.id) + smithingTrimRecipes.map(\.id) + smithingTransformRecipes.map(\.id) + brewingMixRecipes.map(\.id) + brewingContainerRecipes.map(\.id) }
 
     public var blocks: [BlockDefinition] {
         content.compactMap { if case .block(let block) = $0 { block } else { nil } }
@@ -1200,6 +1251,49 @@ extension AddOnProject {
             originalPrompt: originalPrompt,
             content: [.item(ingot), .item(sword), .shapelessRecipe(ingotRecipe), .smithingTransformRecipe(smithingTransformRecipe), .smithingTrimRecipe(smithingTrimRecipe)] + visuals.map(AddOnContentNode.visualResource)
         )
+    }
+
+    public static func materialBrewingSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let elixirID = ContentID("\(stem)_elixir")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let elixir = ItemDefinition(id: elixirID, displayName: "\(material) Elixir", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.elixir", traits: ItemTraits(maximumStackSize: 16), visualResourceID: elixirID)
+        let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
+        let brewingMixRecipe = BrewingMixRecipeDefinition(
+            id: ContentID("\(stem)_elixir_brewing_mix_recipe"),
+            tags: ["brewing_stand"],
+            input: .vanilla("minecraft:potion"),
+            reagent: .generated(ingotID),
+            output: .generated(elixirID)
+        )
+        let brewingContainerRecipe = BrewingContainerRecipeDefinition(
+            id: ContentID("\(stem)_elixir_brewing_container_recipe"),
+            tags: ["brewing_stand"],
+            input: .generated(elixirID),
+            reagent: .vanilla("minecraft:gunpowder"),
+            output: .vanilla("minecraft:splash_potion")
+        )
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: elixirID, kind: .elixirPixelArt, color: color)
+        ]
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(elixir), .shapelessRecipe(ingotRecipe), .brewingMixRecipe(brewingMixRecipe), .brewingContainerRecipe(brewingContainerRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }
 }
 

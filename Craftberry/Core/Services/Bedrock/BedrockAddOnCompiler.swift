@@ -325,6 +325,38 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             )
             entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
         }
+        for recipe in project.brewingMixRecipes.sorted(by: brewingMixRecipeOrder) {
+            let inputString = try brewingString(for: recipe.input, namespace: project.namespace)
+            let reagentString = try brewingString(for: recipe.reagent, namespace: project.namespace)
+            let outputString = try brewingString(for: recipe.output, namespace: project.namespace)
+            let document = BrewingMixRecipeDocument(
+                formatVersion: profile.recipeFormatVersion,
+                recipe: BrewingMixRecipeDocument.Recipe(
+                    description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
+                    tags: recipe.tags,
+                    input: inputString,
+                    reagent: reagentString,
+                    output: outputString
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+        }
+        for recipe in project.brewingContainerRecipes.sorted(by: brewingContainerRecipeOrder) {
+            let inputString = try brewingString(for: recipe.input, namespace: project.namespace)
+            let reagentString = try brewingString(for: recipe.reagent, namespace: project.namespace)
+            let outputString = try brewingString(for: recipe.output, namespace: project.namespace)
+            let document = BrewingContainerRecipeDocument(
+                formatVersion: profile.recipeFormatVersion,
+                recipe: BrewingContainerRecipeDocument.Recipe(
+                    description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
+                    tags: recipe.tags,
+                    input: inputString,
+                    reagent: reagentString,
+                    output: outputString
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
+        }
         entries.append(
             ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
         )
@@ -565,6 +597,14 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         lhs.id.rawValue < rhs.id.rawValue
     }
 
+    private func brewingMixRecipeOrder(_ lhs: BrewingMixRecipeDefinition, _ rhs: BrewingMixRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func brewingContainerRecipeOrder(_ lhs: BrewingContainerRecipeDefinition, _ rhs: BrewingContainerRecipeDefinition) -> Bool {
+        lhs.id.rawValue < rhs.id.rawValue
+    }
+
     private func furnaceRecipeOrder(_ lhs: FurnaceRecipeDefinition, _ rhs: FurnaceRecipeDefinition) -> Bool {
         lhs.id.rawValue < rhs.id.rawValue
     }
@@ -575,6 +615,14 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
 
     private func smithingTransformRecipeOrder(_ lhs: SmithingTransformRecipeDefinition, _ rhs: SmithingTransformRecipeDefinition) -> Bool {
         lhs.id.rawValue < rhs.id.rawValue
+    }
+
+    private func brewingString(for reference: ContentReference, namespace: String) throws -> String {
+        switch reference {
+        case .vanilla(let identifier): return identifier
+        case .generated(let id): return identifier(for: id, namespace: namespace)
+        case .tag(let identifier): return identifier
+        }
     }
 
     private func smithingIngredient(for reference: ContentReference, namespace: String) -> SmithingTrimRecipeDocument.IngredientValue {

@@ -379,6 +379,30 @@ public enum AddOnProjectValidator {
             validateUnlock(recipe.unlock, recipePath: recipePath, itemIDs: itemIDs, profile: profile, issues: &issues)
             validate(recipe.input, path: "\(recipePath).input", itemIDs: itemIDs, profile: profile, issues: &issues)
         }
+        for recipe in project.brewingMixRecipes {
+            let recipePath = "content.recipes.\(recipe.id.rawValue)"
+            if recipe.tags.isEmpty {
+                issues.append(CompilationIssue(severity: .error, code: "brewing_recipe_tags_required", path: "\(recipePath).tags", message: "Brewing recipes require at least one tag."))
+            }
+            if recipe.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                issues.append(CompilationIssue(severity: .error, code: "brewing_recipe_tag_empty", path: "\(recipePath).tags", message: "Brewing recipe tags cannot be empty."))
+            }
+            validate(recipe.input, path: "\(recipePath).input", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.reagent, path: "\(recipePath).reagent", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.output, path: "\(recipePath).output", itemIDs: itemIDs, profile: profile, issues: &issues)
+        }
+        for recipe in project.brewingContainerRecipes {
+            let recipePath = "content.recipes.\(recipe.id.rawValue)"
+            if recipe.tags.isEmpty {
+                issues.append(CompilationIssue(severity: .error, code: "brewing_recipe_tags_required", path: "\(recipePath).tags", message: "Brewing recipes require at least one tag."))
+            }
+            if recipe.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                issues.append(CompilationIssue(severity: .error, code: "brewing_recipe_tag_empty", path: "\(recipePath).tags", message: "Brewing recipe tags cannot be empty."))
+            }
+            validate(recipe.input, path: "\(recipePath).input", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.reagent, path: "\(recipePath).reagent", itemIDs: itemIDs, profile: profile, issues: &issues)
+            validate(recipe.output, path: "\(recipePath).output", itemIDs: itemIDs, profile: profile, issues: &issues)
+        }
         for recipe in project.smithingTrimRecipes {
             let recipePath = "content.recipes.\(recipe.id.rawValue)"
             if recipe.tags.isEmpty {
@@ -404,7 +428,7 @@ public enum AddOnProjectValidator {
             validate(recipe.base, path: "\(recipePath).base", itemIDs: itemIDs, profile: profile, issues: &issues)
             validate(recipe.addition, path: "\(recipePath).addition", itemIDs: itemIDs, profile: profile, issues: &issues)
         }
-        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes, project.furnaceRecipes, project.smithingTransformRecipes) {
+        if hasRecipeDependencyCycle(project.recipes, project.shapelessRecipes, project.furnaceRecipes, project.smithingTransformRecipes, project.brewingMixRecipes) {
             issues.append(
                 CompilationIssue(
                     severity: .error,
@@ -417,7 +441,7 @@ public enum AddOnProjectValidator {
         return CompilationReport(profileID: profile.id, issues: issues)
     }
 
-    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition], _ furnaceRecipes: [FurnaceRecipeDefinition], _ smithingTransformRecipes: [SmithingTransformRecipeDefinition] = []) -> Bool {
+    private static func hasRecipeDependencyCycle(_ recipes: [ShapedRecipeDefinition], _ shapelessRecipes: [ShapelessRecipeDefinition], _ furnaceRecipes: [FurnaceRecipeDefinition], _ smithingTransformRecipes: [SmithingTransformRecipeDefinition] = [], _ brewingMixRecipes: [BrewingMixRecipeDefinition] = []) -> Bool {
         var dependencies: [ContentID: Set<ContentID>] = [:]
         for recipe in recipes {
             guard case .generated(let resultID) = recipe.result.item else { continue }
@@ -446,6 +470,14 @@ public enum AddOnProjectValidator {
             guard case .generated(let resultID) = recipe.result.item else { continue }
             var generatedIngredients = Set<ContentID>()
             for ref in [recipe.template, recipe.base, recipe.addition] {
+                if case .generated(let id) = ref { generatedIngredients.insert(id) }
+            }
+            dependencies[resultID, default: []].formUnion(generatedIngredients)
+        }
+        for recipe in brewingMixRecipes {
+            guard case .generated(let resultID) = recipe.output else { continue }
+            var generatedIngredients = Set<ContentID>()
+            for ref in [recipe.input, recipe.reagent] {
                 if case .generated(let id) = ref { generatedIngredients.insert(id) }
             }
             dependencies[resultID, default: []].formUnion(generatedIngredients)
