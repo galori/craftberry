@@ -1,0 +1,15 @@
+{
+  "title": "Craftberry Privacy Disclosure",
+  "summary": "Craftberry generates Bedrock add-ons locally from a prompt. Prompts are sent to the configured backend/LLM only when you tap Generate. No Minecraft world data is collected.",
+  "dataCollected": [
+    "Prompt text you enter and the generated AddOnProject sidecar (stored locally).",
+    "Anonymous generation counts for quota/abuse controls (no prompt content).",
+    "Opt-in telemetry events only if you enable telemetry (anonymous, no PII)."
+  ],
+  "dataNotCollected": [
+    "Minecraft worlds, worlds folder contents, or device identifiers.",
+    "Precise location, contacts, or third-party advertising identifiers."
+  ],
+  "retentionSummary": "Sidecars are kept locally; builds under <project-id>/builds/<version>/ are pruned by retention policy (default keeps 5 latest builds per project, max 30 days). Telemetry, when opted in, is retained 30 days.",
+  "contactURL": "https://craftberry.example.com/privacy"
+}
