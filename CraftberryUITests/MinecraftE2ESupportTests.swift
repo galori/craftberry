@@ -104,9 +104,13 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(events.contains(.key("space")))
         XCTAssertTrue(events.contains(.key("@")))
         XCTAssertTrue(events.contains(.key("1")))
-        XCTAssertTrue(events.contains(.key("_")))
+        XCTAssertTrue(events.contains(.coordinate(0.1435, 0.7165)))
         XCTAssertTrue(events.contains(.coordinate(0.376, 0.7165)))
         XCTAssertTrue(events.contains(.coordinate(0.6225, 0.630)))
+
+        let tableEvents = MinecraftCommandKeyboard().events(for: "crafting_table")
+        let underscoreIndex = tableEvents.firstIndex(of: .coordinate(0.1435, 0.7165))!
+        XCTAssertEqual(tableEvents[underscoreIndex + 2], .key("letters"))
     }
 
     func testPhasedStepsGetStableRunLocalIDsStartingAtOnePerPhase() {

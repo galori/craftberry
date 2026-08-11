@@ -63,7 +63,9 @@ struct MinecraftCommandKeyboard {
         let toSymbols = Event.coordinate(0.1435, 0.8117)
         let symbolsPageCoordinates: [Character: Event] = [
             "^": .coordinate(0.6225, 0.630),
-            "~": .coordinate(0.376, 0.7165)
+            "~": .coordinate(0.376, 0.7165),
+            // XCTest does not reliably address this symbol through accessibility lookup on iPhone 13 Pro.
+            "_": .coordinate(0.1435, 0.7165)
         ]
 
         var events: [Event] = []
@@ -96,11 +98,8 @@ struct MinecraftCommandKeyboard {
             } else if let symbolCoordinate = symbolsPageCoordinates[character] {
                 switchTo(.symbols)
                 events.append(symbolCoordinate)
-                currentPage = .letters
+                currentPage = .symbols
                 events.append(.wait(300_000))
-            } else if character == "_" {
-                switchTo(.symbols)
-                events.append(.key("_"))
             } else if character.isLetter {
                 switchTo(.letters)
                 events.append(.key(String(character)))
