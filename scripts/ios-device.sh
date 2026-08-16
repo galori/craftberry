@@ -341,6 +341,7 @@ minecraft_e2e_on_device() {
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
+        -collect-test-diagnostics never \
         -only-testing:"$test_selector" \
         test
     local test_status=$?
