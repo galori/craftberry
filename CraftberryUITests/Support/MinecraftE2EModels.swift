@@ -92,6 +92,11 @@ struct MinecraftE2EScenario {
     let craftingPlan: MinecraftCraftingPlan
 }
 
+enum MinecraftWorldGameMode: String {
+    case creative
+    case survival
+}
+
 struct MinecraftCraftingPlan {
     var recipes: [Recipe]
     var finalHotbarTap: MinecraftCoordinate?
