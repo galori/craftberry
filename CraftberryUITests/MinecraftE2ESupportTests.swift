@@ -165,6 +165,32 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(result.step, step)
     }
 
+    func testChatCommandRetriesOpeningChatBeforeTouchingTheCommandInput() {
+        var tappedOffsets: [CGVector] = []
+        var detectorCalls = 0
+        var screenshots: [String] = []
+        let executor = MinecraftStepExecutor(
+            onIntermediateScreenshot: { screenshots.append($0) },
+            wait: { _ in },
+            tap: { _, offset in tappedOffsets.append(offset) },
+            chatScreenDetector: { _ in
+                detectorCalls += 1
+                return false
+            }
+        )
+        let step = MinecraftPhasedStep(id: "config:1", name: "Clear inventory", action: .chatCommand("/clear @s"))
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertFalse(result.succeeded)
+        XCTAssertTrue(result.failureReason?.contains("Chat and Commands") == true)
+        XCTAssertEqual(detectorCalls, 3)
+        XCTAssertEqual(tappedOffsets.count, 3)
+        XCTAssertTrue(tappedOffsets.allSatisfy { $0.dx == 0.5 && $0.dy == 0.0325 })
+        XCTAssertEqual(screenshots.count, 3)
+        XCTAssertTrue(screenshots.allSatisfy { $0.contains("tapping the chat button") })
+    }
+
     func testDebuggerConsoleRunCurrentStepExecutesOnceAndPreventsDuplicateExecution() {
         let console = makeDebuggerConsole()
         let step = MinecraftPhasedStep(id: "config:1", name: "Wait", action: .wait(seconds: 0))
