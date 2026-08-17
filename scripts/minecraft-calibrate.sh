@@ -81,6 +81,7 @@ concurrent start attempts are refused. Host port ${HOST_PORT} is bound only to
 
 Prerequisites: unlocked physical iPhone over USB, Developer Mode, Minecraft
 installed, afcclient + jq + python3 + iproxy on PATH, valid signing.
+DEVICE_ID accepts either the CoreDevice identifier or the Xcode hardware UDID.
 
 USAGE
 }
@@ -105,36 +106,41 @@ discover_devices() {
 select_device() {
     local json_path
     json_path="$(discover_devices)"
+    local selected_json
 
     if [[ -n "${DEVICE_ID:-}" ]]; then
         local matches
-        matches="$(jq -r --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id)) | length" "$json_path")"
+        matches="$(jq -r --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id or .hardwareProperties.udid == \$id)) | length" "$json_path")"
         if [[ "$matches" == "1" ]]; then
-            printf '%s\n' "$DEVICE_ID"
-            return
+            selected_json="$(jq -c --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id or .hardwareProperties.udid == \$id)) | .[0]" "$json_path")"
+        else
+            echo "error: DEVICE_ID '$DEVICE_ID' is not a connected physical iPhone (accepted: CoreDevice ID or Xcode UDID)." >&2
+            jq -r "$physical_iphone_filter | .[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name] | @tsv" "$json_path" >&2
+            exit 1
         fi
-        echo "error: DEVICE_ID '$DEVICE_ID' is not a connected physical iPhone." >&2
-        jq -r "$physical_iphone_filter | .[] | [.identifier, .deviceProperties.name] | @tsv" "$json_path" >&2
-        exit 1
+    else
+        local count
+        count="$(jq -r "$physical_iphone_filter | length" "$json_path")"
+        case "$count" in
+            0)
+                echo "error: no connected physical iPhones found." >&2
+                jq -r "$physical_iphone_filter | if length==0 then \"no devices\" else .[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name] | @tsv end" "$json_path" >&2
+                exit 1
+                ;;
+            1)
+                selected_json="$(jq -c "$physical_iphone_filter | .[0]" "$json_path")"
+                ;;
+            *)
+                echo "error: multiple connected physical iPhones found; set DEVICE_ID." >&2
+                jq -r "$physical_iphone_filter | .[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name] | @tsv" "$json_path" >&2
+                exit 1
+                ;;
+        esac
     fi
 
-    local count
-    count="$(jq -r "$physical_iphone_filter | length" "$json_path")"
-    case "$count" in
-        0)
-            echo "error: no connected physical iPhones found." >&2
-            jq -r "$physical_iphone_filter | if length==0 then \"no devices\" else .[] | [.identifier, .deviceProperties.name] | @tsv end" "$json_path" >&2
-            exit 1
-            ;;
-        1)
-            jq -r "$physical_iphone_filter | .[0].identifier" "$json_path"
-            ;;
-        *)
-            echo "error: multiple connected physical iPhones found; set DEVICE_ID." >&2
-            jq -r "$physical_iphone_filter | .[] | [.identifier, .deviceProperties.name] | @tsv" "$json_path" >&2
-            exit 1
-            ;;
-    esac
+    # xcodebuild needs the hardware UDID; devicectl/CoreDevice uses the other
+    # identifier. The calibration controller only calls xcodebuild directly.
+    printf '%s\n' "$selected_json" | jq -r '.hardwareProperties.udid // empty'
 }
 
 is_session_active() {
