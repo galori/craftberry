@@ -186,7 +186,7 @@ final class CreationViewModel: ObservableObject {
         state = .editing
     }
 
-    private static func defaultArtifactDirectory() throws -> URL {
+    nonisolated private static func defaultArtifactDirectory() throws -> URL {
         let documentsDirectory = try FileManager.default.url(
             for: .documentDirectory,
             in: .userDomainMask,
