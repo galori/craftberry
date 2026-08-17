@@ -286,9 +286,12 @@
     },
     {
       "name": "Open Active Behavior Packs",
-      "action": "tap",
+      "action": "tapUntilText",
       "x": 0.505,
-      "y": 0.167
+      "y": 0.167,
+      "fallbackX": 0.505,
+      "fallbackY": 0.31,
+      "text": "$EXPECTED_BEHAVIOR_PACK"
     },
     {
       "name": "Wait for active behavior packs",
@@ -313,9 +316,12 @@
     },
     {
       "name": "Open Active Resource Packs",
-      "action": "tap",
+      "action": "tapUntilText",
       "x": 0.505,
-      "y": 0.167
+      "y": 0.167,
+      "fallbackX": 0.505,
+      "fallbackY": 0.31,
+      "text": "$EXPECTED_RESOURCE_PACK"
     },
     {
       "name": "Wait for active resource packs",
