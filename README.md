@@ -42,6 +42,10 @@ For every future content-family or material enhancement:
   file and field path as the source of truth for load-time failures.
 - Add compiler assertions for the exact emitted JSON and a focused physical
   E2E that searches for and uses the new item in Minecraft.
+- Treat a successful coordinate tap as input delivery, not proof of navigation:
+  optional Bedrock banners can move Ore UI controls. When a control has more
+  than one calibrated layout, try the known positions but confirm the intended
+  screen with exact OCR before continuing; keep the final assertion exact.
 - When device validation reveals a new engine constraint, add the concise
   lesson here and mirror any procedural change in AGENTS.md; keep this list
   updated as the compatibility profile grows.

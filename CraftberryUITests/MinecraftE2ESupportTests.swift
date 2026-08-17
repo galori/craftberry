@@ -10,7 +10,8 @@ final class MinecraftE2ESupportTests: XCTestCase {
           {"name":"Key", "action":"keyText", "text":"emerald"},
           {"name":"Command", "action":"chatCommand", "text":"/tp @s 1 2 3"},
           {"name":"OCR", "action":"ocr", "text":"Crafting"},
-          {"name":"Pixels", "action":"redstonePickaxeOutput"}
+          {"name":"Pixels", "action":"redstonePickaxeOutput"},
+          {"name":"Layout-aware tab", "action":"tapUntilText", "x":0.5, "y":0.167, "fallbackX":0.5, "fallbackY":0.31, "text":"Redstone Behavior"}
         ]
         """#.utf8)
 
@@ -22,6 +23,10 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(steps[3].action, .chatCommand("/tp @s 1 2 3"))
         XCTAssertEqual(steps[4].action, .assertText("Crafting"))
         XCTAssertEqual(steps[5].action, .assertPixels(.redstonePickaxeOutput))
+        XCTAssertEqual(
+            steps[6].action,
+            .tapUntilText(x: 0.5, y: 0.167, fallbackX: 0.5, fallbackY: 0.31, text: "Redstone Behavior")
+        )
     }
 
     func testMalformedPayloadIsRejected() {
@@ -189,6 +194,33 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(tappedOffsets.allSatisfy { $0.dx == 0.5 && $0.dy == 0.0325 })
         XCTAssertEqual(screenshots.count, 3)
         XCTAssertTrue(screenshots.allSatisfy { $0.contains("tapping the chat button") })
+    }
+
+    func testLayoutAwarePackTabTapUsesFallbackOnlyWhenExactPackTextIsAbsent() {
+        var tappedOffsets: [CGVector] = []
+        var recognitionAttempts = 0
+        let executor = MinecraftStepExecutor(
+            wait: { _ in },
+            tap: { _, offset in tappedOffsets.append(offset) },
+            recognizedText: { expected, _ in
+                XCTAssertEqual(expected, "Redstone Behavior")
+                recognitionAttempts += 1
+                return recognitionAttempts == 2
+            }
+        )
+        let step = MinecraftPhasedStep(
+            id: "config:1",
+            name: "Open Active Behavior Packs",
+            action: .tapUntilText(x: 0.505, y: 0.167, fallbackX: 0.505, fallbackY: 0.31, text: "Redstone Behavior")
+        )
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(recognitionAttempts, 2)
+        XCTAssertEqual(tappedOffsets.count, 2)
+        XCTAssertEqual(tappedOffsets[0].dy, 0.167, accuracy: 0.001)
+        XCTAssertEqual(tappedOffsets[1].dy, 0.31, accuracy: 0.001)
     }
 
     func testDebuggerConsoleRunCurrentStepExecutesOnceAndPreventsDuplicateExecution() {
