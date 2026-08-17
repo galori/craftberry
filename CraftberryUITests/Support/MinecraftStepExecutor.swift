@@ -59,6 +59,7 @@ final class MinecraftStepExecutor {
     private let onIntermediateScreenshot: (String) -> Void
     private let wait: (TimeInterval) -> Void
     private let tap: (XCUIApplication, CGVector) -> Void
+    private let recognizedText: (String, TimeInterval) -> Bool
     private let chatScreenDetector: (TimeInterval) -> Bool
 
     init(
@@ -70,6 +71,7 @@ final class MinecraftStepExecutor {
         tap: @escaping (XCUIApplication, CGVector) -> Void = { app, offset in
             app.coordinate(withNormalizedOffset: offset).tap()
         },
+        recognizedText: ((String, TimeInterval) -> Bool)? = nil,
         chatScreenDetector: ((TimeInterval) -> Bool)? = nil
     ) {
         self.commandKeyboard = commandKeyboard
@@ -78,6 +80,10 @@ final class MinecraftStepExecutor {
         self.onIntermediateScreenshot = onIntermediateScreenshot
         self.wait = wait
         self.tap = tap
+        let resolvedTextDetector = recognizedText ?? { expected, timeout in
+            ocr.waitForRecognizedText(expected, timeout: timeout)
+        }
+        self.recognizedText = resolvedTextDetector
         let resolvedOCR = ocr
         self.chatScreenDetector = chatScreenDetector ?? { timeout in
             resolvedOCR.waitForRecognizedText("Chat and Commands", timeout: timeout)
@@ -92,6 +98,26 @@ final class MinecraftStepExecutor {
         case .tap(let x, let y):
             minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap()
             return .success(step)
+        case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let rawExpected):
+            let expected = resolve(rawExpected)
+            let candidates = [
+                CGVector(dx: x, dy: y),
+                CGVector(dx: fallbackX, dy: fallbackY)
+            ]
+            for (index, offset) in candidates.enumerated() {
+                tap(minecraft, offset)
+                wait(1)
+                if recognizedText(expected, 2) {
+                    return .success(step)
+                }
+                if index < candidates.count - 1 {
+                    wait(1)
+                }
+            }
+            return .failure(
+                step,
+                reason: "OCR did not find '\(expected)' after either calibrated layout tap for \(step.name)."
+            )
         case .drag(let x, let y, let endX, let endY):
             let start = minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y))
             let end = minecraft.coordinate(withNormalizedOffset: CGVector(dx: endX, dy: endY))
