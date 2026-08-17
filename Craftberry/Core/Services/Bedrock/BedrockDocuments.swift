@@ -57,7 +57,7 @@ struct ItemDocument: Encodable {
 
     struct MenuCategory: Encodable {
         let category: String
-        let group: String
+        let group: String?
     }
 
     struct Components: Encodable {

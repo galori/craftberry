@@ -40,6 +40,20 @@ final class MinecraftE2ESupportTests: XCTestCase {
         })
     }
 
+    func testDeviceConfigurationClearsInventoryBeforeCrafting() throws {
+        let configuration = try loadConfiguration()
+
+        guard let clearIndex = configuration.steps.firstIndex(where: {
+            $0.action == .chatCommand("/clear @s")
+        }) else {
+            return XCTFail("The device staging flow must clear the reused world's player inventory before crafting.")
+        }
+        let craftingTableIndex = try XCTUnwrap(configuration.steps.firstIndex {
+            $0.name == "Open the crafting table directly in front of the player"
+        })
+        XCTAssertLessThan(clearIndex, craftingTableIndex)
+    }
+
     func testCalibratedLayoutKeepsCreativeResultColumnsAndNamedCraftingSlots() {
         let layout = MinecraftCalibratedLayout()
 
@@ -463,6 +477,17 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(redCluster: false)))
     }
 
+    func testRedstonePickaxePixelExpectationMatchesOutputCluster() throws {
+        let inspector = MinecraftPixelInspector()
+        let image = try syntheticImage(
+            width: 100,
+            height: 100,
+            redRect: CGRect(x: 68, y: 66, width: 8, height: 8)
+        )
+
+        XCTAssertTrue(inspector.matches(.redstonePickaxeOutput, in: image))
+    }
+
     private func assertTap(named name: String, in steps: [MinecraftStep], x: CGFloat, y: CGFloat) {
         guard case .tap(let actualX, let actualY) = steps.first(where: { $0.name == name })?.action else {
             XCTFail("Expected tap step named \(name)")
@@ -478,13 +503,19 @@ final class MinecraftE2ESupportTests: XCTestCase {
     }
 
     private func syntheticImage(redCluster: Bool) throws -> CGImage {
-        let width = 20
-        let height = 20
+        try syntheticImage(
+            width: 20,
+            height: 20,
+            redRect: redCluster ? CGRect(x: 4, y: 4, width: 4, height: 6) : nil
+        )
+    }
+
+    private func syntheticImage(width: Int, height: Int, redRect: CGRect?) throws -> CGImage {
         var bytes = Array(repeating: UInt8(0), count: width * height * 4)
         for y in 0..<height {
             for x in 0..<width {
                 let offset = ((y * width) + x) * 4
-                bytes[offset] = redCluster && (4...7).contains(x) && (4...9).contains(y) ? 255 : 20
+                bytes[offset] = redRect?.contains(CGPoint(x: x, y: y)) == true ? 255 : 20
                 bytes[offset + 1] = 20
                 bytes[offset + 2] = 20
                 bytes[offset + 3] = 255
