@@ -34,7 +34,7 @@ Commands:
           between each. Without --fresh-world the existing world is reused;
           with it the world is deleted once before the first scenario.
 
-Set DEVICE_ID=<xcode-device-id> when more than one physical iPhone is connected.
+Set DEVICE_ID=<xcode-udid-or-coredevice-id> when more than one physical iPhone is connected.
 All build and test output is kept under .build/ios-device.
 USAGE
 }
@@ -62,65 +62,72 @@ print_devices() {
         | if length == 0 then
             \"No connected physical iPhones found.\"
           else
-            ([\"Identifier\", \"Name\", \"Model\", \"OS\"] | @tsv),
-            (.[] | [.identifier, .deviceProperties.name, .hardwareProperties.marketingName, .deviceProperties.osVersionNumber] | @tsv)
+            ([\"CoreDevice ID\", \"Xcode UDID\", \"Name\", \"Model\", \"OS\"] | @tsv),
+            (.[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name, .hardwareProperties.marketingName, .deviceProperties.osVersionNumber] | @tsv)
           end" "$json_path"
 }
 
 select_device() {
     local json_path
     json_path="$(discover_devices)"
+    local selected_json
 
     if [[ -n "${DEVICE_ID:-}" ]]; then
         local matches
-        matches="$(jq -r --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id)) | length" "$json_path")"
+        matches="$(jq -r --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id or .hardwareProperties.udid == \$id)) | length" "$json_path")"
         if [[ "$matches" == "1" ]]; then
-            printf '%s\n' "$DEVICE_ID"
-            return
+            selected_json="$(jq -c --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id or .hardwareProperties.udid == \$id)) | .[0]" "$json_path")"
+        else
+            echo "error: DEVICE_ID '$DEVICE_ID' is not a connected physical iPhone (accepted: CoreDevice ID or Xcode UDID)." >&2
+            print_devices "$json_path" >&2
+            exit 1
         fi
-        echo "error: DEVICE_ID '$DEVICE_ID' is not a connected physical iPhone." >&2
-        print_devices "$json_path" >&2
-        exit 1
+    else
+        local count
+        count="$(jq -r "$physical_iphone_filter | length" "$json_path")"
+        case "$count" in
+            0)
+                echo "error: no connected physical iPhones found." >&2
+                print_devices "$json_path" >&2
+                exit 1
+                ;;
+            1)
+                selected_json="$(jq -c "$physical_iphone_filter | .[0]" "$json_path")"
+                ;;
+            *)
+                echo "error: multiple connected physical iPhones found; set DEVICE_ID." >&2
+                print_devices "$json_path" >&2
+                exit 1
+                ;;
+        esac
     fi
 
-    local count
-    count="$(jq -r "$physical_iphone_filter | length" "$json_path")"
-    case "$count" in
-        0)
-            echo "error: no connected physical iPhones found." >&2
-            print_devices "$json_path" >&2
-            exit 1
-            ;;
-        1)
-            jq -r "$physical_iphone_filter | .[0].identifier" "$json_path"
-            ;;
-        *)
-            echo "error: multiple connected physical iPhones found; set DEVICE_ID." >&2
-            print_devices "$json_path" >&2
-            exit 1
-            ;;
-    esac
+    CORE_DEVICE_ID="$(printf '%s\n' "$selected_json" | jq -r '.identifier')"
+    XCODE_DEVICE_ID="$(printf '%s\n' "$selected_json" | jq -r '.hardwareProperties.udid // empty')"
+    if [[ -z "$CORE_DEVICE_ID" || -z "$XCODE_DEVICE_ID" ]]; then
+        echo "error: selected physical iPhone did not provide both CoreDevice ID and Xcode UDID." >&2
+        exit 1
+    fi
 }
 
 build_for_device() {
-    local device_id="$1"
+    local xcode_device_id="$1"
     xcodebuild \
         -project "$PROJECT_PATH" \
         -scheme "$SCHEME" \
         -configuration Debug \
-        -destination "platform=iOS,id=$device_id" \
+        -destination "platform=iOS,id=$xcode_device_id" \
         -derivedDataPath "$DERIVED_DATA" \
         -allowProvisioningUpdates \
         build
 }
 
 run_on_device() {
-    local device_id
-    device_id="$(select_device)"
+    select_device
     mkdir -p "$OUTPUT_DIR"
 
-    echo "Building Craftberry for device $device_id"
-    build_for_device "$device_id"
+    echo "Building Craftberry for Xcode device $XCODE_DEVICE_ID (CoreDevice $CORE_DEVICE_ID)"
+    build_for_device "$XCODE_DEVICE_ID"
 
     if [[ ! -d "$APP_PATH" ]]; then
         echo "error: expected app bundle was not produced at $APP_PATH" >&2
@@ -129,14 +136,14 @@ run_on_device() {
 
     echo "Installing $APP_PATH"
     xcrun devicectl device install app \
-        --device "$device_id" \
+        --device "$CORE_DEVICE_ID" \
         "$APP_PATH" \
         --timeout 120 \
         --json-output "$OUTPUT_DIR/install.json"
 
     echo "Launching $BUNDLE_ID"
     xcrun devicectl device process launch \
-        --device "$device_id" \
+        --device "$CORE_DEVICE_ID" \
         --terminate-existing \
         --activate \
         "$BUNDLE_ID" \
@@ -145,20 +152,19 @@ run_on_device() {
 }
 
 test_on_device() {
-    local device_id
-    device_id="$(select_device)"
+    select_device
     mkdir -p "$OUTPUT_DIR"
 
     local timestamp
     timestamp="$(date +%Y%m%d-%H%M%S)"
     local result_path="$OUTPUT_DIR/CraftberryUITests-$timestamp.xcresult"
 
-    echo "Running deterministic UI smoke test on device $device_id"
+    echo "Running deterministic UI smoke test on Xcode device $XCODE_DEVICE_ID (CoreDevice $CORE_DEVICE_ID)"
     xcodebuild \
         -project "$PROJECT_PATH" \
         -scheme "$SCHEME" \
         -configuration Debug \
-        -destination "platform=iOS,id=$device_id" \
+        -destination "platform=iOS,id=$XCODE_DEVICE_ID" \
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
@@ -313,13 +319,12 @@ minecraft_e2e_on_device() {
             ;;
     esac
 
-    local device_id
-    device_id="$(select_device)"
+    select_device
     mkdir -p "$OUTPUT_DIR"
 
     if [[ "$fresh_world" == "yes" ]]; then
         echo "Fresh-world requested — deleting existing craftberry test world and packs via AFC..."
-        terminate_minecraft_on_device "$device_id"
+        terminate_minecraft_on_device "$CORE_DEVICE_ID"
         set +e
         "$CLEANUP_SCRIPT" clean --delete-world --yes
         set -e
@@ -338,7 +343,7 @@ minecraft_e2e_on_device() {
     timestamp="$(date +%Y%m%d-%H%M%S)"
     local result_path="$OUTPUT_DIR/$result_name-$timestamp.xcresult"
 
-    echo "Running full Minecraft $scenario E2E on device $device_id"
+    echo "Running full Minecraft $scenario E2E on Xcode device $XCODE_DEVICE_ID (CoreDevice $CORE_DEVICE_ID)"
     echo "The XCTest teardown terminates $MINECRAFT_BUNDLE_ID before Mac-side AFC cleanup runs."
 
     set +e
@@ -346,7 +351,7 @@ minecraft_e2e_on_device() {
         -project "$PROJECT_PATH" \
         -scheme "$SCHEME" \
         -configuration Debug \
-        -destination "platform=iOS,id=$device_id" \
+        -destination "platform=iOS,id=$XCODE_DEVICE_ID" \
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
@@ -357,7 +362,7 @@ minecraft_e2e_on_device() {
     set -e
 
     echo "Result bundle: $result_path"
-    terminate_minecraft_on_device "$device_id"
+    terminate_minecraft_on_device "$CORE_DEVICE_ID"
     echo "Cleaning Minecraft test packs via AFC (world preserved)..."
 
     set +e
