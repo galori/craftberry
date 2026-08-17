@@ -137,6 +137,13 @@ final class BedrockCompilerTests: XCTestCase {
         let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
         let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
 
+        let ingotItem = try json(named: "items/azure_a1b2c3_ingot.json", in: behavior)
+        let ingotBody = try XCTUnwrap(ingotItem["minecraft:item"] as? [String: Any])
+        let ingotDescription = try XCTUnwrap(ingotBody["description"] as? [String: Any])
+        let ingotMenuCategory = try XCTUnwrap(ingotDescription["menu_category"] as? [String: Any])
+        XCTAssertEqual(ingotMenuCategory["category"] as? String, "items")
+        XCTAssertNil(ingotMenuCategory["group"])
+
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_pickaxe.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_axe.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_shovel.json" })

@@ -1,3 +1,4 @@
+import CoreImage
 import ImageIO
 import Vision
 import XCTest
@@ -64,6 +65,10 @@ struct MinecraftOCRInspector {
 }
 
 struct MinecraftPixelInspector {
+    /// Minecraft renders landscape inside the device's portrait screenshot buffer. Normalize the
+    /// raw buffer before sampling calibrated interface coordinates, just as the OCR inspector does.
+    private let orientations: [CGImagePropertyOrientation] = [.left, .right, .up, .down]
+
     func matches(_ expectation: MinecraftPixelExpectation) -> Bool {
         guard let image = XCUIScreen.main.screenshot().image.cgImage else { return false }
         return matches(expectation, in: image)
@@ -72,14 +77,22 @@ struct MinecraftPixelInspector {
     func matches(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Bool {
         switch expectation {
         case .redstonePickaxeOutput:
-            return redPixelCount(
-                in: image,
-                xRange: 0.18...0.31,
-                yRange: 0.67...0.75
-            ) >= 20
+            return orientations.contains { orientation in
+                guard let orientedImage = orientedImage(image, orientation: orientation) else { return false }
+                return redPixelCount(
+                    in: orientedImage,
+                    xRange: 0.67...0.73,
+                    yRange: 0.65...0.76
+                ) >= 20
+            }
         case .redCluster(let xRange, let yRange, let minimumCount):
             return redPixelCount(in: image, xRange: xRange, yRange: yRange) >= minimumCount
         }
+    }
+
+    private func orientedImage(_ image: CGImage, orientation: CGImagePropertyOrientation) -> CGImage? {
+        let ciImage = CIImage(cgImage: image).oriented(forExifOrientation: Int32(orientation.rawValue))
+        return CIContext().createCGImage(ciImage, from: ciImage.extent)
     }
 
     private func redPixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>) -> Int {
