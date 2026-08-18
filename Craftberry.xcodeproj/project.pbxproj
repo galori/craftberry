@@ -25,6 +25,8 @@
 		A10000000000000000000008 /* PNG.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* PNG.swift */; };
 		A10000000000000000000009 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* ZipArchive.swift */; };
 		A10000000000000000000010 /* BedrockAddOnCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* BedrockAddOnCompiler.swift */; };
+		A10000000000000000000060 /* MCStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000060 /* MCStructure.swift */; };
+		A10000000000000000000061 /* BedrockWorldTemplate in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000061 /* BedrockWorldTemplate */; };
 		A10000000000000000000011 /* ContentIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ContentIdentityTests.swift */; };
 		A10000000000000000000012 /* BedrockCompilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BedrockCompilerTests.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* Assets.xcassets */; };
@@ -97,6 +99,8 @@
 		A20000000000000000000008 /* PNG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNG.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* BedrockAddOnCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockAddOnCompiler.swift; sourceTree = "<group>"; };
+		A20000000000000000000060 /* MCStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCStructure.swift; sourceTree = "<group>"; };
+		A20000000000000000000061 /* BedrockWorldTemplate */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BedrockWorldTemplate; path = Resources/BedrockWorldTemplate; sourceTree = "<group>"; };
 		A20000000000000000000011 /* ContentIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentityTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* BedrockCompilerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockCompilerTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -178,6 +182,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000017 /* Assets.xcassets */,
+				A20000000000000000000061 /* BedrockWorldTemplate */,
 				A40000000000000000000003 /* App */,
 				A40000000000000000000004 /* Core/Domain */,
 				A40000000000000000000005 /* Core/Services */,
@@ -309,6 +314,7 @@
 				A20000000000000000000008 /* PNG.swift */,
 				A20000000000000000000009 /* ZipArchive.swift */,
 				A20000000000000000000010 /* BedrockAddOnCompiler.swift */,
+				A20000000000000000000060 /* MCStructure.swift */,
 				A20000000000000000000021 /* BedrockDocuments.swift */,
 			);
 			path = Bedrock;
@@ -418,6 +424,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000013 /* Assets.xcassets in Resources */,
+				A10000000000000000000061 /* BedrockWorldTemplate in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -456,6 +463,7 @@
 				A10000000000000000000008 /* PNG.swift in Sources */,
 				A10000000000000000000009 /* ZipArchive.swift in Sources */,
 				A10000000000000000000010 /* BedrockAddOnCompiler.swift in Sources */,
+				A10000000000000000000060 /* MCStructure.swift in Sources */,
 				A10000000000000000000014 /* AddOnProject.swift in Sources */,
 				A10000000000000000000015 /* BedrockContentProfile.swift in Sources */,
 				A10000000000000000000016 /* AddOnProjectValidation.swift in Sources */,

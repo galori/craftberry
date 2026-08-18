@@ -129,31 +129,6 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         profile: BedrockContentProfile
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
-        let hasMechanics = !project.mechanics.isEmpty
-        var modules: [ManifestDocument.Module] = [
-            ManifestDocument.Module(
-                type: "data",
-                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
-                version: version
-            )
-        ]
-        var dependencies: [ManifestDocument.Dependency] = [
-            ManifestDocument.Dependency(
-                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
-                version: version
-            )
-        ]
-        if hasMechanics {
-            let scriptUUID = scriptModuleUUID(from: project.packUUIDs.behaviorModule).uuidString.lowercased()
-            modules.append(ManifestDocument.Module(
-                type: "script",
-                uuid: scriptUUID,
-                version: version,
-                language: "javascript",
-                entry: "scripts/main.js"
-            ))
-            dependencies.append(ManifestDocument.Dependency(moduleName: "@minecraft/server", version: "2.1.0"))
-        }
         let manifest = ManifestDocument(
             formatVersion: profile.manifestFormatVersion,
             header: ManifestDocument.Header(
@@ -163,20 +138,20 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 version: version,
                 minimumEngineVersion: profile.minimumEngineVersion.components
             ),
-            modules: modules,
-            dependencies: dependencies
+            modules: [ManifestDocument.Module(
+                type: "data",
+                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
+                version: version
+            )],
+            dependencies: [ManifestDocument.Dependency(
+                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
+                version: version
+            )]
         )
         let primaryVisual = try primaryVisualResource(project: project, profile: profile)
         var entries = [
             ZipArchiveEntry(path: "manifest.json", data: try BedrockDocumentEncoder.encode(manifest))
         ]
-        if hasMechanics {
-            for mechanic in project.mechanics.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
-                entries.append(
-                    ZipArchiveEntry(path: "scripts/main.js", data: Data(scriptTemplate(for: mechanic, namespace: project.namespace).utf8))
-                )
-            }
-        }
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
             // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
@@ -516,6 +491,43 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             )
             entries.append(ZipArchiveEntry(path: "recipes/\(recipe.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
         }
+        for structure in project.structures.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            let structureIdentifier = identifier(for: structure.id, namespace: project.namespace)
+            let blockIdentifier = identifier(for: structure.blockID, namespace: project.namespace)
+            let mcData = try MCStructureEncoder.encodeHut(blockIdentifier: blockIdentifier, size: structure.size)
+            entries.append(ZipArchiveEntry(path: "structures/\(structure.id.rawValue).mcstructure", data: mcData))
+
+            let featureIdentifier = "\(structureIdentifier)_feature"
+            let featureDocument = StructureTemplateFeatureDocument(
+                formatVersion: "1.13.0",
+                feature: .init(
+                    description: .init(identifier: featureIdentifier),
+                    structureName: structureIdentifier,
+                    constraints: .init(grounded: .init(), unburied: .init()),
+                    adjustmentRadius: 0
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "features/\(structure.id.rawValue)_feature.json", data: try BedrockDocumentEncoder.encode(featureDocument)))
+
+            let ruleIdentifier = "\(structureIdentifier)_rule"
+            let ruleDocument = FeatureRuleDocument(
+                formatVersion: "1.13.0",
+                rules: .init(
+                    description: .init(identifier: ruleIdentifier, placesFeature: featureIdentifier),
+                    conditions: .init(
+                        placementPass: "surface_pass",
+                        biomeFilter: [.init(test: "has_biome_tag", operator: "==", value: "plains")]
+                    ),
+                    distribution: .init(
+                        iterations: 1,
+                        x: .init(distribution: "uniform", extent: [0, 0]),
+                        y: .init(distribution: "uniform", extent: [0, 0]),
+                        z: .init(distribution: "uniform", extent: [0, 0])
+                    )
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "feature_rules/\(structure.id.rawValue)_rule.json", data: try BedrockDocumentEncoder.encode(ruleDocument)))
+        }
         entries.append(
             ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
         )
@@ -824,38 +836,436 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         case .tag(let identifier): .tag(identifier)
         }
     }
+}
 
+public enum BedrockWorldGameMode: String, CaseIterable, Codable, Sendable {
+    case creative
+    case survival
 
-    // Stable template pinned to bedrock-samples 1.26.30.5 @921fafb — reviewed, not LLM-generated.
-    func scriptTemplate(for mechanic: MechanicDefinition, namespace: String) -> String {
-        let itemId = identifier(for: mechanic.targetItemID, namespace: namespace)
-        let effect = mechanic.action.effect.kind.rawValue
-        let ticks = mechanic.action.effect.durationSeconds * 20
-        let amp = mechanic.action.effect.amplifier
-        return """
-import { world } from "@minecraft/server";
+    var levelDatValue: Int32 {
+        switch self {
+        case .creative: 1
+        case .survival: 0
+        }
+    }
+}
 
-world.afterEvents.itemUse.subscribe(event => {
-  if (event.itemStack?.typeId !== "\(itemId)") return;
-  const player = event.source;
-  if (!player) return;
-  player.addEffect("\(effect)", \(ticks), { amplifier: \(amp) });
-});
-"""
+public struct BedrockWorldArtifact: Sendable {
+    public let url: URL
+    public let identifier: BedrockIdentifier
+    public let fileName: String
+    public let gameMode: BedrockWorldGameMode
+    public let projectSidecarURL: URL
+
+    public init(
+        url: URL,
+        identifier: BedrockIdentifier,
+        fileName: String,
+        gameMode: BedrockWorldGameMode,
+        projectSidecarURL: URL
+    ) {
+        self.url = url
+        self.identifier = identifier
+        self.fileName = fileName
+        self.gameMode = gameMode
+        self.projectSidecarURL = projectSidecarURL
+    }
+}
+
+public struct BedrockWorldCompilationResult: Sendable {
+    public let artifact: BedrockWorldArtifact
+    public let report: CompilationReport
+
+    public init(artifact: BedrockWorldArtifact, report: CompilationReport) {
+        self.artifact = artifact
+        self.report = report
+    }
+}
+
+public protocol AddOnWorldExporting: Sendable {
+    func compileWorld(
+        project: AddOnProject,
+        addOn: BedrockCompilationResult,
+        gameMode: BedrockWorldGameMode,
+        outputDirectory: URL
+    ) throws -> BedrockWorldCompilationResult
+}
+
+public enum BedrockWorldCompilationError: LocalizedError {
+    case missingPack(String)
+    case malformedPackManifest(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingPack(let name): "The compiled add-on is missing its \(name) pack."
+        case .malformedPackManifest(let name): "The compiled \(name) pack manifest is invalid."
+        }
+    }
+}
+
+public final class BedrockWorldExporter: AddOnWorldExporting, Sendable {
+    private let templateEntries: [ZipArchiveEntry]
+
+    public init(templateEntries: [ZipArchiveEntry]? = nil) {
+        self.templateEntries = templateEntries ?? Self.loadBundledTemplateEntries()
     }
 
-    func scriptModuleUUID(from behaviorModule: UUID) -> UUID {
-        var derived = behaviorModule.uuidString
-        if let idx = derived.firstIndex(of: "-") {
-            let pos = derived.index(derived.startIndex, offsetBy: 0)
-            let hex = "0123456789abcdef"
-            let current = derived[pos]
-            let lower = String(current).lowercased().first ?? "a"
-            let index = hex.firstIndex(of: lower)?.utf16Offset(in: hex) ?? 0
-            let next = hex[hex.index(hex.startIndex, offsetBy: (index + 1) % 16)]
-            derived.replaceSubrange(pos...pos, with: String(next))
-            _ = idx
+    public func compileWorld(
+        project: AddOnProject,
+        addOn: BedrockCompilationResult,
+        gameMode: BedrockWorldGameMode,
+        outputDirectory: URL
+    ) throws -> BedrockWorldCompilationResult {
+        let outerArchive = try ZipArchiveReader.readEntries(at: addOn.artifact.url)
+        let behaviorArchive = try requirePack(named: "behavior", in: outerArchive)
+        let resourceArchive = try requirePack(named: "resource", in: outerArchive)
+        let behavior = try unpack(behaviorArchive)
+        let resource = try unpack(resourceArchive)
+        let behaviorManifest = try manifest(from: behavior, name: "behavior")
+        let resourceManifest = try manifest(from: resource, name: "resource")
+
+        let worldName = "\(project.displayName) (\(gameMode.rawValue.capitalized))"
+        let templateLevelData = templateEntries.first { $0.path == "level.dat" }?.data
+        let levelData = templateLevelData.map {
+            patchLevelDat($0, worldName: worldName, gameMode: gameMode)
+        } ?? makeLevelDat(project: project, profileVersion: addOn.report.profileID, gameMode: gameMode, worldName: worldName)
+        var worldEntries = [
+            ZipArchiveEntry(path: "level.dat", data: levelData),
+            ZipArchiveEntry(path: "levelname.txt", data: Data(worldName.utf8)),
+            ZipArchiveEntry(path: "world_behavior_packs.json", data: try packReferencesJSON(manifest: behaviorManifest)),
+            ZipArchiveEntry(path: "world_resource_packs.json", data: try packReferencesJSON(manifest: resourceManifest))
+        ]
+        if let levelDataOld = templateEntries.first(where: { $0.path == "level.dat_old" })?.data {
+            worldEntries.append(ZipArchiveEntry(
+                path: "level.dat_old",
+                data: patchLevelDat(levelDataOld, worldName: worldName, gameMode: gameMode)
+            ))
         }
-        return UUID(uuidString: derived) ?? UUID()
+        worldEntries += templateEntries.filter { $0.path == "world_icon.jpeg" || $0.path.hasPrefix("db/") }
+        worldEntries += behavior.map { ZipArchiveEntry(path: "behavior_packs/\(packDirectoryName(for: behaviorArchive.path))/\($0.path)", data: $0.data) }
+            + resource.map { ZipArchiveEntry(path: "resource_packs/\(packDirectoryName(for: resourceArchive.path))/\($0.path)", data: $0.data) }
+        if !worldEntries.contains(where: { $0.path == "db/CURRENT" }) {
+            worldEntries += makeDatabaseEntries()
+        }
+
+        let archiveData = try ZipArchiveWriter.archive(entries: worldEntries)
+        let worldURL = addOn.artifact.url.deletingPathExtension()
+            .deletingLastPathComponent()
+            .appending(path: "\(addOn.artifact.url.deletingPathExtension().lastPathComponent)_\(gameMode.rawValue).mcworld")
+        try archiveData.write(to: worldURL, options: .atomic)
+
+        return BedrockWorldCompilationResult(
+            artifact: BedrockWorldArtifact(
+                url: worldURL,
+                identifier: addOn.artifact.identifier,
+                fileName: worldURL.lastPathComponent,
+                gameMode: gameMode,
+                projectSidecarURL: addOn.artifact.projectSidecarURL
+            ),
+            report: CompilationReport(
+                profileID: addOn.report.profileID,
+                issues: addOn.report.issues,
+                emittedFiles: addOn.report.emittedFiles + worldEntries.map(\.path).sorted()
+            )
+        )
+    }
+
+    private func requirePack(named kind: String, in archive: [ZipArchiveEntry]) throws -> ZipArchiveEntry {
+        let suffix = kind == "resource" ? "_resources.mcpack" : "_behavior.mcpack"
+        guard let pack = archive.first(where: { $0.path.hasSuffix(suffix) }) else {
+            throw BedrockWorldCompilationError.missingPack(kind)
+        }
+        return pack
+    }
+
+    private func unpack(_ archive: ZipArchiveEntry) throws -> [ZipArchiveEntry] {
+        try ZipArchiveReader.readEntries(data: archive.data)
+    }
+
+    private func manifest(from entries: [ZipArchiveEntry], name: String) throws -> PackManifest {
+        guard let manifestEntry = entries.first(where: { $0.path == "manifest.json" }),
+              let object = try JSONSerialization.jsonObject(with: manifestEntry.data) as? [String: Any],
+              let header = object["header"] as? [String: Any],
+              let uuid = header["uuid"] as? String
+        else {
+            throw BedrockWorldCompilationError.malformedPackManifest(name)
+        }
+        let version: [Int]?
+        if let values = header["version"] as? [Int] {
+            version = values
+        } else if let values = header["version"] as? [NSNumber] {
+            version = values.map { $0.intValue }
+        } else {
+            version = nil
+        }
+        guard let version else {
+            throw BedrockWorldCompilationError.malformedPackManifest(name)
+        }
+        return PackManifest(uuid: uuid, version: version)
+    }
+
+    private func packReferencesJSON(manifest: PackManifest) throws -> Data {
+        try JSONSerialization.data(withJSONObject: [["pack_id": manifest.uuid, "version": manifest.version]], options: [.sortedKeys])
+    }
+
+    private func packDirectoryName(for packPath: String) -> String {
+        String(packPath.dropLast(".mcpack".count))
+    }
+
+    private static func loadBundledTemplateEntries() -> [ZipArchiveEntry] {
+        guard let root = Bundle.main.url(forResource: "BedrockWorldTemplate", withExtension: nil),
+              let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+              ) else {
+            return []
+        }
+
+        return enumerator.compactMap { item in
+            guard let url = item as? URL, !url.hasDirectoryPath,
+                  let data = try? Data(contentsOf: url) else {
+                return nil
+            }
+            let rootComponents = root.standardizedFileURL.pathComponents
+            let fileComponents = url.standardizedFileURL.pathComponents
+            guard fileComponents.count > rootComponents.count else { return nil }
+            let path = fileComponents.dropFirst(rootComponents.count).joined(separator: "/")
+            return ZipArchiveEntry(path: path, data: data)
+        }
+        .sorted { $0.path < $1.path }
+    }
+
+    private func patchLevelDat(
+        _ data: Data,
+        worldName: String,
+        gameMode: BedrockWorldGameMode
+    ) -> Data {
+        var patched = data
+        patched = replaceNBTString(named: "LevelName", with: worldName, in: patched)
+        patched = replaceNBTInt(named: "GameType", with: Int32(gameMode.levelDatValue), in: patched)
+        patched = replaceNBTByte(
+            named: "hasBeenLoadedInCreative",
+            with: gameMode == .creative ? 1 : 0,
+            in: patched
+        )
+        // The template is an add-on playground. Keep commands available so the generated world
+        // can be staged and inspected immediately after import, without requiring the user to
+        // enable cheats and recreate the world before using the bundled packs.
+        patched = replaceNBTByte(named: "commandsEnabled", with: 1, in: patched)
+        patched = replaceNBTByte(named: "cheatsEnabled", with: 1, in: patched)
+        guard patched.count >= 8 else { return patched }
+        var size = Data()
+        size.appendLittleEndian(UInt32(patched.count - 8))
+        patched.replaceSubrange(4..<8, with: size)
+        return patched
+    }
+
+    private func replaceNBTString(named name: String, with value: String, in data: Data) -> Data {
+        let prefix = nbtTagPrefix(type: 8, name: name)
+        guard let range = data.range(of: prefix),
+              let valueLength = data.littleEndianUInt16(at: range.upperBound) else {
+            return data
+        }
+        let valueStart = range.upperBound + 2
+        let valueEnd = valueStart + Int(valueLength)
+        guard valueEnd <= data.count else { return data }
+        let valueData = Data(value.utf8)
+        var replacement = Data()
+        replacement.appendLittleEndian(UInt16(valueData.count))
+        replacement.append(valueData)
+        var patched = data
+        patched.replaceSubrange(range.upperBound..<valueEnd, with: replacement)
+        return patched
+    }
+
+    private func replaceNBTInt(named name: String, with value: Int32, in data: Data) -> Data {
+        let prefix = nbtTagPrefix(type: 3, name: name)
+        guard let range = data.range(of: prefix), range.upperBound + 4 <= data.count else {
+            return data
+        }
+        var replacement = Data()
+        replacement.appendLittleEndian(UInt32(bitPattern: value))
+        var patched = data
+        patched.replaceSubrange(range.upperBound..<(range.upperBound + 4), with: replacement)
+        return patched
+    }
+
+    private func replaceNBTByte(named name: String, with value: UInt8, in data: Data) -> Data {
+        let prefix = nbtTagPrefix(type: 1, name: name)
+        guard let range = data.range(of: prefix), range.upperBound < data.count else {
+            return data
+        }
+        var patched = data
+        patched.replaceSubrange(range.upperBound..<(range.upperBound + 1), with: [value])
+        return patched
+    }
+
+    private func nbtTagPrefix(type: UInt8, name: String) -> Data {
+        var prefix = Data([type])
+        prefix.appendLittleEndian(UInt16(name.utf8.count))
+        prefix.append(Data(name.utf8))
+        return prefix
+    }
+
+    private func makeDatabaseEntries() -> [ZipArchiveEntry] {
+        var versionEdit = Data()
+        versionEdit.append(1)
+        appendVarint(UInt64("leveldb.BytewiseComparator".utf8.count), to: &versionEdit)
+        versionEdit.append(contentsOf: Data("leveldb.BytewiseComparator".utf8))
+        versionEdit.append(3)
+        appendVarint(2, to: &versionEdit)
+        versionEdit.append(4)
+        appendVarint(0, to: &versionEdit)
+
+        var manifest = Data()
+        manifest.appendLittleEndian(maskedCRC32C(Data([1]) + versionEdit))
+        manifest.appendLittleEndian(UInt16(versionEdit.count))
+        manifest.append(1)
+        manifest.append(versionEdit)
+
+        return [
+            ZipArchiveEntry(path: "db/CURRENT", data: Data("MANIFEST-000001\n".utf8)),
+            ZipArchiveEntry(path: "db/MANIFEST-000001", data: manifest),
+            ZipArchiveEntry(path: "db/000001.log", data: Data())
+        ]
+    }
+
+    private func appendVarint(_ value: UInt64, to data: inout Data) {
+        var value = value
+        while value >= 0x80 {
+            data.append(UInt8(value) | 0x80)
+            value >>= 7
+        }
+        data.append(UInt8(value))
+    }
+
+    private func maskedCRC32C(_ data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 {
+                crc = crc & 1 == 1 ? (crc >> 1) ^ 0x82F6_3B78 : crc >> 1
+            }
+        }
+        crc ^= 0xFFFF_FFFF
+        return ((crc >> 15) | (crc << 17)) &+ 0xA282_EAD8
+    }
+
+    private func makeLevelDat(
+        project: AddOnProject,
+        profileVersion: String,
+        gameMode: BedrockWorldGameMode,
+        worldName: String
+    ) -> Data {
+        let version = profileVersion.split(separator: "-").last?.split(separator: ".").compactMap { Int($0) } ?? [1, 26, 30]
+        let gameVersion = Array((version + [0, 0, 0]).prefix(5))
+        let seedPart = Checksum.crc32(Data(project.id.uuidString.utf8))
+        let seed = Int64(bitPattern: UInt64(seedPart) << 32 | UInt64(seedPart ^ 0xA5A5_A5A5))
+        let versionString = version.map(String.init).joined(separator: ".")
+
+        var nbt = Data()
+        nbt.append(10)
+        nbt.appendLittleEndian(UInt16(0))
+        nbt.appendNBTString("BiomeOverride", "minecraft:plains")
+        nbt.appendNBTByte("CenterMapsToOrigin", 0)
+        nbt.appendNBTByte("ConfirmedPlatformLockedContent", 0)
+        nbt.appendNBTInt("Difficulty", 1)
+        nbt.appendNBTString("FlatWorldLayers", "{\"biome_id\":1,\"block_layers\":[{\"block_name\":\"minecraft:bedrock\",\"count\":1},{\"block_name\":\"minecraft:dirt\",\"count\":2},{\"block_name\":\"minecraft:grass_block\",\"count\":1}],\"encoding_version\":6,\"preset_id\":\"ClassicFlat\",\"world_version\":\"version.post_1_18\"}")
+        nbt.appendNBTByte("ForceGameType", 0)
+        nbt.appendNBTInt("GameType", gameMode.levelDatValue)
+        nbt.appendNBTByte("HasUncompleteWorldFileOnDisk", 0)
+        nbt.appendNBTString("InventoryVersion", versionString)
+        nbt.appendNBTByte("IsHardcore", 0)
+        nbt.appendNBTByte("LANBroadcast", 0)
+        nbt.appendNBTByte("LANBroadcastIntent", 0)
+        nbt.appendNBTInt("LimitedWorldOriginX", 0)
+        nbt.appendNBTInt("LimitedWorldOriginY", 64)
+        nbt.appendNBTInt("LimitedWorldOriginZ", 0)
+        nbt.appendNBTInt("NetherScale", 8)
+        nbt.appendNBTInt("NetworkVersion", 2168)
+        nbt.appendNBTInt("Platform", 2)
+        nbt.appendNBTInt("PlatformBroadcastIntent", 2)
+        nbt.appendNBTByte("PlayerHasDied", 0)
+        nbt.appendNBTByte("SpawnV1Villagers", 0)
+        nbt.appendNBTInt("WorldVersion", 1)
+        nbt.appendNBTInt("XBLBroadcastIntent", 2)
+        nbt.appendNBTInt("Generator", 1)
+        nbt.appendNBTInt("SpawnX", 0)
+        nbt.appendNBTInt("SpawnY", 64)
+        nbt.appendNBTInt("SpawnZ", 0)
+        nbt.appendNBTString("LevelName", worldName)
+        nbt.appendNBTLong("RandomSeed", seed)
+        nbt.appendNBTLong("LastPlayed", 0)
+        nbt.appendNBTLong("Time", 0)
+        nbt.appendNBTInt("StorageVersion", 10)
+        nbt.appendNBTString("baseGameVersion", versionString)
+        nbt.appendNBTListInt("lastOpenedWithVersion", gameVersion)
+        nbt.appendNBTListInt("MinimumCompatibleClientVersion", gameVersion)
+        nbt.appendNBTByte("hasBeenLoadedInCreative", gameMode == .creative ? 1 : 0)
+        nbt.appendNBTByte("hasLockedBehaviorPack", 1)
+        nbt.appendNBTByte("hasLockedResourcePack", 1)
+        nbt.appendNBTByte("spawnMobs", 1)
+        nbt.appendNBTByte("texturePacksRequired", 0)
+        nbt.appendNBTByte("MultiplayerGame", 0)
+        nbt.appendNBTByte("MultiplayerGameIntent", 0)
+        nbt.append(0)
+
+        var output = Data()
+        output.appendLittleEndian(UInt32(10))
+        output.appendLittleEndian(UInt32(nbt.count))
+        output.append(nbt)
+        return output
+    }
+}
+
+private struct PackManifest {
+    let uuid: String
+    let version: [Int]
+}
+
+private extension Data {
+    mutating func appendNBTName(_ name: String) {
+        let data = Data(name.utf8)
+        appendLittleEndian(UInt16(data.count))
+        append(data)
+    }
+
+    mutating func appendNBTInt(_ name: String, _ value: Int32) {
+        append(3)
+        appendNBTName(name)
+        appendLittleEndian(UInt32(bitPattern: value))
+    }
+
+    mutating func appendNBTByte(_ name: String, _ value: UInt8) {
+        append(1)
+        appendNBTName(name)
+        append(value)
+    }
+
+    mutating func appendNBTLong(_ name: String, _ value: Int64) {
+        append(4)
+        appendNBTName(name)
+        let raw = UInt64(bitPattern: value)
+        appendLittleEndian(UInt32(truncatingIfNeeded: raw))
+        appendLittleEndian(UInt32(truncatingIfNeeded: raw >> 32))
+    }
+
+    mutating func appendNBTString(_ name: String, _ value: String) {
+        append(8)
+        appendNBTName(name)
+        let data = Data(value.utf8)
+        appendLittleEndian(UInt16(data.count))
+        append(data)
+    }
+
+    mutating func appendNBTListInt(_ name: String, _ values: [Int]) {
+        append(9)
+        appendNBTName(name)
+        append(3)
+        appendLittleEndian(UInt32(values.count))
+        for value in values {
+            appendLittleEndian(UInt32(bitPattern: Int32(value)))
+        }
     }
 }

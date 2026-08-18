@@ -10,6 +10,7 @@ struct MinecraftStep: Equatable {
     enum Action: Equatable {
         case wait(seconds: TimeInterval)
         case tap(x: CGFloat, y: CGFloat)
+        case tapUntilText(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, text: String)
         case drag(x: CGFloat, y: CGFloat, endX: CGFloat, endY: CGFloat)
         case swipeUp
         case keyboardText(String)
@@ -26,11 +27,11 @@ struct MinecraftStep: Equatable {
 
 extension MinecraftStep: Decodable {
     private enum CodingKeys: String, CodingKey {
-        case name, action, x, y, endX, endY, seconds, text, pixelExpectation
+        case name, action, x, y, fallbackX, fallbackY, endX, endY, seconds, text, pixelExpectation
     }
 
     private enum LegacyAction: String, Decodable {
-        case wait, tap, drag, swipeUp, type, keyText, numericKeyText, chatCommand, redstonePickaxeOutput, ocr
+        case wait, tap, tapUntilText, drag, swipeUp, type, keyText, numericKeyText, chatCommand, redstonePickaxeOutput, ocr
     }
 
     init(from decoder: Decoder) throws {
@@ -43,6 +44,14 @@ extension MinecraftStep: Decodable {
             action = .tap(
                 x: try container.require(CGFloat.self, forKey: .x, stepName: name),
                 y: try container.require(CGFloat.self, forKey: .y, stepName: name)
+            )
+        case .tapUntilText:
+            action = .tapUntilText(
+                x: try container.require(CGFloat.self, forKey: .x, stepName: name),
+                y: try container.require(CGFloat.self, forKey: .y, stepName: name),
+                fallbackX: try container.require(CGFloat.self, forKey: .fallbackX, stepName: name),
+                fallbackY: try container.require(CGFloat.self, forKey: .fallbackY, stepName: name),
+                text: try container.require(String.self, forKey: .text, stepName: name)
             )
         case .drag:
             action = .drag(
@@ -90,6 +99,11 @@ struct MinecraftE2EScenario {
     let behaviorPackName: String
     let resourcePackName: String
     let craftingPlan: MinecraftCraftingPlan
+}
+
+enum MinecraftWorldGameMode: String {
+    case creative
+    case survival
 }
 
 struct MinecraftCraftingPlan {

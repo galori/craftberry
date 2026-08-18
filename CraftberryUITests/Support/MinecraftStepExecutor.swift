@@ -45,21 +45,49 @@ struct MinecraftStepResult {
 /// executor can back both the production harness (which converts a failed result into an XCTest
 /// failure) and an interactive controller that wants to know a step failed without ending the run.
 final class MinecraftStepExecutor {
+    private enum ChatCommandLayout {
+        static let chatButton = CGVector(dx: 0.5, dy: 0.0325)
+        static let commandInput = CGVector(dx: 0.495, dy: 0.935)
+        static let submit = CGVector(dx: 0.9275, dy: 0.434)
+        static let maximumChatOpenAttempts = 3
+        static let maximumInputFocusAttempts = 2
+    }
+
     private let commandKeyboard: MinecraftCommandKeyboard
     private let ocr: MinecraftOCRInspector
     private let pixels: MinecraftPixelInspector
     private let onIntermediateScreenshot: (String) -> Void
+    private let wait: (TimeInterval) -> Void
+    private let tap: (XCUIApplication, CGVector) -> Void
+    private let recognizedText: (String, TimeInterval) -> Bool
+    private let chatScreenDetector: (TimeInterval) -> Bool
 
     init(
         commandKeyboard: MinecraftCommandKeyboard = MinecraftCommandKeyboard(),
         ocr: MinecraftOCRInspector = MinecraftOCRInspector(),
         pixels: MinecraftPixelInspector = MinecraftPixelInspector(),
-        onIntermediateScreenshot: @escaping (String) -> Void = { _ in }
+        onIntermediateScreenshot: @escaping (String) -> Void = { _ in },
+        wait: @escaping (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
+        tap: @escaping (XCUIApplication, CGVector) -> Void = { app, offset in
+            app.coordinate(withNormalizedOffset: offset).tap()
+        },
+        recognizedText: ((String, TimeInterval) -> Bool)? = nil,
+        chatScreenDetector: ((TimeInterval) -> Bool)? = nil
     ) {
         self.commandKeyboard = commandKeyboard
         self.ocr = ocr
         self.pixels = pixels
         self.onIntermediateScreenshot = onIntermediateScreenshot
+        self.wait = wait
+        self.tap = tap
+        let resolvedTextDetector = recognizedText ?? { expected, timeout in
+            ocr.waitForRecognizedText(expected, timeout: timeout)
+        }
+        self.recognizedText = resolvedTextDetector
+        let resolvedOCR = ocr
+        self.chatScreenDetector = chatScreenDetector ?? { timeout in
+            resolvedOCR.waitForRecognizedText("Chat and Commands", timeout: timeout)
+        }
     }
 
     func execute(_ step: MinecraftPhasedStep, in minecraft: XCUIApplication, resolve: (String) -> String) -> MinecraftStepResult {
@@ -70,6 +98,26 @@ final class MinecraftStepExecutor {
         case .tap(let x, let y):
             minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap()
             return .success(step)
+        case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let rawExpected):
+            let expected = resolve(rawExpected)
+            let candidates = [
+                CGVector(dx: x, dy: y),
+                CGVector(dx: fallbackX, dy: fallbackY)
+            ]
+            for (index, offset) in candidates.enumerated() {
+                tap(minecraft, offset)
+                wait(1)
+                if recognizedText(expected, 2) {
+                    return .success(step)
+                }
+                if index < candidates.count - 1 {
+                    wait(1)
+                }
+            }
+            return .failure(
+                step,
+                reason: "OCR did not find '\(expected)' after either calibrated layout tap for \(step.name)."
+            )
         case .drag(let x, let y, let endX, let endY):
             let start = minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y))
             let end = minecraft.coordinate(withNormalizedOffset: CGVector(dx: endX, dy: endY))
@@ -135,25 +183,51 @@ final class MinecraftStepExecutor {
     }
 
     private func sendChatCommand(_ text: String, in minecraft: XCUIApplication, step: MinecraftPhasedStep) -> MinecraftStepResult {
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.0325)).tap()
-        Thread.sleep(forTimeInterval: 2)
-        onIntermediateScreenshot("Chat screen after tapping the chat button")
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.495, dy: 0.935)).tap()
-        Thread.sleep(forTimeInterval: 2)
-        onIntermediateScreenshot("Chat screen after focusing the command input field")
+        guard openChatCommandsScreen(in: minecraft) else {
+            return .failure(
+                step,
+                reason: "Minecraft's Chat and Commands screen did not open after \(ChatCommandLayout.maximumChatOpenAttempts) attempts, so the command was not sent."
+            )
+        }
+
         // The command keyboard drives raw key elements, so a missing keyboard here would fail deep
         // inside key lookup with no indication of which tap missed. Check it up front instead.
-        guard minecraft.keyboards.element.waitForExistence(timeout: 5) else {
-            return .failure(step, reason: "The on-screen keyboard did not appear after focusing Minecraft's chat input, so the command could not be typed. Recalibrate the chat-input tap against the attached chat screenshots.")
+        var keyboardAppeared = false
+        for attempt in 1...ChatCommandLayout.maximumInputFocusAttempts {
+            tap(minecraft, ChatCommandLayout.commandInput)
+            wait(2)
+            onIntermediateScreenshot("Chat screen after focusing the command input field (attempt \(attempt))")
+            if minecraft.keyboards.element.waitForExistence(timeout: 5) {
+                keyboardAppeared = true
+                break
+            }
+        }
+        guard keyboardAppeared else {
+            return .failure(step, reason: "The on-screen keyboard did not appear after focusing Minecraft's chat input, so the command could not be typed.")
         }
         // Per-key taps rather than typeText: Minecraft's chat field is custom-drawn and never reports
         // keyboard focus to the accessibility layer, so typeText fails with "Neither element nor any
         // descendant has keyboard focus" even while the software keyboard is plainly up.
         commandKeyboard.type(text, in: minecraft)
-        Thread.sleep(forTimeInterval: 1)
+        wait(1)
         onIntermediateScreenshot("Chat input after typing the command")
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.9275, dy: 0.434)).tap()
-        Thread.sleep(forTimeInterval: 2)
+        tap(minecraft, ChatCommandLayout.submit)
+        wait(2)
         return .success(step)
+    }
+
+    private func openChatCommandsScreen(in minecraft: XCUIApplication) -> Bool {
+        for attempt in 1...ChatCommandLayout.maximumChatOpenAttempts {
+            tap(minecraft, ChatCommandLayout.chatButton)
+            wait(2)
+            onIntermediateScreenshot("Chat screen after tapping the chat button (attempt \(attempt))")
+            if chatScreenDetector(1) {
+                return true
+            }
+            if attempt < ChatCommandLayout.maximumChatOpenAttempts {
+                wait(1)
+            }
+        }
+        return false
     }
 }

@@ -5,7 +5,7 @@ final class CraftberryUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testDeterministicSwordBuildCanOpenShareSheet() throws {
+    func testDeterministicSwordExportBuildsAndOpensShareSheetInOneStep() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]
         app.launch()
@@ -22,11 +22,8 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(waitForElement("craftberry.state.generating", in: app, timeout: 3))
         XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
 
-        app.buttons["craftberry.build"].tap()
+        app.buttons["craftberry.exportToMinecraft"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.building", in: app, timeout: 3))
-        XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 8))
-
-        app.buttons["craftberry.export"].tap()
         XCTAssertTrue(waitForElement("ActivityListView", in: app, timeout: 8))
 
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -62,7 +59,7 @@ final class CraftberryUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 3))
 
-        app.buttons["craftberry.build"].tap()
+        app.buttons["craftberry.exportToMinecraft"].tap()
         XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 10))
     }
 

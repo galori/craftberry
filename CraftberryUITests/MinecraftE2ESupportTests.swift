@@ -10,7 +10,8 @@ final class MinecraftE2ESupportTests: XCTestCase {
           {"name":"Key", "action":"keyText", "text":"emerald"},
           {"name":"Command", "action":"chatCommand", "text":"/tp @s 1 2 3"},
           {"name":"OCR", "action":"ocr", "text":"Crafting"},
-          {"name":"Pixels", "action":"redstonePickaxeOutput"}
+          {"name":"Pixels", "action":"redstonePickaxeOutput"},
+          {"name":"Layout-aware tab", "action":"tapUntilText", "x":0.5, "y":0.167, "fallbackX":0.5, "fallbackY":0.31, "text":"Redstone Behavior"}
         ]
         """#.utf8)
 
@@ -22,6 +23,10 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(steps[3].action, .chatCommand("/tp @s 1 2 3"))
         XCTAssertEqual(steps[4].action, .assertText("Crafting"))
         XCTAssertEqual(steps[5].action, .assertPixels(.redstonePickaxeOutput))
+        XCTAssertEqual(
+            steps[6].action,
+            .tapUntilText(x: 0.5, y: 0.167, fallbackX: 0.5, fallbackY: 0.31, text: "Redstone Behavior")
+        )
     }
 
     func testMalformedPayloadIsRejected() {
@@ -38,6 +43,20 @@ final class MinecraftE2ESupportTests: XCTestCase {
                 || step.name.localizedCaseInsensitiveContains("redstone ingot")
                 || step.name.localizedCaseInsensitiveContains("crafted sword")
         })
+    }
+
+    func testDeviceConfigurationClearsInventoryBeforeCrafting() throws {
+        let configuration = try loadConfiguration()
+
+        guard let clearIndex = configuration.steps.firstIndex(where: {
+            $0.action == .chatCommand("/clear @s")
+        }) else {
+            return XCTFail("The device staging flow must clear the reused world's player inventory before crafting.")
+        }
+        let craftingTableIndex = try XCTUnwrap(configuration.steps.firstIndex {
+            $0.name == "Open the crafting table directly in front of the player"
+        })
+        XCTAssertLessThan(clearIndex, craftingTableIndex)
     }
 
     func testCalibratedLayoutKeepsCreativeResultColumnsAndNamedCraftingSlots() {
@@ -104,9 +123,13 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(events.contains(.key("space")))
         XCTAssertTrue(events.contains(.key("@")))
         XCTAssertTrue(events.contains(.key("1")))
-        XCTAssertTrue(events.contains(.key("_")))
+        XCTAssertTrue(events.contains(.coordinate(0.1435, 0.7165)))
         XCTAssertTrue(events.contains(.coordinate(0.376, 0.7165)))
         XCTAssertTrue(events.contains(.coordinate(0.6225, 0.630)))
+
+        let tableEvents = MinecraftCommandKeyboard().events(for: "crafting_table")
+        let underscoreIndex = tableEvents.firstIndex(of: .coordinate(0.1435, 0.7165))!
+        XCTAssertEqual(tableEvents[underscoreIndex + 2], .key("letters"))
     }
 
     func testPhasedStepsGetStableRunLocalIDsStartingAtOnePerPhase() {
@@ -145,6 +168,59 @@ final class MinecraftE2ESupportTests: XCTestCase {
 
         XCTAssertTrue(result.succeeded)
         XCTAssertEqual(result.step, step)
+    }
+
+    func testChatCommandRetriesOpeningChatBeforeTouchingTheCommandInput() {
+        var tappedOffsets: [CGVector] = []
+        var detectorCalls = 0
+        var screenshots: [String] = []
+        let executor = MinecraftStepExecutor(
+            onIntermediateScreenshot: { screenshots.append($0) },
+            wait: { _ in },
+            tap: { _, offset in tappedOffsets.append(offset) },
+            chatScreenDetector: { _ in
+                detectorCalls += 1
+                return false
+            }
+        )
+        let step = MinecraftPhasedStep(id: "config:1", name: "Clear inventory", action: .chatCommand("/clear @s"))
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertFalse(result.succeeded)
+        XCTAssertTrue(result.failureReason?.contains("Chat and Commands") == true)
+        XCTAssertEqual(detectorCalls, 3)
+        XCTAssertEqual(tappedOffsets.count, 3)
+        XCTAssertTrue(tappedOffsets.allSatisfy { $0.dx == 0.5 && $0.dy == 0.0325 })
+        XCTAssertEqual(screenshots.count, 3)
+        XCTAssertTrue(screenshots.allSatisfy { $0.contains("tapping the chat button") })
+    }
+
+    func testLayoutAwarePackTabTapUsesFallbackOnlyWhenExactPackTextIsAbsent() {
+        var tappedOffsets: [CGVector] = []
+        var recognitionAttempts = 0
+        let executor = MinecraftStepExecutor(
+            wait: { _ in },
+            tap: { _, offset in tappedOffsets.append(offset) },
+            recognizedText: { expected, _ in
+                XCTAssertEqual(expected, "Redstone Behavior")
+                recognitionAttempts += 1
+                return recognitionAttempts == 2
+            }
+        )
+        let step = MinecraftPhasedStep(
+            id: "config:1",
+            name: "Open Active Behavior Packs",
+            action: .tapUntilText(x: 0.505, y: 0.167, fallbackX: 0.505, fallbackY: 0.31, text: "Redstone Behavior")
+        )
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(recognitionAttempts, 2)
+        XCTAssertEqual(tappedOffsets.count, 2)
+        XCTAssertEqual(tappedOffsets[0].dy, 0.167, accuracy: 0.001)
+        XCTAssertEqual(tappedOffsets[1].dy, 0.31, accuracy: 0.001)
     }
 
     func testDebuggerConsoleRunCurrentStepExecutesOnceAndPreventsDuplicateExecution() {
@@ -459,6 +535,17 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(redCluster: false)))
     }
 
+    func testRedstonePickaxePixelExpectationMatchesOutputCluster() throws {
+        let inspector = MinecraftPixelInspector()
+        let image = try syntheticImage(
+            width: 100,
+            height: 100,
+            redRect: CGRect(x: 68, y: 66, width: 8, height: 8)
+        )
+
+        XCTAssertTrue(inspector.matches(.redstonePickaxeOutput, in: image))
+    }
+
     private func assertTap(named name: String, in steps: [MinecraftStep], x: CGFloat, y: CGFloat) {
         guard case .tap(let actualX, let actualY) = steps.first(where: { $0.name == name })?.action else {
             XCTFail("Expected tap step named \(name)")
@@ -474,13 +561,19 @@ final class MinecraftE2ESupportTests: XCTestCase {
     }
 
     private func syntheticImage(redCluster: Bool) throws -> CGImage {
-        let width = 20
-        let height = 20
+        try syntheticImage(
+            width: 20,
+            height: 20,
+            redRect: redCluster ? CGRect(x: 4, y: 4, width: 4, height: 6) : nil
+        )
+    }
+
+    private func syntheticImage(width: Int, height: Int, redRect: CGRect?) throws -> CGImage {
         var bytes = Array(repeating: UInt8(0), count: width * height * 4)
         for y in 0..<height {
             for x in 0..<width {
                 let offset = ((y * width) + x) * 4
-                bytes[offset] = redCluster && (4...7).contains(x) && (4...9).contains(y) ? 255 : 20
+                bytes[offset] = redRect?.contains(CGPoint(x: x, y: y)) == true ? 255 : 20
                 bytes[offset + 1] = 20
                 bytes[offset + 2] = 20
                 bytes[offset + 3] = 255

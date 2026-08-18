@@ -42,9 +42,8 @@ final class MinecraftE2EHarness {
             "The deterministic device fixture did not generate \(scenario.projectName)."
         )
 
-        craftberry.buttons["craftberry.build"].tap()
+        craftberry.buttons["craftberry.exportToMinecraft"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.built", in: craftberry, timeout: 10))
-        craftberry.buttons["craftberry.export"].tap()
         testCase.attachScreenshot("Craftberry export share sheet")
         testCase.attachAccessibilityTree("Craftberry export share sheet", app: craftberry)
         try tapMinecraftShareDestination(in: craftberry)
@@ -165,6 +164,93 @@ final class MinecraftE2EHarness {
         }
     }
 
+    func runPreconfiguredWorld(_ scenario: MinecraftE2EScenario, gameMode: MinecraftWorldGameMode) throws {
+        let configuration = try loadConfiguration()
+        guard configuration.enabled else {
+            throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
+        }
+
+        let craftberry = XCUIApplication()
+        craftberry.launchArguments = [
+            "--ui-testing",
+            scenario.launchArgument,
+            "--ui-testing-fresh-pack-identity"
+        ]
+        craftberry.launch()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
+
+        let prompt = craftberry.textViews["craftberry.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText(scenario.prompt)
+        try dismissKeyboard(in: craftberry)
+        craftberry.buttons["craftberry.generate"].tap()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+
+        craftberry.buttons["craftberry.exportWorld"].tap()
+        let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
+        XCTAssertTrue(modeButton.waitForExistence(timeout: 3), "The world game-mode menu did not expose \(gameMode.rawValue).")
+        modeButton.tap()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.built", in: craftberry, timeout: 15))
+        try tapMinecraftShareDestination(in: craftberry)
+
+        let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
+        testCase.addTeardownBlock { [testCase] in
+            minecraft.terminate()
+            testCase.attachScreenshot("Minecraft terminated before world cleanup")
+        }
+        XCTAssertTrue(minecraft.wait(for: .runningForeground, timeout: 30), "Minecraft did not open after exporting the preconfigured .mcworld.")
+        Thread.sleep(forTimeInterval: 10)
+        testCase.attachScreenshot("Minecraft after importing the preconfigured world")
+        XCTAssertFalse(
+            ocr.recognizedText().localizedCaseInsensitiveContains("Failed to import"),
+            "Minecraft rejected Craftberry's preconfigured world. Inspect the import screenshot and Content Log."
+        )
+
+        minecraft.terminate()
+        Thread.sleep(forTimeInterval: 1)
+        minecraft.launch()
+        XCTAssertTrue(minecraft.wait(for: .runningForeground, timeout: 30), "Minecraft did not return to the foreground after the world import.")
+        Thread.sleep(forTimeInterval: 8)
+
+        let slices = try configuration.slices()
+        let console = MinecraftDebuggerConsole(
+            app: minecraft,
+            executor: executor,
+            resolve: { self.resolved($0, scenario: scenario) },
+            onScreenshot: { [testCase] in
+                let label = "Preconfigured world debugger screenshot"
+                testCase.attachScreenshot(label)
+                return "Attached to the Xcode test report as '\(label)'."
+            }
+        )
+        for step in slices.prefix.phased(as: .config) {
+            run(step, using: console)
+        }
+        let visibleWorldName = scenario.projectName.split(separator: " ").prefix(2).joined(separator: " ")
+        XCTAssertTrue(
+            ocr.waitForRecognizedText(visibleWorldName, timeout: 10),
+            "The imported preconfigured world was not visible in Minecraft's world list."
+        )
+        // Tap the first card's thumbnail to launch it. The shared device flow's nearby coordinate
+        // at (0.2315, 0.6829) is the pencil/edit affordance, which opens Edit World instead.
+        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.16, dy: 0.45)).tap()
+        Thread.sleep(forTimeInterval: 45)
+        testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
+
+        MinecraftDebuggerConsole.current = console
+        testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }
+        for step in slices.staging.phased(as: .config) {
+            run(step, using: console)
+        }
+        for step in compiler.compile(scenario.craftingPlan).phased(as: .crafting) {
+            run(step, using: console)
+        }
+        for step in MinecraftE2EStepSlices.postScenarioCleanup.phased(as: .config) {
+            run(step, using: console)
+        }
+    }
+
     /// The keyboard toolbar's Done button (`craftberry.dismissKeyboard`) resigns the prompt text
     /// editor's focus. Dismissal matters because the on-screen keyboard otherwise overlaps and
     /// intercepts taps on the Generate button (both sit at the bottom of the screen) — confirmed
@@ -239,5 +325,3 @@ final class MinecraftE2EHarness {
     }
 
 }
-
-
