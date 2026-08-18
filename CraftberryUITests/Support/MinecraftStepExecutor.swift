@@ -156,7 +156,7 @@ final class MinecraftStepExecutor {
         case .assertText(let rawExpected):
             let expected = resolve(rawExpected)
             // Allow `|`-separated alternatives for dialogs that vary by Minecraft version/state
-            // (e.g. the pack-activation warning alternates between "Using Add-Ons" and "Update world?").
+            // (e.g. UI labels that differ across Minecraft releases).
             let alternatives = expected.split(separator: "|").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
             let candidates = alternatives.isEmpty ? [expected] : alternatives
             var matched = false

@@ -264,20 +264,14 @@
       "y": 0.331
     },
     {
-      "name": "Wait for Minecraft's add-on stacking warning",
+      "name": "Wait for behavior pack activation",
       "action": "wait",
       "seconds": 2
     },
     {
-      "name": "Confirm the add-on stacking warning",
+      "name": "Confirm the add-on stacking notice",
       "action": "ocr",
-      "text": "Using Add-Ons|Update world?"
-    },
-    {
-      "name": "Accept the add-on stacking warning",
-      "action": "tap",
-      "x": 0.5,
-      "y": 0.703
+      "text": "Stacking multiple Add-Ons"
     },
     {
       "name": "Wait for behavior and dependent resource activation",
