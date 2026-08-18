@@ -6,6 +6,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let data = Data(#"""
         [
           {"name":"Tap", "action":"tap", "x":0.1, "y":0.2},
+          {"name":"Optional tap", "action":"tapIfText", "x":0.5, "y":0.7, "text":"Using Add-Ons"},
           {"name":"Text row", "action":"tapTextRow", "x":0.9, "text":"Emerald Behavior"},
           {"name":"Drag", "action":"drag", "x":0.7, "y":0.85, "endX":0.7, "endY":0.25},
           {"name":"Key", "action":"keyText", "text":"emerald"},
@@ -19,16 +20,39 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let steps = try JSONDecoder().decode([MinecraftStep].self, from: data)
 
         XCTAssertEqual(steps[0].action, .tap(x: 0.1, y: 0.2))
-        XCTAssertEqual(steps[1].action, .tapTextRow(x: 0.9, text: "Emerald Behavior"))
-        XCTAssertEqual(steps[2].action, .drag(x: 0.7, y: 0.85, endX: 0.7, endY: 0.25))
-        XCTAssertEqual(steps[3].action, .keyboardText("emerald"))
-        XCTAssertEqual(steps[4].action, .chatCommand("/tp @s 1 2 3"))
-        XCTAssertEqual(steps[5].action, .assertText("Crafting"))
-        XCTAssertEqual(steps[6].action, .assertPixels(.redstonePickaxeOutput))
+        XCTAssertEqual(steps[1].action, .tapIfText(x: 0.5, y: 0.7, text: "Using Add-Ons"))
+        XCTAssertEqual(steps[2].action, .tapTextRow(x: 0.9, text: "Emerald Behavior"))
+        XCTAssertEqual(steps[3].action, .drag(x: 0.7, y: 0.85, endX: 0.7, endY: 0.25))
+        XCTAssertEqual(steps[4].action, .keyboardText("emerald"))
+        XCTAssertEqual(steps[5].action, .chatCommand("/tp @s 1 2 3"))
+        XCTAssertEqual(steps[6].action, .assertText("Crafting"))
+        XCTAssertEqual(steps[7].action, .assertPixels(.redstonePickaxeOutput))
         XCTAssertEqual(
-            steps[7].action,
+            steps[8].action,
             .tapUntilText(x: 0.5, y: 0.167, fallbackX: 0.5, fallbackY: 0.31, text: "Redstone Behavior")
         )
+    }
+
+    func testOptionalTextTapOnlyTapsWhenExpectedTextIsVisible() {
+        var tappedOffsets: [CGVector] = []
+        var textIsVisible = false
+        let executor = MinecraftStepExecutor(
+            wait: { _ in },
+            tap: { _, offset in tappedOffsets.append(offset) },
+            recognizedText: { _, _ in textIsVisible }
+        )
+        let step = MinecraftPhasedStep(
+            id: "config:1",
+            name: "Accept modal",
+            action: .tapIfText(x: 0.5, y: 0.703, text: "Using Add-Ons")
+        )
+
+        XCTAssertTrue(executor.execute(step, in: XCUIApplication(), resolve: { $0 }).succeeded)
+        XCTAssertTrue(tappedOffsets.isEmpty)
+
+        textIsVisible = true
+        XCTAssertTrue(executor.execute(step, in: XCUIApplication(), resolve: { $0 }).succeeded)
+        XCTAssertEqual(tappedOffsets, [CGVector(dx: 0.5, dy: 0.703)])
     }
 
     func testTextRowTapUsesTheRecognizedRowAndConfiguredButtonColumn() {
@@ -51,6 +75,20 @@ final class MinecraftE2ESupportTests: XCTestCase {
 
         XCTAssertTrue(result.succeeded)
         XCTAssertEqual(tappedOffsets, [CGVector(dx: 0.915, dy: 0.69)])
+    }
+
+    func testTextRowRecognitionChoosesBottommostDuplicatePackName() throws {
+        let candidates = [
+            (text: "Redstone Behavior", boundingBox: CGRect(x: 0.4, y: 0.65, width: 0.3, height: 0.1)),
+            (text: "Emerald Behavior", boundingBox: CGRect(x: 0.4, y: 0.45, width: 0.3, height: 0.1)),
+            (text: "Redstone Behavior", boundingBox: CGRect(x: 0.4, y: 0.15, width: 0.3, height: 0.1))
+        ]
+
+        let selected = try XCTUnwrap(
+            MinecraftOCRInspector.bottommostBoundingBox(matching: "Redstone Behavior", among: candidates)
+        )
+
+        XCTAssertEqual(1 - selected.midY, 0.8, accuracy: 0.001)
     }
 
     func testMalformedPayloadIsRejected() {
@@ -81,6 +119,16 @@ final class MinecraftE2ESupportTests: XCTestCase {
             $0.name == "Open the crafting table directly in front of the player"
         })
         XCTAssertLessThan(clearIndex, craftingTableIndex)
+    }
+
+    func testAvailableBehaviorPackTabRequiresAnActivateControl() throws {
+        let configuration = try loadConfiguration()
+        let step = try XCTUnwrap(configuration.steps.first { $0.name == "Open Available Behavior Packs" })
+
+        XCTAssertEqual(
+            step.action,
+            .tapUntilText(x: 0.8, y: 0.376, fallbackX: 0.8, fallbackY: 0.31, text: "Activate")
+        )
     }
 
     func testCalibratedLayoutKeepsCreativeResultColumnsAndNamedCraftingSlots() {

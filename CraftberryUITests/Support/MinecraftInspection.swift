@@ -61,13 +61,27 @@ struct MinecraftOCRInspector {
                 XCTFail("Minecraft OCR failed: \(error)")
                 return nil
             }
-            if let observation = (request.results ?? []).first(where: {
-                $0.topCandidates(1).first?.string.localizedCaseInsensitiveContains(expected) == true
-            }) {
-                return CGPoint(x: observation.boundingBox.midX, y: 1 - observation.boundingBox.midY)
+            let candidates = (request.results ?? []).compactMap { observation -> (String, CGRect)? in
+                guard let text = observation.topCandidates(1).first?.string else { return nil }
+                return (text, observation.boundingBox)
+            }
+            if let boundingBox = Self.bottommostBoundingBox(matching: expected, among: candidates) {
+                return CGPoint(x: boundingBox.midX, y: 1 - boundingBox.midY)
             }
         }
         return nil
+    }
+
+    static func bottommostBoundingBox(
+        matching expected: String,
+        among candidates: [(text: String, boundingBox: CGRect)]
+    ) -> CGRect? {
+        candidates
+            .filter { $0.text.localizedCaseInsensitiveContains(expected) }
+            .max { first, second in
+                (1 - first.boundingBox.midY) < (1 - second.boundingBox.midY)
+            }?
+            .boundingBox
     }
 
     /// Stops at the first orientation that matches rather than recognizing all four every time.

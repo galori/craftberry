@@ -103,6 +103,16 @@ final class MinecraftStepExecutor {
         case .tap(let x, let y):
             minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap()
             return .success(step)
+        case .tapIfText(let x, let y, let rawExpected):
+            let expected = resolve(rawExpected)
+            let alternatives = expected
+                .split(separator: "|")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            if alternatives.contains(where: { recognizedText($0, 1) }) {
+                tap(minecraft, CGVector(dx: x, dy: y))
+            }
+            return .success(step)
         case .tapTextRow(let x, let rawExpected):
             let expected = resolve(rawExpected)
             guard let center = recognizedTextCenter(expected, 4) else {
