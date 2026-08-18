@@ -38,6 +38,38 @@ struct MinecraftOCRInspector {
         return false
     }
 
+    func waitForRecognizedTextCenter(_ expected: String, timeout: TimeInterval) -> CGPoint? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if let image = XCUIScreen.main.screenshot().image.cgImage,
+               let center = recognizedTextCenter(expected, in: image) {
+                return center
+            }
+            usleep(150_000)
+        } while Date() < deadline
+        return nil
+    }
+
+    private func recognizedTextCenter(_ expected: String, in image: CGImage) -> CGPoint? {
+        for orientation in orientations {
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            do {
+                try VNImageRequestHandler(cgImage: image, orientation: orientation).perform([request])
+            } catch {
+                XCTFail("Minecraft OCR failed: \(error)")
+                return nil
+            }
+            if let observation = (request.results ?? []).first(where: {
+                $0.topCandidates(1).first?.string.localizedCaseInsensitiveContains(expected) == true
+            }) {
+                return CGPoint(x: observation.boundingBox.midX, y: 1 - observation.boundingBox.midY)
+            }
+        }
+        return nil
+    }
+
     /// Stops at the first orientation that matches rather than recognizing all four every time.
     /// Some of the text this waits on is transient — an item-name tooltip fades after about a
     /// second — so a full four-orientation pass per poll would risk spending the tooltip's whole

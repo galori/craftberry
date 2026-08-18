@@ -259,9 +259,9 @@
     },
     {
       "name": "Activate the imported behavior pack",
-      "action": "tap",
+      "action": "tapTextRow",
       "x": 0.915,
-      "y": 0.331
+      "text": "$EXPECTED_BEHAVIOR_PACK"
     },
     {
       "name": "Wait for behavior pack activation",

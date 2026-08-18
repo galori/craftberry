@@ -10,6 +10,7 @@ struct MinecraftStep: Equatable {
     enum Action: Equatable {
         case wait(seconds: TimeInterval)
         case tap(x: CGFloat, y: CGFloat)
+        case tapTextRow(x: CGFloat, text: String)
         case tapUntilText(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, text: String)
         case drag(x: CGFloat, y: CGFloat, endX: CGFloat, endY: CGFloat)
         case swipeUp
@@ -31,7 +32,8 @@ extension MinecraftStep: Decodable {
     }
 
     private enum LegacyAction: String, Decodable {
-        case wait, tap, tapUntilText, drag, swipeUp, type, keyText, numericKeyText, chatCommand, redstonePickaxeOutput, ocr
+        case wait, tap, tapTextRow, tapUntilText, drag, swipeUp, type, keyText
+        case numericKeyText, chatCommand, redstonePickaxeOutput, ocr
     }
 
     init(from decoder: Decoder) throws {
@@ -44,6 +46,11 @@ extension MinecraftStep: Decodable {
             action = .tap(
                 x: try container.require(CGFloat.self, forKey: .x, stepName: name),
                 y: try container.require(CGFloat.self, forKey: .y, stepName: name)
+            )
+        case .tapTextRow:
+            action = .tapTextRow(
+                x: try container.require(CGFloat.self, forKey: .x, stepName: name),
+                text: try container.require(String.self, forKey: .text, stepName: name)
             )
         case .tapUntilText:
             action = .tapUntilText(

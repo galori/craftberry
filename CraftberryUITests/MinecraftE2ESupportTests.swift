@@ -6,6 +6,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let data = Data(#"""
         [
           {"name":"Tap", "action":"tap", "x":0.1, "y":0.2},
+          {"name":"Text row", "action":"tapTextRow", "x":0.9, "text":"Emerald Behavior"},
           {"name":"Drag", "action":"drag", "x":0.7, "y":0.85, "endX":0.7, "endY":0.25},
           {"name":"Key", "action":"keyText", "text":"emerald"},
           {"name":"Command", "action":"chatCommand", "text":"/tp @s 1 2 3"},
@@ -18,15 +19,38 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let steps = try JSONDecoder().decode([MinecraftStep].self, from: data)
 
         XCTAssertEqual(steps[0].action, .tap(x: 0.1, y: 0.2))
-        XCTAssertEqual(steps[1].action, .drag(x: 0.7, y: 0.85, endX: 0.7, endY: 0.25))
-        XCTAssertEqual(steps[2].action, .keyboardText("emerald"))
-        XCTAssertEqual(steps[3].action, .chatCommand("/tp @s 1 2 3"))
-        XCTAssertEqual(steps[4].action, .assertText("Crafting"))
-        XCTAssertEqual(steps[5].action, .assertPixels(.redstonePickaxeOutput))
+        XCTAssertEqual(steps[1].action, .tapTextRow(x: 0.9, text: "Emerald Behavior"))
+        XCTAssertEqual(steps[2].action, .drag(x: 0.7, y: 0.85, endX: 0.7, endY: 0.25))
+        XCTAssertEqual(steps[3].action, .keyboardText("emerald"))
+        XCTAssertEqual(steps[4].action, .chatCommand("/tp @s 1 2 3"))
+        XCTAssertEqual(steps[5].action, .assertText("Crafting"))
+        XCTAssertEqual(steps[6].action, .assertPixels(.redstonePickaxeOutput))
         XCTAssertEqual(
-            steps[6].action,
+            steps[7].action,
             .tapUntilText(x: 0.5, y: 0.167, fallbackX: 0.5, fallbackY: 0.31, text: "Redstone Behavior")
         )
+    }
+
+    func testTextRowTapUsesTheRecognizedRowAndConfiguredButtonColumn() {
+        var tappedOffsets: [CGVector] = []
+        let executor = MinecraftStepExecutor(
+            wait: { _ in },
+            tap: { _, offset in tappedOffsets.append(offset) },
+            recognizedTextCenter: { expected, _ in
+                XCTAssertEqual(expected, "Emerald Behavior")
+                return CGPoint(x: 0.54, y: 0.69)
+            }
+        )
+        let step = MinecraftPhasedStep(
+            id: "config:1",
+            name: "Activate imported pack",
+            action: .tapTextRow(x: 0.915, text: "Emerald Behavior")
+        )
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(tappedOffsets, [CGVector(dx: 0.915, dy: 0.69)])
     }
 
     func testMalformedPayloadIsRejected() {
