@@ -60,6 +60,7 @@ final class MinecraftStepExecutor {
     private let wait: (TimeInterval) -> Void
     private let tap: (XCUIApplication, CGVector) -> Void
     private let recognizedText: (String, TimeInterval) -> Bool
+    private let recognizedTextCenter: (String, TimeInterval) -> CGPoint?
     private let chatScreenDetector: (TimeInterval) -> Bool
 
     init(
@@ -72,6 +73,7 @@ final class MinecraftStepExecutor {
             app.coordinate(withNormalizedOffset: offset).tap()
         },
         recognizedText: ((String, TimeInterval) -> Bool)? = nil,
+        recognizedTextCenter: ((String, TimeInterval) -> CGPoint?)? = nil,
         chatScreenDetector: ((TimeInterval) -> Bool)? = nil
     ) {
         self.commandKeyboard = commandKeyboard
@@ -84,6 +86,9 @@ final class MinecraftStepExecutor {
             ocr.waitForRecognizedText(expected, timeout: timeout)
         }
         self.recognizedText = resolvedTextDetector
+        self.recognizedTextCenter = recognizedTextCenter ?? { expected, timeout in
+            ocr.waitForRecognizedTextCenter(expected, timeout: timeout)
+        }
         let resolvedOCR = ocr
         self.chatScreenDetector = chatScreenDetector ?? { timeout in
             resolvedOCR.waitForRecognizedText("Chat and Commands", timeout: timeout)
@@ -97,6 +102,13 @@ final class MinecraftStepExecutor {
             return .success(step)
         case .tap(let x, let y):
             minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap()
+            return .success(step)
+        case .tapTextRow(let x, let rawExpected):
+            let expected = resolve(rawExpected)
+            guard let center = recognizedTextCenter(expected, 4) else {
+                return .failure(step, reason: "OCR could not locate the row containing '\(expected)'.")
+            }
+            tap(minecraft, CGVector(dx: x, dy: center.y))
             return .success(step)
         case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let rawExpected):
             let expected = resolve(rawExpected)
