@@ -243,9 +243,12 @@
     },
     {
       "name": "Open Available Behavior Packs",
-      "action": "tap",
+      "action": "tapUntilText",
       "x": 0.8,
-      "y": 0.167
+      "y": 0.376,
+      "fallbackX": 0.8,
+      "fallbackY": 0.31,
+      "text": "Activate"
     },
     {
       "name": "Wait for available behavior packs",
@@ -269,6 +272,13 @@
       "seconds": 2
     },
     {
+      "name": "Accept the add-on stacking modal when shown",
+      "action": "tapIfText",
+      "x": 0.5,
+      "y": 0.703,
+      "text": "Using Add-Ons|Update world?"
+    },
+    {
       "name": "Confirm the add-on stacking notice",
       "action": "ocr",
       "text": "Stacking multiple Add-Ons"
@@ -282,7 +292,7 @@
       "name": "Open Active Behavior Packs",
       "action": "tapUntilText",
       "x": 0.505,
-      "y": 0.167,
+      "y": 0.376,
       "fallbackX": 0.505,
       "fallbackY": 0.31,
       "text": "$EXPECTED_BEHAVIOR_PACK"
@@ -312,7 +322,7 @@
       "name": "Open Active Resource Packs",
       "action": "tapUntilText",
       "x": 0.505,
-      "y": 0.167,
+      "y": 0.376,
       "fallbackX": 0.505,
       "fallbackY": 0.31,
       "text": "$EXPECTED_RESOURCE_PACK"
