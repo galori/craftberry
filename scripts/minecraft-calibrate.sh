@@ -19,7 +19,9 @@ DEVICE_PORT=8765
 HOST_PORT=8765
 CLEANUP_SCRIPT="$ROOT_DIR/scripts/minecraft-cleanup.sh"
 
-physical_iphone_filter='[.result.devices[]? | select(.hardwareProperties.platform == "iOS" and .hardwareProperties.deviceType == "iPhone" and .hardwareProperties.reality == "physical" and .connectionProperties.tunnelState == "connected")]'
+# A wired, paired phone can report a disconnected CoreDevice tunnel until
+# xcodebuild opens it. It is still a valid Xcode destination.
+physical_iphone_filter='[.result.devices[]? | select(.hardwareProperties.platform == "iOS" and .hardwareProperties.deviceType == "iPhone" and .hardwareProperties.reality == "physical" and (.connectionProperties.tunnelState == "connected" or (.connectionProperties.transportType == "wired" and .connectionProperties.pairingState == "paired")))]'
 
 usage() {
     cat <<USAGE
@@ -30,12 +32,13 @@ export/import and cold-launch, then exposes a JSON controller on
 127.0.0.1:${HOST_PORT} via iproxy for turn-by-turn driving.
 
 Commands:
-  start <scenario> [--break-at <id-or-name>]
+  start <scenario> [--break-at <id-or-name>] [--foreground]
         Start a calibration session for one scenario. Scenario is one of:
-          emerald | redstone | weapon | armor
+          emerald | redstone | weapon | armor | world
         (aliases: emerald, emeraldSword, redstone, redstoneToolSet,
          weapon, redstoneWeaponSet, armor, redstoneArmorSet)
         --break-at stops before the named step (id like config:12 or name).
+        --foreground keeps this command alive until the session is stopped.
 
   status
         Show the current cursor and last result via the device controller.
@@ -80,6 +83,7 @@ concurrent start attempts are refused. Host port ${HOST_PORT} is bound only to
 
 Prerequisites: unlocked physical iPhone over USB, Developer Mode, Minecraft
 installed, afcclient + jq + python3 + iproxy on PATH, valid signing.
+DEVICE_ID accepts either the CoreDevice identifier or the Xcode hardware UDID.
 
 USAGE
 }
@@ -104,36 +108,41 @@ discover_devices() {
 select_device() {
     local json_path
     json_path="$(discover_devices)"
+    local selected_json
 
     if [[ -n "${DEVICE_ID:-}" ]]; then
         local matches
-        matches="$(jq -r --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id)) | length" "$json_path")"
+        matches="$(jq -r --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id or .hardwareProperties.udid == \$id)) | length" "$json_path")"
         if [[ "$matches" == "1" ]]; then
-            printf '%s\n' "$DEVICE_ID"
-            return
+            selected_json="$(jq -c --arg id "$DEVICE_ID" "$physical_iphone_filter | map(select(.identifier == \$id or .hardwareProperties.udid == \$id)) | .[0]" "$json_path")"
+        else
+            echo "error: DEVICE_ID '$DEVICE_ID' is not a connected physical iPhone (accepted: CoreDevice ID or Xcode UDID)." >&2
+            jq -r "$physical_iphone_filter | .[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name] | @tsv" "$json_path" >&2
+            exit 1
         fi
-        echo "error: DEVICE_ID '$DEVICE_ID' is not a connected physical iPhone." >&2
-        jq -r "$physical_iphone_filter | .[] | [.identifier, .deviceProperties.name] | @tsv" "$json_path" >&2
-        exit 1
+    else
+        local count
+        count="$(jq -r "$physical_iphone_filter | length" "$json_path")"
+        case "$count" in
+            0)
+                echo "error: no connected physical iPhones found." >&2
+                jq -r "$physical_iphone_filter | if length==0 then \"no devices\" else .[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name] | @tsv end" "$json_path" >&2
+                exit 1
+                ;;
+            1)
+                selected_json="$(jq -c "$physical_iphone_filter | .[0]" "$json_path")"
+                ;;
+            *)
+                echo "error: multiple connected physical iPhones found; set DEVICE_ID." >&2
+                jq -r "$physical_iphone_filter | .[] | [.identifier, .hardwareProperties.udid, .deviceProperties.name] | @tsv" "$json_path" >&2
+                exit 1
+                ;;
+        esac
     fi
 
-    local count
-    count="$(jq -r "$physical_iphone_filter | length" "$json_path")"
-    case "$count" in
-        0)
-            echo "error: no connected physical iPhones found." >&2
-            jq -r "$physical_iphone_filter | if length==0 then \"no devices\" else .[] | [.identifier, .deviceProperties.name] | @tsv end" "$json_path" >&2
-            exit 1
-            ;;
-        1)
-            jq -r "$physical_iphone_filter | .[0].identifier" "$json_path"
-            ;;
-        *)
-            echo "error: multiple connected physical iPhones found; set DEVICE_ID." >&2
-            jq -r "$physical_iphone_filter | .[] | [.identifier, .deviceProperties.name] | @tsv" "$json_path" >&2
-            exit 1
-            ;;
-    esac
+    # xcodebuild needs the hardware UDID; devicectl/CoreDevice uses the other
+    # identifier. The calibration controller only calls xcodebuild directly.
+    printf '%s\n' "$selected_json" | jq -r '.hardwareProperties.udid // empty'
 }
 
 is_session_active() {
@@ -173,8 +182,11 @@ scenario_to_test_selector() {
         armor|redstoneArmorSet|redstone_armor_set|redstone-armor-set|redstoneArmor)
             printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationRedstoneArmorSet'
             ;;
+        world|creativeWorld|preconfiguredWorld|preconfigured-world)
+            printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationPreconfiguredCreativeWorld'
+            ;;
         *)
-            echo "error: unknown scenario '$scenario' (expected emerald, redstone, weapon, or armor)." >&2
+            echo "error: unknown scenario '$scenario' (expected emerald, redstone, weapon, armor, or world)." >&2
             exit 1
             ;;
     esac
@@ -251,6 +263,7 @@ cmd_start() {
     local scenario="${1:-}"
     shift || true
     local break_at=""
+    local foreground="no"
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --break-at)
@@ -261,6 +274,10 @@ cmd_start() {
                 fi
                 shift 2
                 ;;
+            --foreground)
+                foreground="yes"
+                shift
+                ;;
             *)
                 echo "error: unknown argument '$1' for start" >&2
                 usage >&2
@@ -269,7 +286,7 @@ cmd_start() {
         esac
     done
     if [[ -z "$scenario" ]]; then
-        echo "error: start requires a scenario (emerald, redstone, weapon, armor)" >&2
+        echo "error: start requires a scenario (emerald, redstone, weapon, armor, or world)" >&2
         usage >&2
         exit 1
     fi
@@ -319,9 +336,9 @@ cmd_start() {
     usb_udid="$(idevice_id -l 2>/dev/null | head -n1 || true)"
     set +e
     if [[ -n "$usb_udid" ]]; then
-        iproxy -u "$usb_udid" "${HOST_PORT}:${DEVICE_PORT}" > "$IPROXY_LOG" 2>&1 &
+        nohup iproxy -u "$usb_udid" "${HOST_PORT}:${DEVICE_PORT}" > "$IPROXY_LOG" 2>&1 < /dev/null &
     else
-        iproxy "${HOST_PORT}:${DEVICE_PORT}" > "$IPROXY_LOG" 2>&1 &
+        nohup iproxy "${HOST_PORT}:${DEVICE_PORT}" > "$IPROXY_LOG" 2>&1 < /dev/null &
     fi
     local iproxy_pid=$!
     set -e
@@ -361,7 +378,7 @@ cmd_start() {
 
     set +e
     # shellcheck disable=SC2086
-    env "${env_args[@]}" xcodebuild \
+    nohup env "${env_args[@]}" xcodebuild \
         -project "$PROJECT_PATH" \
         -scheme "$SCHEME" \
         -configuration Debug \
@@ -369,7 +386,7 @@ cmd_start() {
         "${derived_arg[@]}" \
         -allowProvisioningUpdates \
         -only-testing:"$test_selector" \
-        test > "$XCODEBUILD_LOG" 2>&1 &
+        test > "$XCODEBUILD_LOG" 2>&1 < /dev/null &
     local xcodebuild_pid=$!
     set -e
     echo "$xcodebuild_pid" > "$XCODEBUILD_PID_FILE"
@@ -443,6 +460,13 @@ sys.stdout.write(data.decode())
     pretty_and_save "$status_json" "start-status"
 
     echo "Session started successfully. Use 'scripts/minecraft-calibrate.sh status' to inspect, 'step' / 'run-until' to drive, and 'stop' to end." | tee -a "$TRANSCRIPT"
+
+    if [[ "$foreground" == "yes" ]]; then
+        echo "Foreground mode: keeping the local calibration launcher alive until stop." | tee -a "$TRANSCRIPT"
+        while is_session_active; do
+            sleep 5
+        done
+    fi
 }
 
 cmd_status() {
@@ -648,12 +672,21 @@ cmd_stop() {
     # Give device time to settle
     sleep 2
 
+    local calibration_scenario
+    calibration_scenario="$(jq -r '.scenario // empty' "$SESSION_FILE" 2>/dev/null || true)"
+
     if [[ "$keep_state" == "yes" ]]; then
         echo "Keeping Minecraft, packs, and world untouched (--keep-state)." | tee -a "$TRANSCRIPT"
     else
         if [[ -n "$device_id" ]]; then
             terminate_minecraft_on_device "$device_id"
-            if [[ "$delete_world" == "yes" ]]; then
+            if [[ "$calibration_scenario" == "world" ]]; then
+                echo "Running AFC cleanup (imported preconfigured world + Generated by Craftberry packs)..." | tee -a "$TRANSCRIPT"
+                set +e
+                CRAFTBERRY_CLEANUP_WORLD_NAME="Emerald Test Sword (Creative)" "$CLEANUP_SCRIPT" clean --delete-world --yes >> "$TRANSCRIPT" 2>&1
+                local cleanup_status=$?
+                set -e
+            elif [[ "$delete_world" == "yes" ]]; then
                 echo "Running AFC cleanup (Generated by Craftberry packs + craftberry test world, INCLUDING world deletion)..." | tee -a "$TRANSCRIPT"
                 set +e
                 "$CLEANUP_SCRIPT" clean --delete-world --yes >> "$TRANSCRIPT" 2>&1

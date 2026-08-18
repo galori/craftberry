@@ -13,7 +13,7 @@ jobs:
   e2e:
     name: Minecraft E2E on self-hosted iPhone 13 Pro
     runs-on: self-hosted
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -26,11 +26,32 @@ jobs:
           scripts/ios-device.sh list
           echo "Device check done."
 
+      - name: Unlock keychain for codesign
+        run: |
+          echo "Preparing keychain for codesign (best-effort)..."
+          security list-keychains 2>&1 || true
+          security show-keychain-info ~/Library/Keychains/login.keychain-db 2>&1 || true
+          # If KEYCHAIN_PASSWORD is provided as a repo secret, unlock and grant
+          # codesign access without UI prompt. This fixes errSecInternalComponent
+          # when the runner LaunchAgent runs without an unlocked login keychain.
+          if [ -n "${KEYCHAIN_PASSWORD:-}" ]; then
+            echo "Unlocking login keychain with provided password..."
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db 2>&1 || true
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db 2>&1 || true
+          else
+            echo "No KEYCHAIN_PASSWORD secret — attempting partition-list without password (works if keychain already unlocked in this Aqua session)..."
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s ~/Library/Keychains/login.keychain-db 2>&1 || echo "partition-list without password failed (keychain likely locked — set KEYCHAIN_PASSWORD repo secret to fix)"
+          fi
+          security find-identity -v -p codesigning 2>&1 || true
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
       - name: Run Minecraft E2E (all scenarios)
         run: |
           # Reuses the existing "craftberry test" world between scenarios;
           # only Generated-by-Craftberry packs are cleaned after each run.
-          # This is ~25-35 min for all 9 scenarios.
+          # The full matrix runs serially on one physical device and can take
+          # up to about 90 minutes, including build and device setup time.
           scripts/ios-device.sh minecraft-e2e-all
 
       - name: Upload xcresult bundles

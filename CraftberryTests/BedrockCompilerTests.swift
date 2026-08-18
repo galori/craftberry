@@ -137,6 +137,13 @@ final class BedrockCompilerTests: XCTestCase {
         let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
         let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
 
+        let ingotItem = try json(named: "items/azure_a1b2c3_ingot.json", in: behavior)
+        let ingotBody = try XCTUnwrap(ingotItem["minecraft:item"] as? [String: Any])
+        let ingotDescription = try XCTUnwrap(ingotBody["description"] as? [String: Any])
+        let ingotMenuCategory = try XCTUnwrap(ingotDescription["menu_category"] as? [String: Any])
+        XCTAssertEqual(ingotMenuCategory["category"] as? String, "items")
+        XCTAssertNil(ingotMenuCategory["group"])
+
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_pickaxe.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_axe.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_shovel.json" })
@@ -375,6 +382,150 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: artifact.url.path))
         XCTAssertEqual(Set(archive.map(\.path)), Set(["azure_sword_a1b2c3_behavior.mcpack", "azure_sword_a1b2c3_resources.mcpack"]))
         XCTAssertTrue(archive.allSatisfy { $0.data.starts(with: [0x50, 0x4B, 0x03, 0x04]) })
+    }
+
+    func testCompilerCreatesCreativeWorldWithEmbeddedPacksAndModeMetadata() throws {
+        let project = try makeProject()
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+
+        let addOn = try BedrockAddOnCompiler().compile(
+            project: project,
+            profile: .current,
+            outputDirectory: outputDirectory
+        )
+        let world = try BedrockWorldExporter().compileWorld(
+            project: project,
+            addOn: addOn,
+            gameMode: .creative,
+            outputDirectory: outputDirectory
+        )
+        let archive = try ZipArchiveReader.readEntries(at: world.artifact.url)
+
+        XCTAssertEqual(world.artifact.fileName, "azure_sword_a1b2c3_creative.mcworld")
+        XCTAssertTrue(archive.contains { $0.path == "level.dat" })
+        XCTAssertTrue(archive.contains { $0.path == "db/CURRENT" })
+        XCTAssertTrue(archive.contains { $0.path == "db/MANIFEST-000001" })
+        XCTAssertEqual(String(decoding: try XCTUnwrap(archive.first { $0.path == "levelname.txt" }).data, as: UTF8.self), "Azure Sword (Creative)")
+        XCTAssertTrue(archive.contains { $0.path == "behavior_packs/azure_sword_a1b2c3_behavior/manifest.json" })
+        XCTAssertTrue(archive.contains { $0.path == "resource_packs/azure_sword_a1b2c3_resources/manifest.json" })
+
+        let behaviorRefs = try XCTUnwrap(try JSONSerialization.jsonObject(
+            with: XCTUnwrap(archive.first { $0.path == "world_behavior_packs.json" }).data
+        ) as? [[String: Any]])
+        XCTAssertEqual(behaviorRefs.first?["pack_id"] as? String, "20000000-0000-4000-8000-000000000001")
+        XCTAssertEqual(behaviorRefs.first?["version"] as? [Int], [1, 0, 0])
+
+        let levelData = try XCTUnwrap(archive.first { $0.path == "level.dat" }).data
+        XCTAssertEqual(levelData.littleEndianUInt32(at: 0), 10)
+        XCTAssertEqual(levelData.littleEndianUInt32(at: 4), UInt32(levelData.count - 8))
+        XCTAssertNotNil(levelData.range(of: Data("GameType".utf8)))
+        XCTAssertNotNil(levelData.range(of: Data("LevelName".utf8)))
+    }
+
+    func testCompilerCreatesSurvivalWorldWithModeSpecificName() throws {
+        let project = try makeProject()
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+
+        let addOn = try BedrockAddOnCompiler().compile(
+            project: project,
+            profile: .current,
+            outputDirectory: outputDirectory
+        )
+        let world = try BedrockWorldExporter().compileWorld(
+            project: project,
+            addOn: addOn,
+            gameMode: .survival,
+            outputDirectory: outputDirectory
+        )
+        let archive = try ZipArchiveReader.readEntries(at: world.artifact.url)
+
+        XCTAssertEqual(world.artifact.fileName, "azure_sword_a1b2c3_survival.mcworld")
+        XCTAssertEqual(String(decoding: try XCTUnwrap(archive.first { $0.path == "levelname.txt" }).data, as: UTF8.self), "Azure Sword (Survival)")
+    }
+
+    func testCompilerPreservesProvidedWorldTemplateDatabaseAndIcon() throws {
+        let project = try makeProject()
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+
+        let addOn = try BedrockAddOnCompiler().compile(
+            project: project,
+            profile: .current,
+            outputDirectory: outputDirectory
+        )
+        let templateEntries = [
+            ZipArchiveEntry(path: "level.dat", data: Data([1, 2, 3])),
+            ZipArchiveEntry(path: "level.dat_old", data: Data([4, 5, 6])),
+            ZipArchiveEntry(path: "world_icon.jpeg", data: Data([7, 8, 9])),
+            ZipArchiveEntry(path: "db/CURRENT", data: Data("MANIFEST-000002\n".utf8)),
+            ZipArchiveEntry(path: "db/MANIFEST-000002", data: Data([10, 11])),
+            ZipArchiveEntry(path: "db/000003.log", data: Data([12, 13, 14]))
+        ]
+
+        let world = try BedrockWorldExporter(templateEntries: templateEntries).compileWorld(
+            project: project,
+            addOn: addOn,
+            gameMode: .creative,
+            outputDirectory: outputDirectory
+        )
+        let archive = try ZipArchiveReader.readEntries(at: world.artifact.url)
+
+        XCTAssertEqual(archive.first { $0.path == "level.dat" }?.data, Data([1, 2, 3]))
+        XCTAssertEqual(archive.first { $0.path == "level.dat_old" }?.data, Data([4, 5, 6]))
+        XCTAssertEqual(archive.first { $0.path == "world_icon.jpeg" }?.data, Data([7, 8, 9]))
+        XCTAssertEqual(archive.first { $0.path == "db/CURRENT" }?.data, Data("MANIFEST-000002\n".utf8))
+        XCTAssertEqual(archive.first { $0.path == "db/MANIFEST-000002" }?.data, Data([10, 11]))
+        XCTAssertEqual(archive.first { $0.path == "db/000003.log" }?.data, Data([12, 13, 14]))
+    }
+
+    func testCompilerPatchesProvidedWorldTemplateMetadataWithoutReplacingLevelDB() throws {
+        let project = try makeProject()
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+
+        let addOn = try BedrockAddOnCompiler().compile(
+            project: project,
+            profile: .current,
+            outputDirectory: outputDirectory
+        )
+        let world = try BedrockWorldExporter(templateEntries: try sourceWorldTemplateEntries()).compileWorld(
+            project: project,
+            addOn: addOn,
+            gameMode: .creative,
+            outputDirectory: outputDirectory
+        )
+        let archive = try ZipArchiveReader.readEntries(at: world.artifact.url)
+        let levelData = try XCTUnwrap(archive.first { $0.path == "level.dat" }?.data)
+        let gameTypeTag = Data([3, 8, 0]) + Data("GameType".utf8)
+        let gameTypeOffset = try XCTUnwrap(levelData.range(of: gameTypeTag)?.upperBound)
+        XCTAssertEqual(levelData.littleEndianUInt32(at: gameTypeOffset), 1)
+
+        let levelNameTag = Data([8, 9, 0]) + Data("LevelName".utf8)
+        let levelNameOffset = try XCTUnwrap(levelData.range(of: levelNameTag)?.upperBound)
+        let levelNameLength = try XCTUnwrap(levelData.littleEndianUInt16(at: levelNameOffset))
+        XCTAssertEqual(
+            String(decoding: levelData.subdata(in: (levelNameOffset + 2)..<(levelNameOffset + 2 + Int(levelNameLength))), as: UTF8.self),
+            "Azure Sword (Creative)"
+        )
+        for name in ["commandsEnabled", "cheatsEnabled"] {
+            let tag = Data([1, UInt8(name.utf8.count), 0]) + Data(name.utf8)
+            let valueOffset = try XCTUnwrap(levelData.range(of: tag)?.upperBound)
+            XCTAssertEqual(levelData[valueOffset], 1, "Expected (name) to be enabled in the exported world.")
+        }
+        XCTAssertEqual(levelData.littleEndianUInt32(at: 4), UInt32(levelData.count - 8))
+        for templateEntry in try sourceWorldTemplateEntries() where templateEntry.path.hasPrefix("db/") {
+            XCTAssertEqual(
+                archive.first { $0.path == templateEntry.path }?.data,
+                templateEntry.data,
+                "Expected the bundled LevelDB entry \(templateEntry.path) to be preserved."
+            )
+        }
     }
 
     func testCompilerEmitsItemRecipeAndOriginalPngTexture() throws {
@@ -617,5 +768,18 @@ final class BedrockCompilerTests: XCTestCase {
     private func json(named name: String, in archive: [ZipArchiveEntry]) throws -> [String: Any] {
         let entry = try XCTUnwrap(archive.first(where: { $0.path == name }))
         return try XCTUnwrap(try JSONSerialization.jsonObject(with: entry.data) as? [String: Any])
+    }
+
+    private func sourceWorldTemplateEntries() throws -> [ZipArchiveEntry] {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(path: "Craftberry/Resources/BedrockWorldTemplate", directoryHint: .isDirectory)
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil))
+        return try enumerator.compactMap { item in
+            guard let url = item as? URL, !url.hasDirectoryPath else { return nil }
+            let path = url.path.replacingOccurrences(of: root.path + "/", with: "")
+            return ZipArchiveEntry(path: path, data: try Data(contentsOf: url))
+        }.sorted { $0.path < $1.path }
     }
 }

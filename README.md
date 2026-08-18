@@ -23,6 +23,33 @@ xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 1
 xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build
 ```
 
+## Bedrock compatibility learnings
+
+Bedrock can silently omit a custom item from the Creative inventory when its
+menu_category.group is not a real, localized group key. Generic generated
+items such as ingots should use the items category and omit group; namespaced
+groups are reserved for keys confirmed in the pinned
+[Mojang Bedrock samples](https://github.com/Mojang/bedrock-samples/tree/v1.26.30.5).
+An item may still appear in generated recipe metadata while being unavailable
+to the in-game Creative search, so recipe and inventory checks must both be
+covered.
+
+For every future content-family or material enhancement:
+
+- Compare each new JSON shape and menu key with the pinned Bedrock samples
+  before implementing it.
+- Enable Minecraft's Content Log before importing, then treat its reported
+  file and field path as the source of truth for load-time failures.
+- Add compiler assertions for the exact emitted JSON and a focused physical
+  E2E that searches for and uses the new item in Minecraft.
+- Treat a successful coordinate tap as input delivery, not proof of navigation:
+  optional Bedrock banners can move Ore UI controls. When a control has more
+  than one calibrated layout, try the known positions but confirm the intended
+  screen with exact OCR before continuing; keep the final assertion exact.
+- When device validation reveals a new engine constraint, add the concise
+  lesson here and mirror any procedural change in AGENTS.md; keep this list
+  updated as the compatibility profile grows.
+
 ## Physical iPhone workflow
 
 Prerequisites: a paired, trusted, unlocked iPhone with Developer Mode enabled, full Xcode command line tools, `jq`, and the existing development team signing setup. Device workflow output stays under `.build/ios-device`.

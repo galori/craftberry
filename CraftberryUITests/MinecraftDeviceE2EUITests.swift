@@ -19,6 +19,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryCreativeWorldCanBeImportedWithPacksAlreadyActive() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.emeraldSword, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -169,7 +177,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
+                    afterPickupVerification: .text("Redstone Ingot"),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
@@ -179,7 +187,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight]),
                         .init(searchText: "stick", resultColumn: 3, destinations: [.middleCenter, .bottomCenter])
                     ],
-                    beforePickupVerification: nil,
+                    beforePickupVerification: .pixels(.redstonePickaxeOutput),
                     afterPickupVerification: .text("Pickaxe"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false

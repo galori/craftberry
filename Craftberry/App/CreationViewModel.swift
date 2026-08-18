@@ -12,6 +12,7 @@ final class CreationViewModel: ObservableObject {
         case unsupported(String)
         case ready(AddOnProject)
         case building(AddOnProject)
+        case buildingWorld(AddOnProject, BedrockCompilationResult, BedrockWorldGameMode)
         case built(AddOnProject, BedrockCompilationResult)
         case failed(String)
     }
@@ -21,13 +22,14 @@ final class CreationViewModel: ObservableObject {
 
     var isBusy: Bool {
         switch state {
-        case .generating, .building: true
+        case .generating, .building, .buildingWorld: true
         default: false
         }
     }
 
     private let client: any LLMClient
     private let compiler: any AddOnCompiling
+    private let worldExporter: any AddOnWorldExporting
     private let artifactDirectoryProvider: @MainActor () throws -> URL
     private let revisionService: AddOnRevisionService
 
@@ -36,6 +38,7 @@ final class CreationViewModel: ObservableObject {
     init(
         apiKey: String,
         compiler: any AddOnCompiling = BedrockAddOnCompiler(),
+        worldExporter: any AddOnWorldExporting = BedrockWorldExporter(),
         client: (any LLMClient)? = nil,
         revisionService: AddOnRevisionService? = nil,
         artifactDirectoryProvider: @escaping @MainActor () throws -> URL = CreationViewModel.defaultArtifactDirectory
@@ -46,6 +49,7 @@ final class CreationViewModel: ObservableObject {
             self.client = CachingLLMClient(wrapping: OpenAIResponsesClient(apiKey: apiKey))
         }
         self.compiler = compiler
+        self.worldExporter = worldExporter
         self.artifactDirectoryProvider = artifactDirectoryProvider
         self.revisionService = revisionService ?? AddOnRevisionService(compiler: compiler)
     }
@@ -75,7 +79,8 @@ final class CreationViewModel: ObservableObject {
         }
     }
 
-    func buildArtifact(_ project: AddOnProject) async {
+    @discardableResult
+    func buildArtifact(_ project: AddOnProject) async -> BedrockCompilationResult? {
         state = .building(project)
         await Task.yield()
         do {
@@ -89,8 +94,37 @@ final class CreationViewModel: ObservableObject {
                 )
             }.value
             state = .built(project, result)
+            return result
         } catch {
             state = .failed(error.localizedDescription)
+            return nil
+        }
+    }
+
+    @discardableResult
+    func buildWorld(
+        project: AddOnProject,
+        addOn: BedrockCompilationResult,
+        gameMode: BedrockWorldGameMode
+    ) async -> BedrockWorldCompilationResult? {
+        state = .buildingWorld(project, addOn, gameMode)
+        await Task.yield()
+        do {
+            let directory = try artifactDirectoryProvider()
+            let worldExporter = worldExporter
+            let result = try await Task.detached(priority: .userInitiated) {
+                try worldExporter.compileWorld(
+                    project: project,
+                    addOn: addOn,
+                    gameMode: gameMode,
+                    outputDirectory: directory
+                )
+            }.value
+            state = .built(project, addOn)
+            return result
+        } catch {
+            state = .failed(error.localizedDescription)
+            return nil
         }
     }
 
@@ -152,7 +186,7 @@ final class CreationViewModel: ObservableObject {
         state = .editing
     }
 
-    private static func defaultArtifactDirectory() throws -> URL {
+    nonisolated private static func defaultArtifactDirectory() throws -> URL {
         let documentsDirectory = try FileManager.default.url(
             for: .documentDirectory,
             in: .userDomainMask,

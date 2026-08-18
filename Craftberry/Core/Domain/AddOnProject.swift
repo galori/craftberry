@@ -214,7 +214,9 @@ public struct ItemDefinition: Codable, Equatable, Sendable {
     public let id: ContentID
     public let displayName: String
     public let menuCategory: ItemMenuCategory
-    public let menuGroup: String
+    /// Optional because Bedrock's generic item category is valid without a group.
+    /// Only assign a group whose namespaced key is confirmed by the pinned samples.
+    public let menuGroup: String?
     public let traits: ItemTraits
     public let visualResourceID: ContentID
 
@@ -222,7 +224,7 @@ public struct ItemDefinition: Codable, Equatable, Sendable {
         id: ContentID,
         displayName: String,
         menuCategory: ItemMenuCategory,
-        menuGroup: String,
+        menuGroup: String?,
         traits: ItemTraits,
         visualResourceID: ContentID
     ) {
@@ -792,7 +794,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
         let ingotID = ContentID("\(stem)_ingot")
         let swordID = ContentID("\(stem)_sword")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
         let sword = ItemDefinition(id: swordID, displayName: swordDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let swordRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_sword_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(swordID), count: 1), unlock: [.generated(ingotID)])
@@ -825,7 +827,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             id: ingotID,
             displayName: "\(material) Ingot",
             menuCategory: .items,
-            menuGroup: "minecraft:itemGroup.name.ingot",
+            menuGroup: nil,
             traits: ItemTraits(),
             visualResourceID: ingotID
         )
@@ -911,7 +913,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             id: ingotID,
             displayName: "\(material) Ingot",
             menuCategory: .items,
-            menuGroup: "minecraft:itemGroup.name.ingot",
+            menuGroup: nil,
             traits: ItemTraits(),
             visualResourceID: ingotID
         )
@@ -996,7 +998,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             id: ingotID,
             displayName: "\(material) Ingot",
             menuCategory: .items,
-            menuGroup: "minecraft:itemGroup.name.ingot",
+            menuGroup: nil,
             traits: ItemTraits(),
             visualResourceID: ingotID
         )
@@ -1148,8 +1150,8 @@ extension AddOnProject {
         let ingotID = ContentID("\(stem)_ingot")
         let blockID = ContentID("\(stem)_block")
         let terrainID = ContentID("\(stem)_block_terrain")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
-        let blockItem = ItemDefinition(id: blockID, displayName: "\(material) Block", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: blockID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
+        let blockItem = ItemDefinition(id: blockID, displayName: "\(material) Block", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 64), visualResourceID: blockID)
         let block = BlockDefinition(id: blockID, displayName: "\(material) Block", destroyTime: destroyTime, mapColor: mapColor, terrainResourceID: terrainID)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let blockRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_block_recipe"), tags: ["crafting_table"], pattern: ["III", "III", "III"], ingredients: ["I": .generated(ingotID)], result: RecipeResult(item: .generated(blockID), count: 1), unlock: [.generated(ingotID)])
@@ -1195,7 +1197,7 @@ extension AddOnProject {
             id: ingotID,
             displayName: "\(material) Ingot",
             menuCategory: .items,
-            menuGroup: "minecraft:itemGroup.name.ingot",
+            menuGroup: nil,
             traits: ItemTraits(),
             visualResourceID: ingotID
         )
@@ -1203,7 +1205,7 @@ extension AddOnProject {
             id: foodID,
             displayName: "\(material) Food",
             menuCategory: .items,
-            menuGroup: "minecraft:itemGroup.name.food",
+            menuGroup: nil,
             traits: ItemTraits(
                 maximumStackSize: 64,
                 food: FoodTrait(nutrition: nutrition, saturationModifier: saturationModifier, canAlwaysEat: canAlwaysEat)
@@ -1214,7 +1216,7 @@ extension AddOnProject {
             id: fuelID,
             displayName: "\(material) Fuel",
             menuCategory: .items,
-            menuGroup: "minecraft:itemGroup.name.fuel",
+            menuGroup: nil,
             traits: ItemTraits(
                 maximumStackSize: 64,
                 fuel: FuelTrait(duration: fuelDuration)
@@ -1283,7 +1285,7 @@ extension AddOnProject {
         let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
         let ingotID = ContentID("\(stem)_ingot")
         let swordID = ContentID("\(stem)_sword")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
         let sword = ItemDefinition(id: swordID, displayName: "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
         let furnaceRecipe = FurnaceRecipeDefinition(id: ContentID("\(stem)_ingot_furnace_recipe"), tags: ["furnace"], input: .vanilla(sourceItem), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let swordRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_sword_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(swordID), count: 1), unlock: [.generated(ingotID)])
@@ -1317,7 +1319,7 @@ extension AddOnProject {
         let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
         let ingotID = ContentID("\(stem)_ingot")
         let swordID = ContentID("\(stem)_sword")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
         let sword = ItemDefinition(id: swordID, displayName: "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1), visualResourceID: swordID)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let smithingTransformRecipe = SmithingTransformRecipeDefinition(
@@ -1371,8 +1373,8 @@ extension AddOnProject {
         let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
         let ingotID = ContentID("\(stem)_ingot")
         let elixirID = ContentID("\(stem)_elixir")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
-        let elixir = ItemDefinition(id: elixirID, displayName: "\(material) Elixir", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.elixir", traits: ItemTraits(maximumStackSize: 16), visualResourceID: elixirID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
+        let elixir = ItemDefinition(id: elixirID, displayName: "\(material) Elixir", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 16), visualResourceID: elixirID)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let brewingMixRecipe = BrewingMixRecipeDefinition(
             id: ContentID("\(stem)_elixir_brewing_mix_recipe"),
@@ -1418,8 +1420,8 @@ extension AddOnProject {
         let ingotID = ContentID("\(stem)_ingot")
         let oreID = ContentID("\(stem)_ore")
         let terrainID = ContentID("\(stem)_ore_terrain")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
-        let oreItem = ItemDefinition(id: oreID, displayName: "\(material) Ore", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: oreID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
+        let oreItem = ItemDefinition(id: oreID, displayName: "\(material) Ore", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 64), visualResourceID: oreID)
         let oreBlock = BlockDefinition(id: oreID, displayName: "\(material) Ore", destroyTime: destroyTime, mapColor: mapColor, terrainResourceID: terrainID, lootDropID: ingotID, growthStages: nil)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let oreRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_ore_recipe"), tags: ["crafting_table"], pattern: ["III", "III", "III"], ingredients: ["I": .generated(ingotID)], result: RecipeResult(item: .generated(oreID), count: 1), unlock: [.generated(ingotID)])
@@ -1451,9 +1453,9 @@ extension AddOnProject {
         let cropID = ContentID("\(stem)_crop")
         let produceID = ContentID("\(stem)_produce")
         let terrainID = ContentID("\(stem)_crop_terrain")
-        let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.seeds", traits: ItemTraits(), visualResourceID: seedID)
-        let produce = ItemDefinition(id: produceID, displayName: "\(material) Produce", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.food", traits: ItemTraits(food: FoodTrait(nutrition: 4, saturationModifier: "0.6")), visualResourceID: produceID)
-        let cropItem = ItemDefinition(id: cropID, displayName: "\(material) Crop", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: cropID)
+        let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: seedID)
+        let produce = ItemDefinition(id: produceID, displayName: "\(material) Produce", menuCategory: .items, menuGroup: nil, traits: ItemTraits(food: FoodTrait(nutrition: 4, saturationModifier: "0.6")), visualResourceID: produceID)
+        let cropItem = ItemDefinition(id: cropID, displayName: "\(material) Crop", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 64), visualResourceID: cropID)
         let cropBlock = BlockDefinition(id: cropID, displayName: "\(material) Crop", destroyTime: 0.5, mapColor: "#5CDBD5", terrainResourceID: terrainID, lootDropID: produceID, growthStages: 8)
         let seedRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_seed_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(seedID), count: 4), unlock: [.vanilla(sourceItem)])
         let visuals = [
@@ -1487,8 +1489,8 @@ extension AddOnProject {
         let ingotID = ContentID("\(stem)_ingot")
         let entityID = ContentID("\(stem)_creature")
         let spawnEggID = ContentID("\(stem)_spawn_egg")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
-        let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.spawnEgg", traits: ItemTraits(maximumStackSize: 16), visualResourceID: spawnEggID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
+        let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 16), visualResourceID: spawnEggID)
         let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: health, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID)
         let spawnRule = SpawnDefinition(id: ContentID("\(stem)_spawn_rule"), entityID: entityID)
         let loot = LootDefinition(id: ContentID("\(stem)_loot"), entityID: entityID, item: .vanilla("minecraft:feather"), minCount: 0, maxCount: 2)
@@ -1526,8 +1528,8 @@ extension AddOnProject {
         let blockID = ContentID("\(stem)_block")
         let terrainID = ContentID("\(stem)_block_terrain")
         let structureID = ContentID("\(stem)_hut")
-        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.ingot", traits: ItemTraits(), visualResourceID: ingotID)
-        let blockItem = ItemDefinition(id: blockID, displayName: "\(material) Block", menuCategory: .items, menuGroup: "minecraft:itemGroup.name.blocks", traits: ItemTraits(maximumStackSize: 64), visualResourceID: blockID)
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
+        let blockItem = ItemDefinition(id: blockID, displayName: "\(material) Block", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 64), visualResourceID: blockID)
         let block = BlockDefinition(id: blockID, displayName: "\(material) Block", destroyTime: destroyTime, mapColor: mapColor, terrainResourceID: terrainID)
         let structure = StructureDefinition(id: structureID, displayName: "\(material) Hut", size: [3, 3, 3], blockID: blockID)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])

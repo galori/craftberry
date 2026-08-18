@@ -209,7 +209,7 @@ public enum AddOnProjectValidator {
                     )
                 )
             }
-            if !item.menuGroup.hasPrefix("minecraft:") {
+            if let menuGroup = item.menuGroup, !menuGroup.hasPrefix("minecraft:") {
                 issues.append(
                     CompilationIssue(
                         severity: .error,

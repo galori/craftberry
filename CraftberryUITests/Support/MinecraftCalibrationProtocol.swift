@@ -151,6 +151,8 @@ extension MinecraftStep.Action {
         switch self {
         case .wait(let s): "wait(\(s))"
         case .tap(let x, let y): "tap(\(x), \(y))"
+        case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let text):
+            "tapUntilText(\(x), \(y); fallback \(fallbackX), \(fallbackY); \(text))"
         case .drag(let x, let y, let endX, let endY): "drag(\(x), \(y) -> \(endX), \(endY))"
         case .swipeUp: "swipeUp"
         case .keyboardText(let t): "keyboardText(\(t))"
