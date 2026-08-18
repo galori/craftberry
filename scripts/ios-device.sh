@@ -12,9 +12,10 @@ PRODUCTS_DIR="$DERIVED_DATA/Build/Products/Debug-iphoneos"
 APP_PATH="$PRODUCTS_DIR/Craftberry.app"
 CLEANUP_SCRIPT="$ROOT_DIR/scripts/minecraft-cleanup.sh"
 
-# A wired, paired phone can report a disconnected CoreDevice tunnel until
-# xcodebuild/devicectl opens it. It is still a valid Xcode destination.
-physical_iphone_filter='[.result.devices[]? | select(.hardwareProperties.platform == "iOS" and .hardwareProperties.deviceType == "iPhone" and .hardwareProperties.reality == "physical" and (.connectionProperties.tunnelState == "connected" or (.connectionProperties.transportType == "wired" and .connectionProperties.pairingState == "paired")))]'
+# A paired phone can report a disconnected CoreDevice tunnel and a
+# localNetwork transport while still being available to Xcode. CoreDevice
+# exposes the connectdevice capability only while that phone is available.
+physical_iphone_filter='[.result.devices[]? | select(.hardwareProperties.platform == "iOS" and .hardwareProperties.deviceType == "iPhone" and .hardwareProperties.reality == "physical" and (.connectionProperties.tunnelState == "connected" or (.connectionProperties.pairingState == "paired" and any(.capabilities[]?; .featureIdentifier == "com.apple.coredevice.feature.connectdevice"))))]'
 
 usage() {
     cat <<USAGE
