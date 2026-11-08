@@ -8,7 +8,7 @@ Status as of 2026-08-10. “Automated” means deterministic local XCTest covera
 |---|---|---:|---|---|---|
 | `bedrock-stable-1.26.30` | `bedrock-samples` `1.26.30.5`, commit `921fafb05c93abeae56c2f2868cd8f942bdbcc0f` | 1.26.30 | Active | Passing locally | Pending |
 
-The profile currently carries the format versions and the small vanilla item catalog required by the foundation slice. Catalog generation from the pinned samples, selective Blockception schema vendoring, license notices for any vendored material, and schema exception tracking are planned before Phase 2 is accepted.
+The profile currently carries the format versions and the small vanilla item catalog required by the foundation slice. Catalog generation from the pinned samples, selective Blockception schema validation covers structure features and feature rules; broader schema coverage and exception tracking remain planned before Phase 2 is accepted.
 
 ## Content support
 
@@ -60,7 +60,7 @@ The profile currently carries the format versions and the small vanilla item cat
 | Material ore (ingot+ore) set generation through OpenAI structured intent | Automated |
 | Material crop (seed+crop+produce) set generation through OpenAI structured intent | Automated |
 | Material structure (ingot+block+hut) set generation through OpenAI structured intent | Automated |
-| Blockception schema lint | Pending |
+| Blockception schema lint | Advisory CI checks generated structure features and feature rules; broader coverage pending |
 | Physical iPhone import and both packs active | Verified for a generated Emerald Test Sword on iPhone 13 Pro / Minecraft 26.40; the complete Craftberry export-to-Minecraft test passed on 2026-08-05 (originally calibrated on iPhone 16e, now migrated to 13 Pro). |
 | Creative crafting, localized name, and in-hand selection | Verified for Emerald Test Sword by the same physical-device test. |
 | Clean Content Log; Survival crafting, appearance, combat, durability | Pending |

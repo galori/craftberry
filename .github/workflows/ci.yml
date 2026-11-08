@@ -25,3 +25,15 @@ jobs:
 
       - name: Verify Xcode project builds
         run: xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+  bedrock-schema-advisory:
+    name: Advisory Bedrock schema validation
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install jsonschema==4.25.1
+      - run: scripts/lint-bedrock-schemas.sh
