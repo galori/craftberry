@@ -22,17 +22,30 @@ If you're troubleshooting something on the physical device where each iteration 
 
 ## Workflow
 
-> ### ⛔ DONE MEANS E2E CREATED *AND* PASSED — NO EXCEPTIONS
-> **After every `ROADMAP.md` increment or new feature set (new content family, item kind, block kind, trait, recipe shape, material, etc.) work is NOT done until you have BOTH created a new E2E scenario for it AND watched that scenario pass on the physical 13 Pro.** That means: (1) add a new `scripts/ios-device.sh minecraft-e2e <scenario>` case that exercises the new capability end-to-end in Minecraft (craft/place/break/interact + clean Content Log + OCR-verified), (2) run it yourself with `scripts/ios-device.sh minecraft-e2e <scenario>` (and `minecraft-e2e-all` when it should be included), (3) iterate until it passes. Do NOT stop to ask the user whether to create or run it — just do it. Do NOT hand it back as "Device acceptance pending — run `DEVICE_ID=… scripts/ios-device.sh …` yourself." Pushing to `main` / opening a PR / declaring the increment shipped before that new E2E is green is incomplete work. **The ONLY acceptable pause is when the device is unavailable** (`scripts/ios-device.sh list` shows no device / tunnel down / locked) — then ask the user for that unblock only ("please unlock/connect the 13 Pro until `scripts/ios-device.sh list` shows it") and the moment it is back, resume and run the E2E yourself.
+### Fast feedback and Minecraft acceptance
 
-> ### ⛔ NEVER STOP SHORT — A TERMINATED OR SKIPPED E2E IS NOT DONE
-> A handoff that says "E2E exceeds the harness limit and was terminated," "UI-level flow is verified, in-world verification is a remaining manual step," or any other "done except the E2E" is **not done**. New features frequently look correct in unit tests and generated JSON while still failing in Minecraft (silent recipe rejection, missing icon, bad `menu_category`, etc.) — only the on-device E2E catches them, so you must validate your own work there. Do not declare the increment done, do not push/PR as shipped, and do not ask the user to run the E2E for you just because a wrapper timed out or you hit a failure.
->
-> **How to run it correctly:**
-> - `scripts/ios-device.sh` itself has **no hard timeout** — `xcodebuild test` runs until the XCTest finishes. If you saw a 360s limit, it was the `muse.bash` wrapper's `yield_time_ms`/`timeout_ms` you passed, not the script. Remove or raise that wrapper limit (e.g. `yield_time_ms: 600000, timeout_ms: 610000`) so the full run can complete — do not treat the wrapper's cutoff as "the E2E is too long."
-> - **Reuse the world by default.** `scripts/ios-device.sh minecraft-e2e <scenario>` (no flag) reuses the existing `craftberry test` world and only cleans Generated-by-Craftberry packs after the run — this is the intended per-feature check (~3–4 min). `--fresh-world` / `--delete-world` deletes and recreates the world + re-activates packs + re-checks the Content Log, adding ~90–120s; use it only when the world is corrupt or you explicitly need a clean slate. For the new slice, run `scripts/ios-device.sh minecraft-e2e <new-scenario>` without the flag; run `minecraft-e2e-all` (no flag) only for the full sweep, which reuses the world between scenarios.
-> - **Run the focused scenario for the slice you just built** — not just old scenarios. If you added `block`, run `minecraft-e2e block`; running only `redstone`/`emerald` does not verify `block`.
-> - If the E2E fails or times out, fix the product/harness and **re-run it yourself** until it passes. A wrapper timeout is a reason to re-run with a larger timeout or without `--fresh-world`, not a reason to hand it back.
+The phone suite found real Bedrock failures that passed local tests, so keep device acceptance for behavior that can only be proven in Minecraft. The old workflow ran all fourteen long device scenarios on every pull request. That serial work delayed useful feedback and repeated setup for features that did not change. Use short, targeted checks while iterating, and save the full sweep for scheduled or milestone runs.
+
+- During implementation, run the smallest relevant Swift test or compiler check. Do not run a phone test for documentation-only changes or changes that cannot affect the generated pack, export path, import flow, or gameplay.
+- Before merge, run the focused `scripts/ios-device.sh minecraft-e2e <scenario>` for a new or changed Minecraft behavior, compiler shape, or export/import path. Pick the scenario that exercises the changed behavior. If several changes share a scenario, run that scenario once after the changes are ready.
+- The agent may group related, low-risk changes into a milestone device run when existing passing scenarios already cover the unchanged behavior. Record the scenarios and reason. Keep each new capability marked as awaiting Minecraft verification until a device scenario exercises its actual in-game behavior and passes.
+- Run `scripts/ios-device.sh minecraft-e2e-all` for a roadmap milestone, a broad compiler or packaging change that affects many content families, a Minecraft/profile upgrade, or a release. GitHub Actions also runs this full suite nightly. Run it sooner when the focused result or change scope shows that a wider check is needed.
+- A scenario must test the behavior it claims to cover. Importing a pack or crafting an intermediate ingot does not prove brewing, fuel use, armor equipment, crop growth, block drops, entity behavior, or structure placement. Add calibrated in-game actions and visible assertions for new behavior. Do not mark device acceptance complete from generated JSON, a successful build, a skipped test, or a timed-out run.
+- `minecraft-e2e redstone` checks the regular `.mcaddon` import and pack activation path. Other feature scenarios use a prepared `.mcworld` with the generated packs already active; they check the feature while avoiding repeated pack-activation menus. This keeps normal import coverage while shortening mechanic checks.
+- Keep generated packs and test worlds clean after every run. Prepared-world checks delete only the exact named Craftberry test world. Do not delete a user's world with a partial-name match.
+- `scripts/ios-device.sh` has no internal wrapper timeout. Give any outer command enough time for one selected scenario to finish, and inspect its `.xcresult` when it fails.
+- If the phone is unavailable, locked, or disconnected, ask the user to restore access. Resume the selected test when the phone is available. Do not replace a required device check with a user handoff.
+- A passing focused check marks only the behavior it exercised. A full suite result applies only to the code revision and Minecraft version recorded with that run.
+
+### Minecraft Dedicated Server checks
+
+Consider Bedrock Dedicated Server as an extra, faster engine-load check only after a small proof shows that it catches faults the Swift checks miss. It can load a prepared world and report content errors in its log. It does not show the client UI, rendering, item appearance, touch behavior, crafting-screen flow, or other client-only behavior. Keep the physical iPhone checks for those outcomes.
+
+- Use a server build that matches the active Bedrock profile. The official server currently runs on Windows and Ubuntu Linux, so it needs a compatible Linux CI runner or a separate test host.
+- Start with a known-good pack and intentionally broken packs. Require the known-good pack to load and the broken cases to fail before treating the server run as a useful gate.
+- Capture the server content log and fail on relevant load errors. Verify pack installation and world pack references as well as process startup.
+- Keep GameTest outside the stable acceptance gate unless the active profile can run it without experimental APIs and repeated trials prove it stable.
+- Treat the server check as an added engine signal. It does not replace the focused phone scenario or the milestone full sweep.
 
 ### Branching — one worktree per task (required)
 
@@ -57,14 +70,14 @@ If you're troubleshooting something on the physical device where each iteration 
   3. Only then, **from the main worktree**, delete the task's worktree (`git -C /Users/gall/workspace/craftberry worktree remove worktrees/<slug>` or `git worktree remove <absolute-path-to-worktree>`) and prune the branch (`git branch -d <branch>`). Do not run `git worktree remove` targeting the worktree that contains your current `pwd`; if you need `--force`, you are likely still inside it — `cd` out first.
   4. `git worktree list` again to confirm removal before starting the next task.
   - If your session is still rooted in the task worktree, do not remove it — create the next task's worktree first or switch sessions, and **ask before deleting any worktree you are currently inside**.
-- E2E device acceptance remains required for `ROADMAP.md` increments per the ⛔ rule above, but it does not replace CI green — both are required.
+- E2E device acceptance remains required for `ROADMAP.md` increments under “Fast feedback and Minecraft acceptance.” It does not replace green CI checks.
 
 ### Required after every change
 
 - Use test-driven development when feasible: add or update a failing test that captures the intended behavior before implementing it, then make it pass. If TDD is not feasible, explain why in the final handoff or PR notes.
 - Run the smallest relevant checks while iterating, then run the full unit-test suite before considering a cohesive change complete: `swift test` or `xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -only-testing:CraftberryTests test`.
 - Run the linter before committing: `scripts/lint.sh` (or `swiftlint lint --strict` if installed). The pre-commit hook runs the same check on staged files — install it with `git config core.hooksPath .githooks` or `scripts/setup-hooks.sh`.
-- After every change, proactively run the focused E2E that covers the touched capability (e.g. `scripts/ios-device.sh minecraft-e2e emerald` for sword, `redstone`/`weapon`/`armor`/`consumable`/`block` for collections) **without `--fresh-world`** (reuses the existing world, ~3–4 min) without asking the user — it is expected, not optional. Use a sufficient `muse.bash` wrapper timeout (≥600s) so the run can finish; the script itself has no timeout. If the change introduced a new ROADMAP increment / feature set, this also means you must have created the new scenario first per the rule above — running only old scenarios does not satisfy it. Report the outcome concisely per the Communication rule (how far it got / what couldn't be verified / why / next step). Never hand the E2E back to the user to run (e.g. "re-connect … then run DEVICE_ID=… scripts/ios-device.sh …"); the agent runs it. If the device is needed to proceed (phone not detected, locked, or tunnel not connected), ask the user only for that unblock ("please unlock / connect the 13 Pro until `scripts/ios-device.sh list` shows it"), then resume and run the E2E yourself.
+- Follow the test scope in “Fast feedback and Minecraft acceptance” above. Run the selected focused device scenario before merging Minecraft behavior changes, and use a milestone run when related scenarios can prove a grouped set of changes. Do not run the full thirteen-scenario suite after every edit.
 - Keep ordinary validation local and side-effect-free. Builds and tests may write ignored derived data or temporary files, but must not modify Minecraft, iOS device data, Xcode user settings, or external services unless the task explicitly requires it.
 - Preserve unrelated or pre-existing worktree changes.
 - Every time a new capability ships (a new content family, item kind, trait, or supported vanilla material), add a handful of new example prompts for it to `ExamplePromptLibrary` in `Craftberry/App/ExamplePromptLibrary.swift`. The welcome screen samples three of these at random and the user can shuffle for three more, so the collection is how players discover what the app can now build. Prompts must stay inside the active capability profile — supported materials only, attack 1–30, durability 50–2,000, names of 32 characters or fewer — so tapping one never lands in `.unsupported`. `ExamplePromptLibraryTests` enforces the collection's size, per-kind coverage, and that every supported material in `GeneratedVanillaItemCatalog` appears in at least one prompt; extending the catalog will fail those tests until prompts are added.
@@ -119,7 +132,7 @@ Bedrock's actual engine validation is stricter than the official docs, stricter 
 
 ## Continuous Integration
 
-- Every PR runs GitHub Actions (see `.github/workflows/ci.yml` and `lint.yml`): unit tests via `swift test` (which runs `CraftberryTests` only) and SwiftLint. Both must be green before auto-merge — they exclude E2E/UI device tests, which are verified locally per the ⛔ rule above.
+- Every PR runs GitHub Actions (see `.github/workflows/ci.yml` and `lint.yml`): unit tests via `swift test` (which runs `CraftberryTests` only) and SwiftLint. Both must be green before auto-merge. Device tests run on the focused or milestone schedule above.
 - Branch protection requires these checks on `main`; the pre-commit hook (`scripts/lint.sh` via `.githooks/pre-commit`) runs the same lint locally before push.
 
 ## Testing
