@@ -1,8 +1,37 @@
 name: E2E (physical device)
 
 on:
-  pull_request:
+  schedule:
+    - cron: "0 10 * * *"
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Select one scenario or the full device suite
+        required: true
+        type: choice
+        default: focused
+        options:
+          - focused
+          - full
+      scenario:
+        description: Scenario to run when suite is focused
+        required: true
+        type: choice
+        default: redstone
+        options:
+          - redstone
+          - emerald
+          - weapon
+          - armor
+          - consumable
+          - block
+          - smithing
+          - furnace
+          - brewing
+          - ore
+          - crop
+          - entity
+          - structure
 
 # Only one E2E run at a time — the single iPhone 13 Pro cannot parallelize.
 concurrency:
@@ -46,13 +75,18 @@ jobs:
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
 
-      - name: Run Minecraft E2E (all scenarios)
+      - name: Run selected Minecraft E2E suite
+        env:
+          E2E_SUITE: ${{ github.event.inputs.suite || 'full' }}
+          E2E_SCENARIO: ${{ github.event.inputs.scenario || 'redstone' }}
         run: |
-          # Reuses the existing "craftberry test" world between scenarios;
-          # only Generated-by-Craftberry packs are cleaned after each run.
-          # The full matrix runs serially on one physical device and can take
-          # up to about 90 minutes, including build and device setup time.
-          scripts/ios-device.sh minecraft-e2e-all
+          # Keep the full suite off the pull-request path. The scheduled run
+          # defaults to full; manual runs can select one focused scenario.
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" || "$E2E_SUITE" == "full" ]]; then
+            scripts/ios-device.sh minecraft-e2e-all
+          else
+            scripts/ios-device.sh minecraft-e2e "$E2E_SCENARIO"
+          fi
 
       - name: Upload xcresult bundles
         if: always()

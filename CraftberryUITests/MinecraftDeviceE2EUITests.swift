@@ -11,15 +11,7 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testCraftberryEmeraldSwordCanBeImportedActivatedAndCrafted() throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
-        #else
-        try MinecraftE2EHarness(testCase: self).run(.emeraldSword)
-        #endif
-    }
-
-    func testCraftberryCreativeWorldCanBeImportedWithPacksAlreadyActive() throws {
+    func testCraftberryEmeraldSwordCanBeCraftedInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
@@ -35,91 +27,91 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneWeaponSetCanBeImportedActivatedAndCraftedIntoSpear() throws {
+    func testCraftberryRedstoneWeaponSetCanCraftSpearInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneWeaponSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneWeaponSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneArmorSetCanBeImportedActivatedAndCraftedIntoBoots() throws {
+    func testCraftberryRedstoneArmorSetCanCraftBootsInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneArmorSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneArmorSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneConsumableSetCanBeImportedActivatedAndCraftedIntoFood() throws {
+    func testCraftberryRedstoneConsumableSetCanCraftFoodInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneConsumableSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneConsumableSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneBlockSetCanBeImportedActivatedAndCraftedIntoBlock() throws {
+    func testCraftberryRedstoneBlockSetCanCraftBlockInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneBlockSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneBlockSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneSmithingSetCanBeImportedActivatedAndCraftedIntoIngot() throws {
+    func testCraftberryRedstoneSmithingSetCanCraftIngotInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneSmithingSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneSmithingSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneFurnaceSetCanBeImportedActivatedAndCraftedIntoSword() throws {
+    func testCraftberryRedstoneFurnaceSetCanCraftSwordInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneFurnaceSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneFurnaceSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneBrewingSetCanBeImportedActivatedAndCraftedIntoIngot() throws {
+    func testCraftberryRedstoneBrewingSetCanCraftIngotInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneBrewingSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneBrewingSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneStructureSetCanBeImportedActivatedAndCraftedIntoBlock() throws {
+    func testCraftberryRedstoneStructureSetCanCraftBlockInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneStructureSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneStructureSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneOreSetCanBeImportedActivatedAndCraftedIntoOre() throws {
+    func testCraftberryRedstoneOreSetCanCraftOreInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneOreSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneOreSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneCropSetCanBeImportedActivatedAndCraftedIntoSeeds() throws {
+    func testCraftberryRedstoneCropSetCanCraftSeedsInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneCropSet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneCropSet, gameMode: .creative)
         #endif
     }
 
-    func testCraftberryRedstoneEntitySetCanBeImportedActivatedAndCraftedIntoSpawnEgg() throws {
+    func testCraftberryRedstoneEntitySetCanCraftSpawnEggInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).run(.redstoneEntitySet)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneEntitySet, gameMode: .creative)
         #endif
     }
 }

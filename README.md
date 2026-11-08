@@ -86,18 +86,19 @@ Direct creative-inventory lookup of the item's localized display name remains a 
 
 ### Full physical-device Minecraft acceptance
 
-`MinecraftDeviceE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe` exercises Craftberry's own deterministic Debug export path, rather than the standalone fixture: it enters **“Generate a redstone tool set crafted from redstone”**, builds and exports the `.mcaddon`, hands it to Minecraft, creates a fresh uniquely marked Creative world, activates both pack halves for that world, crafts a Redstone Ingot from redstone, then crafts a Redstone Pickaxe and verifies the output slot with a calibrated pixel assertion. The existing Emerald Sword acceptance test remains available as a separate physical-device regression test.
+The physical suite checks Craftberry's Debug export path on the dedicated iPhone 13 Pro. The `redstone` scenario exports a `.mcaddon`, imports it into Minecraft, activates both pack halves in a reusable Creative world, and crafts a Redstone Ingot and Pickaxe. The other scenarios export a `.mcworld` with both packs already active, import that world, and check the named in-game output. These focused checks skip the repeated pack-activation menus.
 
 Minecraft coordinate UI changes with the device and Minecraft release. The checked-in [MinecraftDeviceE2EConfig.json](CraftberryUITests/MinecraftDeviceE2EConfig.json) is enabled and calibrated for the dedicated iPhone 13 Pro. Quit iPhone Mirroring, keep rotation lock on, unlock the USB-connected iPhone, and run:
 
 ```sh
-scripts/ios-device.sh minecraft-e2e
+scripts/ios-device.sh minecraft-e2e redstone
 scripts/ios-device.sh minecraft-e2e emerald
+scripts/ios-device.sh minecraft-e2e-all
 ```
 
-The test retains a screenshot after every calibrated action. Recalibrate after any Minecraft UI update. It does not require a prebuilt world or crafting-table fixture: the run creates a fresh world, enables cheats, teleports to a deterministic position, and places its own crafting table.
+Run one focused scenario while developing. Run the full thirteen-scenario suite for a roadmap milestone, a broad compiler or packaging change, a Minecraft update, or a release. GitHub Actions runs the full suite nightly. A manual workflow run can select one focused scenario or the full suite. The workflow does not run the phone suite on every pull request; pull requests still run the Swift unit tests and linter.
 
-After `xcodebuild test` exits, `scripts/ios-device.sh minecraft-e2e` runs `scripts/minecraft-cleanup.sh clean --delete-world --yes`. The XCTest teardown terminates Minecraft first so AFC can read Minecraft's Documents tree reliably, then the Mac-side cleanup deletes Craftberry-generated behavior/resource packs and the `craftberry test` world directly instead of navigating Minecraft's Storage UI.
+Each prepared-world scenario removes its exact named test world before and after the run. The regular `.mcaddon` scenario reuses `craftberry test` and removes only generated packs after the run. In both paths XCTest terminates Minecraft before the Mac-side AFC cleanup. The cleanup script matches prepared test worlds by exact name, so a partial-name match cannot select another world.
 
 ### Interactive calibration (agent and LLDB)
 
