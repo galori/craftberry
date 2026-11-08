@@ -255,6 +255,14 @@ public enum AddOnProjectValidator {
             if item.traits.durability != nil, !profile.supportedItemTraits.contains(.durability) {
                 appendUnsupportedTrait(.durability, itemPath: itemPath, profile: profile, issues: &issues)
             }
+            if let enchantment = item.traits.enchantment {
+                if enchantment.value < 0 || item.menuGroup != "minecraft:itemGroup.name.sword" {
+                    issues.append(CompilationIssue(severity: .error, code: "invalid_enchantment", path: "\(itemPath).traits.enchantment", message: "Sword enchantability must be nonnegative and apply to a sword."))
+                }
+                if !profile.supportedItemTraits.contains(.enchantment) {
+                    appendUnsupportedTrait(.enchantment, itemPath: itemPath, profile: profile, issues: &issues)
+                }
+            }
             if item.traits.handEquipped, !profile.supportedItemTraits.contains(.handEquipped) {
                 appendUnsupportedTrait(.handEquipped, itemPath: itemPath, profile: profile, issues: &issues)
             }

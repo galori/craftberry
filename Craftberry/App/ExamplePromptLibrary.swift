@@ -48,6 +48,9 @@ enum ExamplePromptLibrary {
     ]
 
     private static let materialSwordSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "✨", text: "An enchantable Glacier sword and matching ingot from diamonds"),
+        ExamplePrompt(emoji: "🔮", text: "An enchantable amethyst Duskshard sword with its matching ingot"),
+        ExamplePrompt(emoji: "⚔️", text: "An enchantable iron Ironheart sword and matching ingot"),
         ExamplePrompt(emoji: "🧊", text: "A Glacier ingot and matching sword, from 4 diamonds"),
         ExamplePrompt(emoji: "🍯", text: "A golden Sunforge ingot plus its matching sword"),
         ExamplePrompt(emoji: "🛡️", text: "An iron Ironheart ingot and sword with 14 damage"),
