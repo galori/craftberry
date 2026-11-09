@@ -73,6 +73,7 @@ final class MinecraftE2EHarness {
             "Minecraft did not return to the foreground after the post-import cold launch."
         )
         Thread.sleep(forTimeInterval: 8)
+        dismissMinecraftWelcomeDialogIfPresent(in: minecraft)
         testCase.attachScreenshot("Minecraft cold launch after importing Craftberry's \(scenario.projectName)")
 
         let console = MinecraftDebuggerConsole(
@@ -212,6 +213,7 @@ final class MinecraftE2EHarness {
         minecraft.launch()
         XCTAssertTrue(minecraft.wait(for: .runningForeground, timeout: 30), "Minecraft did not return to the foreground after the world import.")
         Thread.sleep(forTimeInterval: 8)
+        dismissMinecraftWelcomeDialogIfPresent(in: minecraft)
 
         let slices = try configuration.slices()
         let console = MinecraftDebuggerConsole(
@@ -267,6 +269,25 @@ final class MinecraftE2EHarness {
             app.keyboards.element.exists,
             "The on-screen keyboard did not dismiss after tapping Done; it may still be covering the Generate button."
         )
+    }
+
+    /// Minecraft's first cold launch can insert a sign-in welcome dialog over the main menu.
+    /// Dismiss its visible "Maybe later" control by OCR, then verify the main menu is exposed
+    /// before continuing to the world list. This prevents a first-run account prompt from being
+    /// misreported as a failed world import.
+    private func dismissMinecraftWelcomeDialogIfPresent(in minecraft: XCUIApplication) {
+        guard ocr.waitForRecognizedText("Welcome to Minecraft", timeout: 2) else { return }
+        testCase.attachScreenshot("Minecraft first-run welcome sign-in dialog")
+        guard let maybeLater = ocr.waitForRecognizedTextCenter("Maybe later", timeout: 3) else {
+            XCTFail("Minecraft showed its welcome sign-in dialog, but OCR could not locate the 'Maybe later' button.")
+            return
+        }
+        minecraft.coordinate(withNormalizedOffset: CGVector(dx: maybeLater.x, dy: maybeLater.y)).tap()
+        XCTAssertTrue(
+            ocr.waitForRecognizedText("Play", timeout: 10),
+            "The Minecraft welcome sign-in dialog remained visible after tapping 'Maybe later'."
+        )
+        testCase.attachScreenshot("Minecraft main menu after dismissing welcome sign-in dialog")
     }
 
     /// Runs one phased step via the debugger console's before/after checkpoints, attaches the
