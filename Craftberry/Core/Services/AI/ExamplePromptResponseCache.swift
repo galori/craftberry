@@ -849,6 +849,472 @@ enum ExamplePromptResponseCache {
                 originalPrompt: originalPrompt,
                 identity: identity
             )
+        case "A diamond smithing set: upgrade Azure sword at the smithing table":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Azure",
+                color: .blue,
+                sourceItem: "minecraft:diamond",
+                shortDescription: "A diamond Azure ingot and smithing upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An emerald smithing set named Verdant with smithing upgrade":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Verdant",
+                color: .green,
+                sourceItem: "minecraft:emerald",
+                shortDescription: "An emerald Verdant ingot and smithing upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod smithing set named Ember with armor trim":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                shortDescription: "A blaze rod Ember ingot with an armor trim upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz smithing set named Frostbite with smithing sword":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                shortDescription: "A quartz Frostbite ingot and smithing sword.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone smithing set named Pulse upgraded on smithing table":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                shortDescription: "A redstone Pulse ingot and smithing table upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An iron smithing set named Ironclad with smithing trim":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Ironclad",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                shortDescription: "An iron Ironclad ingot with a smithing trim.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A lapis smithing set named Deepsea with smithing upgrade":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Deepsea",
+                color: .blue,
+                sourceItem: "minecraft:lapis_lazuli",
+                shortDescription: "A lapis Deepsea ingot and smithing upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A gold smithing set named Gilded smithing table upgrade":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Gilded",
+                color: .gold,
+                sourceItem: "minecraft:gold_ingot",
+                shortDescription: "A gold Gilded ingot and smithing table upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An amethyst smithing set named Geode with ward trim":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Geode",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                shortDescription: "An amethyst Geode ingot with a ward armor trim.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A netherite smithing set named Warden upgraded via smithing":
+            project = try AddOnProject.materialSmithingSet(
+                materialName: "Warden",
+                color: .black,
+                sourceItem: "minecraft:netherite_ingot",
+                shortDescription: "A netherite Warden ingot and smithing upgrade.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A diamond brewing set: brew Azure elixir at the brewing stand":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Azure",
+                color: .blue,
+                sourceItem: "minecraft:diamond",
+                shortDescription: "A diamond Azure elixir brewed at a brewing stand.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An emerald brewing set named Verdant with elixir brewed from ingot":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Verdant",
+                color: .green,
+                sourceItem: "minecraft:emerald",
+                shortDescription: "An emerald Verdant elixir brewed from its ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod brewing set named Ember with brewing-stand elixir":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                shortDescription: "A blaze rod Ember elixir brewed at a brewing stand.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz brewing set named Frostbite brewed then splashed":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                shortDescription: "A quartz Frostbite elixir that can be brewed then splashed.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone brewing set named Pulse with brewing mix":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                shortDescription: "A redstone Pulse brewing mix and elixir.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An iron brewing set named Ironclad brewed at the stand":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Ironclad",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                shortDescription: "An iron Ironclad elixir brewed at a stand.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A lapis brewing set named Deepsea with potion elixir":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Deepsea",
+                color: .blue,
+                sourceItem: "minecraft:lapis_lazuli",
+                shortDescription: "A lapis Deepsea potion elixir brewed at a stand.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A gold brewing set named Gilded brewed elixir from ingot":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Gilded",
+                color: .gold,
+                sourceItem: "minecraft:gold_ingot",
+                shortDescription: "A gold Gilded elixir brewed from its ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An amethyst brewing set named Geode with brewing mix and container":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Geode",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                shortDescription: "An amethyst Geode brewing mix and container recipes.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A netherite brewing set named Warden brewed elixir splash":
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Warden",
+                color: .black,
+                sourceItem: "minecraft:netherite_ingot",
+                shortDescription: "A netherite Warden elixir with a splash container recipe.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod ore set named Ember with ingot and ore":
+            project = try AddOnProject.materialOreSet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#F0B12D",
+                shortDescription: "A blaze rod Ember ingot and ore.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz ore set named Frostbite with ingot and ore":
+            project = try AddOnProject.materialOreSet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#E9E2D6",
+                shortDescription: "A quartz Frostbite ingot and ore.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone ore set named Pulse with ingot and ore":
+            project = try AddOnProject.materialOreSet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#B01A14",
+                shortDescription: "A redstone Pulse ingot and ore.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod crop set named Ember with seeds and crop":
+            project = try AddOnProject.materialCropSet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                sourceCount: 4,
+                shortDescription: "Blaze rod Ember seeds, crop, and produce.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz crop set named Frostbite seeds and harvest":
+            project = try AddOnProject.materialCropSet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                sourceCount: 4,
+                shortDescription: "Quartz Frostbite seeds, crop, and harvest.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone crop set named Pulse with seeds, crop, and produce":
+            project = try AddOnProject.materialCropSet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                shortDescription: "Redstone Pulse seeds, crop, and produce.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A diamond entity set: Azure ingot plus friendly creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Azure",
+                color: .blue,
+                sourceItem: "minecraft:diamond",
+                sourceCount: 4,
+                shortDescription: "A diamond Azure ingot and friendly creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An emerald entity set named Verdant with a passive creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Verdant",
+                color: .green,
+                sourceItem: "minecraft:emerald",
+                sourceCount: 4,
+                shortDescription: "An emerald Verdant ingot and passive creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod entity set named Ember with a gentle creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                sourceCount: 4,
+                shortDescription: "A blaze rod Ember ingot and gentle creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz entity set named Frostbite with a cute creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                sourceCount: 4,
+                shortDescription: "A quartz Frostbite ingot and cute creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone entity set named Pulse with a friendly mob":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                shortDescription: "A redstone Pulse ingot and friendly mob.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An iron entity set named Ironclad with a passive creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Ironclad",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                sourceCount: 4,
+                shortDescription: "An iron Ironclad ingot and passive creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A lapis entity set named Deepsea with a water-friendly creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Deepsea",
+                color: .blue,
+                sourceItem: "minecraft:lapis_lazuli",
+                sourceCount: 4,
+                shortDescription: "A lapis Deepsea ingot and water-friendly creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A gold entity set named Gilded with a golden creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Gilded",
+                color: .gold,
+                sourceItem: "minecraft:gold_ingot",
+                sourceCount: 4,
+                shortDescription: "A gold Gilded ingot and golden creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An amethyst entity set named Geode with a crystal creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Geode",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                sourceCount: 4,
+                shortDescription: "An amethyst Geode ingot and crystal creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A netherite entity set named Warden with a sturdy creature":
+            project = try AddOnProject.materialEntitySet(
+                materialName: "Warden",
+                color: .black,
+                sourceItem: "minecraft:netherite_ingot",
+                sourceCount: 4,
+                shortDescription: "A netherite Warden ingot and sturdy creature.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A diamond hut structure from 4 diamonds, with Azure Block hut":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Azure",
+                color: .blue,
+                sourceItem: "minecraft:diamond",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#5CDBD5",
+                shortDescription: "A diamond Azure Block hut built from blocks.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An emerald hut named Verdant with 3x3 shelter structure":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Verdant",
+                color: .green,
+                sourceItem: "minecraft:emerald",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#17C37B",
+                shortDescription: "An emerald Verdant shelter structure.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A blaze rod structure hut named Ember with block shelter":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Ember",
+                color: .orange,
+                sourceItem: "minecraft:blaze_rod",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#F0B12D",
+                shortDescription: "A blaze rod Ember block shelter.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A quartz hut structure named Frostbite built from blocks":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Frostbite",
+                color: .white,
+                sourceItem: "minecraft:quartz",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#E9E2D6",
+                shortDescription: "A quartz Frostbite hut built from blocks.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A redstone hut structure named Pulse with 3x3 hut":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#B01A14",
+                shortDescription: "A redstone Pulse hut structure.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An iron hut structure named Ironclad with shelter":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Ironclad",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#C2C2C2",
+                shortDescription: "An iron Ironclad shelter structure.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A lapis hut structure named Deepsea with block hut":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Deepsea",
+                color: .blue,
+                sourceItem: "minecraft:lapis_lazuli",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#224D85",
+                shortDescription: "A lapis Deepsea block hut.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A gold hut structure named Gilded with 3x3 hut":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Gilded",
+                color: .gold,
+                sourceItem: "minecraft:gold_ingot",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#FAEE4D",
+                shortDescription: "A gold Gilded 3x3 hut.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An amethyst hut structure named Geode with shelter":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Geode",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#8B5FE0",
+                shortDescription: "An amethyst Geode shelter.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A netherite hut structure named Warden with 3x3 hut":
+            project = try AddOnProject.materialStructureSet(
+                materialName: "Warden",
+                color: .black,
+                sourceItem: "minecraft:netherite_ingot",
+                sourceCount: 4,
+                destroyTime: 3.0,
+                mapColor: "#443F41",
+                shortDescription: "A netherite Warden 3x3 hut.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
         case "A diamond ore set: Azure ingot plus ore block":
             project = try AddOnProject.materialOreSet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, destroyTime: 3.0, mapColor: "#8A8A8A", shortDescription: "A diamond Azure ingot plus ore block.", originalPrompt: originalPrompt, identity: identity)
         case "An emerald ore set named Verdant with ingot and ore":
@@ -935,10 +1401,56 @@ enum ExamplePromptResponseCache {
             "A gold furnace set named Gilded smelted sword set",
             "An amethyst furnace set named Geode with furnace ingot",
             "A netherite furnace set named Warden smelted ingot plus sword",
+            "A diamond smithing set: upgrade Azure sword at the smithing table",
+            "An emerald smithing set named Verdant with smithing upgrade",
+            "A blaze rod smithing set named Ember with armor trim",
+            "A quartz smithing set named Frostbite with smithing sword",
+            "A redstone smithing set named Pulse upgraded on smithing table",
+            "An iron smithing set named Ironclad with smithing trim",
+            "A lapis smithing set named Deepsea with smithing upgrade",
+            "A gold smithing set named Gilded smithing table upgrade",
+            "An amethyst smithing set named Geode with ward trim",
+            "A netherite smithing set named Warden upgraded via smithing",
+            "A diamond brewing set: brew Azure elixir at the brewing stand",
+            "An emerald brewing set named Verdant with elixir brewed from ingot",
+            "A blaze rod brewing set named Ember with brewing-stand elixir",
+            "A quartz brewing set named Frostbite brewed then splashed",
+            "A redstone brewing set named Pulse with brewing mix",
+            "An iron brewing set named Ironclad brewed at the stand",
+            "A lapis brewing set named Deepsea with potion elixir",
+            "A gold brewing set named Gilded brewed elixir from ingot",
+            "An amethyst brewing set named Geode with brewing mix and container",
+            "A netherite brewing set named Warden brewed elixir splash",
             "A diamond ore set: Azure ingot plus ore block",
             "An emerald ore set named Verdant with ingot and ore",
+            "A blaze rod ore set named Ember with ingot and ore",
+            "A quartz ore set named Frostbite with ingot and ore",
+            "A redstone ore set named Pulse with ingot and ore",
             "A diamond crop set: Azure seeds plus crop and produce",
-            "An emerald crop set named Verdant with seeds and crop"
+            "An emerald crop set named Verdant with seeds and crop",
+            "A blaze rod crop set named Ember with seeds and crop",
+            "A quartz crop set named Frostbite seeds and harvest",
+            "A redstone crop set named Pulse with seeds, crop, and produce",
+            "A diamond entity set: Azure ingot plus friendly creature",
+            "An emerald entity set named Verdant with a passive creature",
+            "A blaze rod entity set named Ember with a gentle creature",
+            "A quartz entity set named Frostbite with a cute creature",
+            "A redstone entity set named Pulse with a friendly mob",
+            "An iron entity set named Ironclad with a passive creature",
+            "A lapis entity set named Deepsea with a water-friendly creature",
+            "A gold entity set named Gilded with a golden creature",
+            "An amethyst entity set named Geode with a crystal creature",
+            "A netherite entity set named Warden with a sturdy creature",
+            "A diamond hut structure from 4 diamonds, with Azure Block hut",
+            "An emerald hut named Verdant with 3x3 shelter structure",
+            "A blaze rod structure hut named Ember with block shelter",
+            "A quartz hut structure named Frostbite built from blocks",
+            "A redstone hut structure named Pulse with 3x3 hut",
+            "An iron hut structure named Ironclad with shelter",
+            "A lapis hut structure named Deepsea with block hut",
+            "A gold hut structure named Gilded with 3x3 hut",
+            "An amethyst hut structure named Geode with shelter",
+            "A netherite hut structure named Warden with 3x3 hut",
         ]
     }
 }
