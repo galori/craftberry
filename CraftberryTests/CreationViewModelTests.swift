@@ -82,6 +82,65 @@ final class CreationViewModelTests: XCTestCase {
         XCTAssertEqual(message, "Duplicate item identifier: \(project.items[0].id.rawValue).")
     }
 
+    func testOpenProjectFromSidecarTransitionsToReady() throws {
+        let project = try makeProject()
+        let sidecarURL = FileManager.default.temporaryDirectory
+            .appending(path: "\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: sidecarURL) }
+        try AddOnProjectStore.save(project, to: sidecarURL)
+        let viewModel = CreationViewModel(apiKey: "")
+
+        viewModel.openProject(from: sidecarURL)
+
+        guard case .ready(let loadedProject) = viewModel.state else {
+            return XCTFail("Expected ready state after opening a sidecar, got \(viewModel.state)")
+        }
+        XCTAssertEqual(loadedProject, project)
+        XCTAssertNil(viewModel.projectFileError)
+    }
+
+    func testOpenProjectRejectsIncompatibleProfileWithoutReplacingCurrentState() throws {
+        let project = try makeProject()
+        let incompatible = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: "bedrock-stable-incompatible",
+            originalPrompt: project.originalPrompt,
+            content: project.content
+        )
+        let sidecarURL = FileManager.default.temporaryDirectory
+            .appending(path: "\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: sidecarURL) }
+        try AddOnProjectStore.save(incompatible, to: sidecarURL)
+        let viewModel = CreationViewModel(apiKey: "")
+
+        viewModel.openProject(from: sidecarURL)
+
+        guard case .editing = viewModel.state else {
+            return XCTFail("Invalid sidecar must not replace the current screen state.")
+        }
+        XCTAssertTrue(viewModel.projectFileError?.contains("migrate") == true)
+    }
+
+    func testOpenProjectReportsMalformedSidecar() throws {
+        let sidecarURL = FileManager.default.temporaryDirectory
+            .appending(path: "\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: sidecarURL) }
+        try Data("not a project".utf8).write(to: sidecarURL)
+        let viewModel = CreationViewModel(apiKey: "")
+
+        viewModel.openProject(from: sidecarURL)
+
+        XCTAssertTrue(viewModel.projectFileError?.contains("Craftberry project") == true)
+        guard case .editing = viewModel.state else {
+            return XCTFail("Malformed sidecar must not replace the current screen state.")
+        }
+    }
+
     func testBuildTransitionsToFailedWhenTheCompilerFails() async throws {
         let project = try makeProject()
         let viewModel = CreationViewModel(

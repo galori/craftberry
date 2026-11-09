@@ -35,6 +35,7 @@ final class CreationViewModel: ObservableObject {
 
     @Published private(set) var lastRevisionSummary: ChangeSummary?
     @Published private(set) var revisionError: String?
+    @Published private(set) var projectFileError: String?
 
     init(
         apiKey: String,
@@ -129,8 +130,42 @@ final class CreationViewModel: ObservableObject {
         }
     }
 
-    func loadProject(from sidecarURL: URL) -> AddOnProject? {
-        try? revisionService.loadProject(from: sidecarURL)
+    func openProject(from sidecarURL: URL) {
+        do {
+            let project = try revisionService.loadProject(from: sidecarURL)
+            let report = AddOnProjectValidator.validate(project, profile: .current)
+            guard report.isSuccessful else {
+                projectFileError = report.errors.map(\.message).joined(separator: " ")
+                return
+            }
+            lastRevisionSummary = nil
+            revisionError = nil
+            projectFileError = nil
+            state = .ready(project)
+        } catch {
+            projectFileError = "This file isn't a valid Craftberry project sidecar. \(error.localizedDescription)"
+        }
+    }
+
+    func saveProjectSidecar(for project: AddOnProject) -> URL? {
+        do {
+            let outputDirectory = try artifactDirectoryProvider()
+            let sidecarURL = AddOnProjectStore.sidecarURL(for: project.id, in: outputDirectory)
+            try AddOnProjectStore.save(project, to: sidecarURL)
+            projectFileError = nil
+            return sidecarURL
+        } catch {
+            reportProjectFileError(error)
+            return nil
+        }
+    }
+
+    func clearProjectFileError() {
+        projectFileError = nil
+    }
+
+    func reportProjectFileError(_ error: Error) {
+        projectFileError = "Couldn't access the selected project file. \(error.localizedDescription)"
     }
 
     func revise(project baseProject: AddOnProject, newPrompt: String) async {
@@ -188,6 +223,7 @@ final class CreationViewModel: ObservableObject {
     func reset() {
         lastRevisionSummary = nil
         revisionError = nil
+        projectFileError = nil
         state = .editing
     }
 
