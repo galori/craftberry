@@ -1449,6 +1449,10 @@ enum ExamplePromptResponseCache {
             "A gold entity set named Gilded with a golden creature",
             "An amethyst entity set named Geode with a crystal creature",
             "A netherite entity set named Warden with a sturdy creature",
+            "A diamond hostile creature set with a player-attacking Azure mob",
+            "An emerald hostile entity set named Verdant that attacks players",
+            "A quartz hostile mob set named Frostbite that attacks the player",
+            "A redstone hostile creature set named Pulse with 24 health",
             "A diamond hut structure from 4 diamonds, with Azure Block hut",
             "An emerald hut named Verdant with 3x3 shelter structure",
             "A blaze rod structure hut named Ember with block shelter",
@@ -1458,11 +1462,7 @@ enum ExamplePromptResponseCache {
             "A lapis hut structure named Deepsea with block hut",
             "A gold hut structure named Gilded with 3x3 hut",
             "An amethyst hut structure named Geode with shelter",
-            "A netherite hut structure named Warden with 3x3 hut",
-            "A diamond hostile creature set with a player-attacking Azure mob",
-            "An emerald hostile entity set named Verdant that attacks players",
-            "A quartz hostile mob set named Frostbite that attacks the player",
-            "A redstone hostile creature set named Pulse with 24 health"
+            "A netherite hut structure named Warden with 3x3 hut"
         ]
     }
 }
