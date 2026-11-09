@@ -405,8 +405,10 @@ final class BedrockCompilerTests: XCTestCase {
 
         XCTAssertEqual(world.artifact.fileName, "azure_sword_a1b2c3_creative.mcworld")
         XCTAssertTrue(archive.contains { $0.path == "level.dat" })
-        XCTAssertTrue(archive.contains { $0.path == "db/CURRENT" })
-        XCTAssertTrue(archive.contains { $0.path == "db/MANIFEST-000001" })
+        let currentDatabaseManifest = try XCTUnwrap(archive.first { $0.path == "db/CURRENT" })
+        let manifestName = String(decoding: currentDatabaseManifest.data, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertTrue(archive.contains { $0.path == "db/\(manifestName)" })
         XCTAssertEqual(String(decoding: try XCTUnwrap(archive.first { $0.path == "levelname.txt" }).data, as: UTF8.self), "Azure Sword (Creative)")
         XCTAssertTrue(archive.contains { $0.path == "behavior_packs/azure_sword_a1b2c3_behavior/manifest.json" })
         XCTAssertTrue(archive.contains { $0.path == "resource_packs/azure_sword_a1b2c3_resources/manifest.json" })
