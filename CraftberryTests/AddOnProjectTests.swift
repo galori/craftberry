@@ -585,7 +585,8 @@ final class AddOnProjectTests: XCTestCase {
                 combat: CombatTrait(attackBonus: 31),
                 durability: DurabilityTrait(maximum: 0),
                 handEquipped: true,
-                maximumStackSize: 65
+                maximumStackSize: 65,
+                enchantment: EnchantmentTrait(value: -1)
             ),
             visualResourceID: item.visualResourceID
         )
@@ -613,7 +614,7 @@ final class AddOnProjectTests: XCTestCase {
 
         XCTAssertEqual(
             Set<String>(report.errors.map(\.code)),
-            ["duplicate_pack_uuid", "invalid_attack_bonus", "invalid_durability", "invalid_stack_size"]
+            ["duplicate_pack_uuid", "invalid_attack_bonus", "invalid_durability", "invalid_stack_size", "invalid_enchantment"]
         )
     }
 

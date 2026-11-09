@@ -70,6 +70,7 @@ struct ItemDocument: Encodable {
         let wearable: Wearable?
         let food: Food?
         let fuel: Fuel?
+        let enchantable: Enchantable?
 
         enum CodingKeys: String, CodingKey {
             case displayName = "minecraft:display_name"
@@ -81,6 +82,7 @@ struct ItemDocument: Encodable {
             case wearable = "minecraft:wearable"
             case food = "minecraft:food"
             case fuel = "minecraft:fuel"
+            case enchantable = "minecraft:enchantable"
         }
     }
 
@@ -105,6 +107,8 @@ struct ItemDocument: Encodable {
             case canAlwaysEat = "can_always_eat"
         }
     }
+
+    struct Enchantable: Encodable { let slot: String; let value: Int }
 
     struct Fuel: Encodable {
         let duration: Double

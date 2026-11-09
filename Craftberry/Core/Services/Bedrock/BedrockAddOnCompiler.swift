@@ -341,7 +341,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                                 canAlwaysEat: $0.canAlwaysEat ? true : nil
                             )
                         },
-                        fuel: item.traits.fuel.map { ItemDocument.Fuel(duration: $0.duration) }
+                        fuel: item.traits.fuel.map { ItemDocument.Fuel(duration: $0.duration) },
+                        enchantable: item.traits.enchantment.map { ItemDocument.Enchantable(slot: "sword", value: $0.value) }
                     )
                 )
             )

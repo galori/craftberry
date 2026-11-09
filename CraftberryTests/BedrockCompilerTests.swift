@@ -242,6 +242,12 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual((recipe["result"] as? [String: Any])?["item"] as? String, "craftberry:azure_a1b2c3_ingot")
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_ingot.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_sword.json" })
+        let sword = try json(named: "items/azure_a1b2c3_sword.json", in: behavior)
+        let body = try XCTUnwrap(sword["minecraft:item"] as? [String: Any])
+        let components = try XCTUnwrap(body["components"] as? [String: Any])
+        let enchantable = try XCTUnwrap(components["minecraft:enchantable"] as? [String: Any])
+        XCTAssertEqual(enchantable["slot"] as? String, "sword")
+        XCTAssertEqual(enchantable["value"] as? Int, 10)
     }
     func testCompilerPersistsProjectSidecarBesideVersionedBuild() throws {
         let project = try makeProject()
