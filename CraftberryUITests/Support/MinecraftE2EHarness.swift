@@ -295,7 +295,6 @@ final class MinecraftE2EHarness {
             app.otherElements.matching(label).firstMatch,
             app.staticTexts.matching(label).firstMatch
         ]
-
         let deadline = Date().addingTimeInterval(12)
         repeat {
             for candidate in candidates where candidate.exists && candidate.isHittable {
@@ -305,7 +304,9 @@ final class MinecraftE2EHarness {
             usleep(200_000)
         } while Date() < deadline
 
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.385, dy: 0.460)).tap()
+        testCase.attachScreenshot("Minecraft share destination unavailable")
+        testCase.attachAccessibilityTree("Share sheet missing Minecraft destination", app: app)
+        throw MinecraftE2EError.unavailableElement("Minecraft share destination")
     }
 
     private func loadConfiguration() throws -> MinecraftE2EConfiguration {
