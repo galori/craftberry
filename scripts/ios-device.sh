@@ -25,7 +25,7 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|structure] [--fresh-world|--delete-world]
+  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|structure] [--fresh-world|--delete-world]
           Run a full Craftberry-to-Minecraft acceptance test, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
@@ -271,6 +271,11 @@ minecraft_e2e_on_device() {
             result_name="MinecraftDeviceEmeraldSwordE2EUITests"
             prepared_world_name="Emerald Test Sword (Creative)"
             ;;
+        share)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryShareTargetOpensMinecraftAndImportsWorld"
+            result_name="MinecraftShareTargetE2EUITests"
+            prepared_world_name="Emerald Test Sword (Creative)"
+            ;;
         weapon)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneWeaponSetCanCraftSpearInImportedCreativeWorld"
             result_name="MinecraftRedstoneWeaponSetE2EUITests"
@@ -327,7 +332,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, or structure)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, or structure)." >&2
             exit 1
             ;;
     esac

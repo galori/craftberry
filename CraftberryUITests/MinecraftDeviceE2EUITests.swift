@@ -19,6 +19,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryShareTargetOpensMinecraftAndImportsWorld() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This share/import check requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorldImportOnly(.emeraldSword, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
