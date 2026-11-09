@@ -29,8 +29,9 @@ final class CachingLLMClientTests: XCTestCase {
     func testAllCachedPromptsMatchLibrary() {
         #if canImport(Craftberry)
         let library = Set(ExamplePromptLibrary.all.map(\.text))
-        let cached = Set(ExamplePromptResponseCache.allCachedPrompts)
-        XCTAssertEqual(library, cached, "ExamplePromptResponseCache must stay in sync with ExamplePromptLibrary")
+        let cached = ExamplePromptResponseCache.allCachedPrompts
+        XCTAssertEqual(cached, ExamplePromptLibrary.all.map(\.text), "ExamplePromptResponseCache must stay in sync with ExamplePromptLibrary without missing or duplicate entries")
+        XCTAssertEqual(Set(cached), library, "Every library prompt must have a cached response")
         #endif
     }
 
@@ -46,6 +47,18 @@ final class CachingLLMClientTests: XCTestCase {
         XCTAssertNotEqual(first.project?.id, second.project?.id, "Each call should get fresh identity")
         let c2 = await counting.callCount(for: prompt)
         XCTAssertEqual(c2, 0)
+    }
+
+    func testEveryExamplePromptIsServedFromCacheWithoutCallingWrappedClient() async throws {
+        let counting = CountingLLMClient()
+        let caching = CachingLLMClient(wrapping: counting, identityGenerator: { .generate() })
+
+        for prompt in ExamplePromptResponseCache.allCachedPrompts {
+            let generation = try await caching.generateProject(from: prompt)
+            XCTAssertNotNil(generation.project, "Expected cached project for: \(prompt)")
+            let callCount = await counting.callCount(for: prompt)
+            XCTAssertEqual(callCount, 0, "Example prompt should not call the wrapped client: \(prompt)")
+        }
     }
 
     func testCachingClientCachesNonExamplePromptsAfterFirstNetworkCall() async throws {
