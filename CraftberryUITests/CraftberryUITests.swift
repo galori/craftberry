@@ -87,6 +87,39 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Redstone"].waitForExistence(timeout: 2))
     }
 
+    func testDeterministicRevisionKeepsProjectAndShowsBuildSummary() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-revision-flow"]
+        app.launch()
+
+        XCTAssertTrue(waitForElement("craftberry.state.editing", in: app, timeout: 8))
+        let prompt = app.textViews["craftberry.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText("Create a cyan test sword")
+        dismissKeyboardIfPresent(in: app)
+
+        app.buttons["craftberry.generate"].tap()
+        XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
+        XCTAssertTrue(app.staticTexts["Cyan Test Sword"].waitForExistence(timeout: 2))
+
+        app.buttons["craftberry.reviseProject"].tap()
+        let revisionPrompt = app.textViews["craftberry.revisionPrompt"]
+        XCTAssertTrue(revisionPrompt.waitForExistence(timeout: 3))
+        revisionPrompt.tap()
+        revisionPrompt.typeText("Increase the sword's damage")
+        app.buttons["craftberry.dismissRevisionKeyboard"].tap()
+
+        app.buttons["craftberry.applyRevision"].tap()
+
+        XCTAssertTrue(waitForElement("craftberry.state.built", in: app, timeout: 12))
+        let summary = app.descendants(matching: .any)["craftberry.revisionSummary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 3))
+        XCTAssertTrue(summary.label.contains("Build version 1.0.1"))
+        XCTAssertTrue(summary.label.contains("changed"), "Unexpected revision summary: \(summary.label)")
+        XCTAssertTrue(app.staticTexts["Cyan Test Sword"].waitForExistence(timeout: 2))
+    }
+
     func testShufflingExamplePromptsShowsDifferentSuggestions() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]
