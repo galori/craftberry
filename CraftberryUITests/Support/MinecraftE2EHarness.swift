@@ -165,6 +165,45 @@ final class MinecraftE2EHarness {
         }
     }
 
+    func runPreconfiguredWorldImportOnly(_ scenario: MinecraftE2EScenario, gameMode: MinecraftWorldGameMode) throws {
+        let craftberry = XCUIApplication()
+        craftberry.launchArguments = [
+            "--ui-testing",
+            scenario.launchArgument,
+            "--ui-testing-fresh-pack-identity"
+        ]
+        craftberry.launch()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
+
+        let prompt = craftberry.textViews["craftberry.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText(scenario.prompt)
+        try dismissKeyboard(in: craftberry)
+        craftberry.buttons["craftberry.generate"].tap()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+
+        craftberry.buttons["craftberry.exportWorld"].tap()
+        let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
+        XCTAssertTrue(modeButton.waitForExistence(timeout: 3), "The world game-mode menu did not expose \(gameMode.rawValue).")
+        modeButton.tap()
+        XCTAssertTrue(testCase.waitForAppElement("craftberry.state.built", in: craftberry, timeout: 15))
+        try tapMinecraftShareDestination(in: craftberry)
+
+        let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
+        testCase.addTeardownBlock { [testCase] in
+            minecraft.terminate()
+            testCase.attachScreenshot("Minecraft terminated before share/import cleanup")
+        }
+        XCTAssertTrue(minecraft.wait(for: .runningForeground, timeout: 30), "Minecraft did not open after exporting the preconfigured .mcworld.")
+        testCase.attachScreenshot("Minecraft after selecting the Craftberry share destination")
+        XCTAssertTrue(
+            ocr.waitForRecognizedText("World import finished successfully", timeout: 20),
+            "Minecraft did not visibly confirm the preconfigured world import."
+        )
+        testCase.attachScreenshot("Minecraft confirmed the preconfigured world import")
+    }
+
     func runPreconfiguredWorld(_ scenario: MinecraftE2EScenario, gameMode: MinecraftWorldGameMode) throws {
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
