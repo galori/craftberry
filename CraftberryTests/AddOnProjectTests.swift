@@ -194,6 +194,22 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
     }
 
+    func testMaterialHostileEntitySetUsesHostileArchetype() throws {
+        let project = try AddOnProject.materialHostileEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 24,
+            originalPrompt: "hostile entity",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(project.entities.count, 1)
+        XCTAssertEqual(project.entities[0].archetype, .hostile)
+        XCTAssertEqual(project.entities[0].health, 24)
+        XCTAssertEqual(project.entities[0].displayName, "Azure Creature")
+    }
+
     func testRecipeBookRowsCoverMaterialSwordSet() throws {
         let project = try AddOnProject.materialSwordSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "Azure diamond material set", identity: testIdentity())
         let book = RecipeBook(project: project)

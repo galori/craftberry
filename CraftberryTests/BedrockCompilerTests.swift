@@ -696,6 +696,67 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertNotNil(textureData["azure_a1b2c3_spawn_egg"])
     }
 
+    func testCompilerEmitsHostilePlayerTargetingBehaviorPinnedToZombieSample() throws {
+        let project = try AddOnProject.materialHostileEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 24,
+            originalPrompt: "hostile entity",
+            identity: makeIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let entity = try json(named: "entities/azure_a1b2c3_creature.json", in: behavior)
+        let entityBody = try XCTUnwrap(entity["minecraft:entity"] as? [String: Any])
+        let description = try XCTUnwrap(entityBody["description"] as? [String: Any])
+        XCTAssertEqual(description["spawn_category"] as? String, "monster")
+        let components = try XCTUnwrap(entityBody["components"] as? [String: Any])
+        let typeFamily = try XCTUnwrap(components["minecraft:type_family"] as? [String: Any])
+        XCTAssertEqual(typeFamily["family"] as? [String], ["azure_a1b2c3_creature", "monster", "mob"])
+        let attack = try XCTUnwrap(components["minecraft:attack"] as? [String: Any])
+        XCTAssertEqual(attack["damage"] as? Int, 3)
+        XCTAssertNotNil(components["minecraft:behavior.melee_box_attack"])
+        let target = try XCTUnwrap(components["minecraft:behavior.nearest_attackable_target"] as? [String: Any])
+        XCTAssertEqual(target["must_see"] as? Bool, true)
+        let entityTypes = try XCTUnwrap(target["entity_types"] as? [[String: Any]])
+        let filters = try XCTUnwrap(entityTypes.first?["filters"] as? [String: Any])
+        let anyOf = try XCTUnwrap(filters["any_of"] as? [[String: Any]])
+        XCTAssertEqual(anyOf.first?["value"] as? String, "player")
+
+        let spawn = try json(named: "spawn_rules/azure_a1b2c3_spawn_rule.json", in: behavior)
+        let spawnRules = try XCTUnwrap(spawn["minecraft:spawn_rules"] as? [String: Any])
+        let spawnDescription = try XCTUnwrap(spawnRules["description"] as? [String: Any])
+        XCTAssertEqual(spawnDescription["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
+        XCTAssertEqual(spawnDescription["population_control"] as? String, "monster")
+        let conditions = try XCTUnwrap(spawnRules["conditions"] as? [[String: Any]])
+        let condition = try XCTUnwrap(conditions.first)
+        XCTAssertNotNil(condition["minecraft:spawns_on_surface"] as? [String: Any])
+        XCTAssertNotNil(condition["minecraft:spawns_underground"] as? [String: Any])
+        XCTAssertNil(condition["minecraft:spawns_on_block_filter"])
+        XCTAssertNil(condition["minecraft:herd"])
+        let difficulty = try XCTUnwrap(condition["minecraft:difficulty_filter"] as? [String: Any])
+        XCTAssertEqual(difficulty["min"] as? String, "easy")
+        XCTAssertEqual(difficulty["max"] as? String, "hard")
+        let weight = try XCTUnwrap(condition["minecraft:weight"] as? [String: Any])
+        XCTAssertEqual(weight["default"] as? Int, 100)
+        let biomeFilter = try XCTUnwrap(condition["minecraft:biome_filter"] as? [String: Any])
+        let allOf = try XCTUnwrap(biomeFilter["all_of"] as? [[String: Any]])
+        XCTAssertEqual(allOf.count, 2)
+        XCTAssertEqual(allOf[0]["test"] as? String, "has_biome_tag")
+        XCTAssertNil(allOf[0]["operator"])
+        XCTAssertEqual(allOf[0]["value"] as? String, "monster")
+        XCTAssertEqual(allOf[1]["operator"] as? String, "!=")
+        XCTAssertEqual(allOf[1]["value"] as? String, "sulfur_caves")
+        let brightness = try XCTUnwrap(condition["minecraft:brightness_filter"] as? [String: Any])
+        XCTAssertEqual(brightness["min"] as? Int, 0)
+        XCTAssertEqual(brightness["max"] as? Int, 7)
+        XCTAssertEqual(brightness["adjust_for_weather"] as? Bool, true)
+    }
+
     func testCompilerEmitsMaterialStructureSetWithHutAndFeature() throws {
         let project = try AddOnProject.materialStructureSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "hut", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
