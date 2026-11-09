@@ -34,6 +34,7 @@ final class CreationViewModel: ObservableObject {
     private let revisionService: AddOnRevisionService
 
     @Published private(set) var lastRevisionSummary: ChangeSummary?
+    @Published private(set) var revisionError: String?
 
     init(
         apiKey: String,
@@ -135,9 +136,11 @@ final class CreationViewModel: ObservableObject {
     func revise(project baseProject: AddOnProject, newPrompt: String) async {
         let trimmed = newPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            state = .failed("Describe the revision you want to make.")
+            revisionError = "Describe the revision you want to make."
             return
         }
+        let previousState = state
+        revisionError = nil
         state = .generating
         do {
             let directory = try artifactDirectoryProvider()
@@ -152,7 +155,8 @@ final class CreationViewModel: ObservableObject {
             lastRevisionSummary = result.changeSummary
             state = .built(result.project, result.compilationResult)
         } catch {
-            state = .failed(error.localizedDescription)
+            state = previousState
+            revisionError = error.localizedDescription
         }
     }
 
@@ -183,6 +187,7 @@ final class CreationViewModel: ObservableObject {
 
     func reset() {
         lastRevisionSummary = nil
+        revisionError = nil
         state = .editing
     }
 

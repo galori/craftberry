@@ -7,9 +7,11 @@ import CraftberryCore
 
 struct CreationView: View {
     @ObservedObject var viewModel: CreationViewModel
-    @State private var shareItem: ShareItem?
+    @State private var presentedSheet: PresentedSheet?
+    @State private var revisionPrompt = ""
     @State private var suggestions = ExamplePromptLibrary.selection()
     @FocusState private var isPromptFocused: Bool
+    @FocusState private var isRevisionPromptFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -24,6 +26,14 @@ struct CreationView: View {
                     }
                 }
             }
+            .sheet(item: $presentedSheet) { sheet in
+                switch sheet {
+                case .share(let item):
+                    ActivitySheet(url: item.url)
+                case .revision(let project, _):
+                    revisionSheet(for: project)
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -34,9 +44,6 @@ struct CreationView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .sheet(item: $shareItem) { item in
-            ActivitySheet(url: item.url)
-        }
     }
 
     private var appHeader: some View {
@@ -224,6 +231,10 @@ struct CreationView: View {
                         .foregroundStyle(Color.craftberryGold)
                 }
 
+                if let summary = viewModel.lastRevisionSummary {
+                    revisionSummary(summary, project: project)
+                }
+
                 hero(summary.visualResource)
 
                 HStack(alignment: .center) {
@@ -254,6 +265,15 @@ struct CreationView: View {
                     .accessibilityIdentifier("craftberry.recipeBook")
 
                 Button {
+                    revisionPrompt = ""
+                    presentedSheet = .revision(project, UUID())
+                } label: {
+                    Label("Revise this add-on", systemImage: "pencil.line")
+                }
+                .buttonStyle(CraftberrySecondaryButtonStyle())
+                .accessibilityIdentifier("craftberry.reviseProject")
+
+                Button {
                     exportAddOn(project: project, existingResult: result)
                 } label: {
                     Label("Export to Minecraft", systemImage: "square.and.arrow.up")
@@ -280,7 +300,7 @@ struct CreationView: View {
 
                 if result != nil {
                     Button {
-                        shareItem = ShareItem(url: result!.artifact.url)
+                        presentedSheet = .share(ShareItem(url: result!.artifact.url))
                     } label: {
                         Label("Save .mcaddon", systemImage: "square.and.arrow.down")
                     }
@@ -303,6 +323,90 @@ struct CreationView: View {
         }
     }
 
+    private func revisionSheet(for project: AddOnProject) -> some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Describe the change you want. Craftberry will keep this project’s identity and create the next build version.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.craftberryMuted)
+
+                TextEditor(text: $revisionPrompt)
+                    .scrollContentBackground(.hidden)
+                    .foregroundStyle(.white)
+                    .frame(minHeight: 110)
+                    .padding(10)
+                    .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 14))
+                    .focused($isRevisionPromptFocused)
+                    .accessibilityLabel("Revision instructions")
+                    .accessibilityIdentifier("craftberry.revisionPrompt")
+
+                if let error = viewModel.revisionError {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(Color.craftberryOrange)
+                        .accessibilityIdentifier("craftberry.revisionError")
+                }
+
+                Button {
+                    Task {
+                        await viewModel.revise(project: project, newPrompt: revisionPrompt)
+                        if case .built = viewModel.state {
+                            presentedSheet = nil
+                            revisionPrompt = ""
+                        }
+                    }
+                } label: {
+                    Label("Apply revision", systemImage: "arrow.triangle.2.circlepath")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CraftberryPrimaryButtonStyle())
+                .disabled(viewModel.isBusy || revisionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("craftberry.applyRevision")
+
+                Spacer(minLength: 0)
+            }
+            .padding(22)
+            .background(Color.craftberryBackground.ignoresSafeArea())
+            .navigationTitle("Revise add-on")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { presentedSheet = nil }
+                        .disabled(viewModel.isBusy)
+                        .accessibilityIdentifier("craftberry.cancelRevision")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { isRevisionPromptFocused = false }
+                        .accessibilityIdentifier("craftberry.dismissRevisionKeyboard")
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .presentationDetents([.medium, .large])
+        .interactiveDismissDisabled(viewModel.isBusy)
+    }
+
+    private func revisionSummary(_ summary: ChangeSummary, project: AddOnProject) -> some View {
+        let version = project.buildVersion.components.map(String.init).joined(separator: ".")
+        let detail = summary.isEmpty
+            ? "No content changes were detected."
+            : "\(summary.added.count) added · \(summary.modified.count) changed · \(summary.removed.count) removed"
+        return VStack(alignment: .leading, spacing: 5) {
+            Text("Revision complete")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+            Text("Build version \(version) · \(detail)")
+                .font(.footnote)
+                .foregroundStyle(Color.craftberryMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.craftberrySurface, in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("craftberry.revisionSummary")
+    }
+
     private func exportAddOn(project: AddOnProject, existingResult: BedrockCompilationResult?) {
         Task {
             let result: BedrockCompilationResult?
@@ -312,7 +416,7 @@ struct CreationView: View {
                 result = await viewModel.buildArtifact(project)
             }
             guard let result else { return }
-            shareItem = ShareItem(url: result.artifact.url)
+            presentedSheet = .share(ShareItem(url: result.artifact.url))
         }
     }
 
@@ -331,7 +435,7 @@ struct CreationView: View {
             guard let addOn,
                   let world = await viewModel.buildWorld(project: project, addOn: addOn, gameMode: gameMode)
             else { return }
-            shareItem = ShareItem(url: world.artifact.url)
+            presentedSheet = .share(ShareItem(url: world.artifact.url))
         }
     }
 
@@ -955,5 +1059,17 @@ private struct ActivitySheet: UIViewControllerRepresentable {
 private struct ShareItem: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+private enum PresentedSheet: Identifiable {
+    case share(ShareItem)
+    case revision(AddOnProject, UUID)
+
+    var id: String {
+        switch self {
+        case .share(let item): "share:\(item.id)"
+        case .revision(_, let id): "revision:\(id.uuidString)"
+        }
+    }
 }
 #endif
