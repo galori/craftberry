@@ -230,13 +230,21 @@ final class MinecraftE2EHarness {
             run(step, using: console)
         }
         let visibleWorldName = scenario.projectName.split(separator: " ").prefix(2).joined(separator: " ")
-        XCTAssertTrue(
-            ocr.waitForRecognizedText(visibleWorldName, timeout: 10),
-            "The imported preconfigured world was not visible in Minecraft's world list."
+        testCase.attachScreenshot("World list before opening the imported world")
+        let openImportedWorld = MinecraftPhasedStep(
+            id: "config:open-imported-world",
+            name: "Open the imported \(visibleWorldName) world from its OCR-matched row",
+            action: .tapTextRow(x: 0.16, text: visibleWorldName)
         )
-        // Tap the first card's thumbnail to launch it. The shared device flow's nearby coordinate
-        // at (0.2315, 0.6829) is the pencil/edit affordance, which opens Edit World instead.
-        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.16, dy: 0.45)).tap()
+        let openResult = executor.execute(
+            openImportedWorld,
+            in: minecraft,
+            resolve: { self.resolved($0, scenario: scenario) }
+        )
+        XCTAssertTrue(
+            openResult.succeeded,
+            openResult.failureReason ?? "The imported preconfigured world was not visible in Minecraft's world list."
+        )
         Thread.sleep(forTimeInterval: 45)
         testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
 
