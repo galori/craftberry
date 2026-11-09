@@ -31,7 +31,7 @@ struct CraftberryApp: App {
 #if DEBUG
 private extension CreationViewModel {
     static func uiTesting() -> CreationViewModel {
-        CreationViewModel(
+        let viewModel = CreationViewModel(
             apiKey: "",
             compiler: UITestingCompiler(),
             client: UITestingLLMClient(),
@@ -42,6 +42,28 @@ private extension CreationViewModel {
                 )
             }
         )
+
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-open-project"),
+           let project = try? AddOnProject.sword(
+               displayName: "Saved Cyan Sword",
+               color: .cyan,
+               attackBonus: 12,
+               durability: 400,
+               craftingIngredient: "minecraft:diamond",
+               originalPrompt: "A saved cyan sword",
+               identity: AddOnProjectIdentity.generate()
+           ) {
+            let sidecarURL = FileManager.default.temporaryDirectory
+                .appending(path: "CraftberryUITestingSidecars/saved-project.json")
+            do {
+                try AddOnProjectStore.save(project, to: sidecarURL)
+                viewModel.openProject(from: sidecarURL)
+            } catch {
+                viewModel.reportProjectFileError(error)
+            }
+        }
+
+        return viewModel
     }
 }
 

@@ -1,6 +1,7 @@
 #if canImport(SwiftUI) && canImport(UIKit)
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 #if canImport(CraftberryCore)
 import CraftberryCore
 #endif
@@ -8,6 +9,7 @@ import CraftberryCore
 struct CreationView: View {
     @ObservedObject var viewModel: CreationViewModel
     @State private var presentedSheet: PresentedSheet?
+    @State private var isProjectImporterPresented = false
     @State private var revisionPrompt = ""
     @State private var suggestions = ExamplePromptLibrary.selection()
     @FocusState private var isPromptFocused: Bool
@@ -44,6 +46,30 @@ struct CreationView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .fileImporter(isPresented: $isProjectImporterPresented, allowedContentTypes: [.json]) { result in
+            switch result {
+            case .success(let sidecarURL):
+                let hasSecurityScope = sidecarURL.startAccessingSecurityScopedResource()
+                defer {
+                    if hasSecurityScope { sidecarURL.stopAccessingSecurityScopedResource() }
+                }
+                viewModel.openProject(from: sidecarURL)
+            case .failure(let error):
+                guard (error as NSError).code != NSUserCancelledError else { return }
+                viewModel.reportProjectFileError(error)
+            }
+        }
+        .alert(
+            "Project file issue",
+            isPresented: Binding(
+                get: { viewModel.projectFileError != nil },
+                set: { if !$0 { viewModel.clearProjectFileError() } }
+            )
+        ) {
+            Button("OK", role: .cancel) { viewModel.clearProjectFileError() }
+        } message: {
+            Text(viewModel.projectFileError ?? "Choose a valid Craftberry project.json sidecar.")
+        }
     }
 
     private var appHeader: some View {
@@ -142,6 +168,16 @@ struct CreationView: View {
                 .padding(.top, 4)
                 .accessibilityLabel("Show different example prompts")
                 .accessibilityIdentifier("craftberry.shuffleSuggestions")
+
+                Button {
+                    isProjectImporterPresented = true
+                } label: {
+                    Label("Open saved project", systemImage: "folder")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.craftberryMuted)
+                }
+                .padding(.top, 8)
+                .accessibilityIdentifier("craftberry.openSavedProject")
             }
             .padding(.top, 28)
             .padding(.horizontal, 22)
@@ -309,6 +345,18 @@ struct CreationView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("craftberry.saveAddon")
                 }
+
+                Button {
+                    if let sidecarURL = viewModel.saveProjectSidecar(for: project) {
+                        presentedSheet = .share(ShareItem(url: sidecarURL))
+                    }
+                } label: {
+                    Label("Save project.json", systemImage: "doc.text")
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.craftberryMuted)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("craftberry.saveProjectSidecar")
 
                 Text("Choose Export to Minecraft for the add-on, or send a preconfigured Creative or Survival world with the packs already active.")
                     .font(.footnote)

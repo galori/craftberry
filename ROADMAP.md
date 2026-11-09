@@ -64,7 +64,7 @@ It validates the complete graph before filesystem writes, emits typed `Encodable
 4. **Entities and gameplay content.** Add passive, hostile, tameable, rideable, projectile, and boss-like templates with behavior/resource wiring, spawning, loot, particles, sounds, then dialogue and trades.
 5. **Structures, biomes, and world generation.** Bounded 3×3 hut `.mcstructure` + `structure_template_feature`/`feature_rules` is implemented (reusing block definitions, deterministic NBT, pinned to `1.26.30.5 @921fafb`); jigsaw sets, biomes, and cooperative composition remain pending.
 6. **Stable scripted mechanics and richer assets.** Compile a typed mechanic DSL into reviewed stable Script API templates; add validated uploads before optional generated media.
-7. **Revision workflow.** Load the semantic sidecar, apply a new prompt, summarize changes, preserve IDs, increment versions, and rebuild. Add history only if sidecars prove insufficient.
+7. **Revision workflow.** Implemented: open a saved `project.json` from Files, inspect the existing result, revise it with a new prompt, summarize changes, preserve IDs, increment versions, rebuild, and save/share the sidecar again. Deterministic view-model and simulator UI coverage is in place; the physical-device share-sheet smoke test passed. Add history only if sidecars prove insufficient.
 8. **Pre-publication hardening.** Add an authenticated backend, quotas, abuse controls, privacy disclosures, telemetry, retention, and profile migrations before any distribution.
 
 ## Acceptance policy
