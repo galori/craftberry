@@ -1323,6 +1323,14 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialCropSet(materialName: "Azure", color: .green, sourceItem: "minecraft:diamond", sourceCount: 4, shortDescription: "A diamond Azure seeds plus crop and produce.", originalPrompt: originalPrompt, identity: identity)
         case "An emerald crop set named Verdant with seeds and crop":
             project = try AddOnProject.materialCropSet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, shortDescription: "An emerald Verdant seeds and crop.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond hostile creature set with a player-attacking Azure mob":
+            project = try AddOnProject.materialHostileEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 20, shortDescription: "A diamond hostile Azure creature that attacks players.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald hostile entity set named Verdant that attacks players":
+            project = try AddOnProject.materialHostileEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 20, shortDescription: "An emerald hostile Verdant creature that attacks players.", originalPrompt: originalPrompt, identity: identity)
+        case "A quartz hostile mob set named Frostbite that attacks the player":
+            project = try AddOnProject.materialHostileEntitySet(materialName: "Frostbite", color: .white, sourceItem: "minecraft:quartz", sourceCount: 4, health: 20, shortDescription: "A quartz hostile Frostbite creature that attacks players.", originalPrompt: originalPrompt, identity: identity)
+        case "A redstone hostile creature set named Pulse with 24 health":
+            project = try AddOnProject.materialHostileEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, health: 24, shortDescription: "A redstone hostile Pulse creature with 24 health.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1441,6 +1449,10 @@ enum ExamplePromptResponseCache {
             "A gold entity set named Gilded with a golden creature",
             "An amethyst entity set named Geode with a crystal creature",
             "A netherite entity set named Warden with a sturdy creature",
+            "A diamond hostile creature set with a player-attacking Azure mob",
+            "An emerald hostile entity set named Verdant that attacks players",
+            "A quartz hostile mob set named Frostbite that attacks the player",
+            "A redstone hostile creature set named Pulse with 24 health",
             "A diamond hut structure from 4 diamonds, with Azure Block hut",
             "An emerald hut named Verdant with 3x3 shelter structure",
             "A blaze rod structure hut named Ember with block shelter",
@@ -1450,7 +1462,7 @@ enum ExamplePromptResponseCache {
             "A lapis hut structure named Deepsea with block hut",
             "A gold hut structure named Gilded with 3x3 hut",
             "An amethyst hut structure named Geode with shelter",
-            "A netherite hut structure named Warden with 3x3 hut",
+            "A netherite hut structure named Warden with 3x3 hut"
         ]
     }
 }

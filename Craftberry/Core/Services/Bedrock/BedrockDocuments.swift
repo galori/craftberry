@@ -506,7 +506,29 @@ struct EntityDocument: Encodable {
         let physics: EmptyComponent
         let pushable: Pushable
         let scale: Scale
-        enum CodingKeys: String, CodingKey { case typeFamily = "minecraft:type_family"; case breathable = "minecraft:breathable"; case collisionBox = "minecraft:collision_box"; case nameable = "minecraft:nameable"; case health = "minecraft:health"; case movement = "minecraft:movement"; case physics = "minecraft:physics"; case pushable = "minecraft:pushable"; case scale = "minecraft:scale" }
+        let attack: Attack?
+        let behaviorMeleeBoxAttack: BehaviorMeleeBoxAttack?
+        let behaviorNearestAttackableTarget: BehaviorNearestAttackableTarget?
+        let jumpStatic: EmptyComponent?
+        let movementBasic: EmptyComponent?
+        let navigationWalk: NavigationWalk?
+        enum CodingKeys: String, CodingKey {
+            case typeFamily = "minecraft:type_family"
+            case breathable = "minecraft:breathable"
+            case collisionBox = "minecraft:collision_box"
+            case nameable = "minecraft:nameable"
+            case health = "minecraft:health"
+            case movement = "minecraft:movement"
+            case physics = "minecraft:physics"
+            case pushable = "minecraft:pushable"
+            case scale = "minecraft:scale"
+            case attack = "minecraft:attack"
+            case behaviorMeleeBoxAttack = "minecraft:behavior.melee_box_attack"
+            case behaviorNearestAttackableTarget = "minecraft:behavior.nearest_attackable_target"
+            case jumpStatic = "minecraft:jump.static"
+            case movementBasic = "minecraft:movement.basic"
+            case navigationWalk = "minecraft:navigation.walk"
+        }
     }
     struct TypeFamily: Encodable { let family: [String] }
     struct Breathable: Encodable { let totalSupply: Int; let suffocateTime: Int; enum CodingKeys: String, CodingKey { case totalSupply = "total_supply"; case suffocateTime = "suffocate_time" } }
@@ -514,6 +536,45 @@ struct EntityDocument: Encodable {
     struct Health: Encodable { let value: Int; let max: Int }
     struct Movement: Encodable { let value: Double }
     struct Pushable: Encodable { let isPushable: Bool; let isPushableByPiston: Bool; enum CodingKeys: String, CodingKey { case isPushable = "is_pushable"; case isPushableByPiston = "is_pushable_by_piston" } }
+    struct Attack: Encodable { let damage: Int }
+    struct BehaviorMeleeBoxAttack: Encodable { let trackTarget: Bool; let priority: Int; enum CodingKeys: String, CodingKey { case trackTarget = "track_target"; case priority } }
+    struct BehaviorNearestAttackableTarget: Encodable {
+        let mustSee: Bool
+        let reselectTargets: Bool
+        let withinRadius: Int
+        let entityTypes: [EntityType]
+        let priority: Int
+
+        struct EntityType: Encodable {
+            let filters: Filters
+            let maxDist: Int
+            enum CodingKeys: String, CodingKey { case filters; case maxDist = "max_dist" }
+        }
+
+        struct Filters: Encodable {
+            let anyOf: [Filter]
+            enum CodingKeys: String, CodingKey { case anyOf = "any_of" }
+        }
+
+        struct Filter: Encodable {
+            let test: String
+            let subject: String
+            let value: String
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case mustSee = "must_see"
+            case reselectTargets = "reselect_targets"
+            case withinRadius = "within_radius"
+            case entityTypes = "entity_types"
+            case priority
+        }
+    }
+    struct NavigationWalk: Encodable {
+        let canPassDoors: Bool
+        let canWalk: Bool
+        enum CodingKeys: String, CodingKey { case canPassDoors = "can_pass_doors"; case canWalk = "can_walk" }
+    }
     enum CodingKeys: String, CodingKey { case formatVersion = "format_version"; case entity = "minecraft:entity" }
 }
 struct SpawnRuleDocument: Encodable {
@@ -521,12 +582,52 @@ struct SpawnRuleDocument: Encodable {
     let spawnRules: SpawnRules
     struct SpawnRules: Encodable { let description: Description; let conditions: [Condition]; enum CodingKeys: String, CodingKey { case description; case conditions } }
     struct Description: Encodable { let identifier: String; let populationControl: String; enum CodingKeys: String, CodingKey { case identifier; case populationControl = "population_control" } }
-    struct Condition: Encodable { let spawnsOnSurface: EmptyComponent; let spawnsOnBlockFilter: String; let brightnessFilter: BrightnessFilter; let weight: Weight; let herd: Herd; let biomeFilter: BiomeFilter; enum CodingKeys: String, CodingKey { case spawnsOnSurface = "minecraft:spawns_on_surface"; case spawnsOnBlockFilter = "minecraft:spawns_on_block_filter"; case brightnessFilter = "minecraft:brightness_filter"; case weight = "minecraft:weight"; case herd = "minecraft:herd"; case biomeFilter = "minecraft:biome_filter" } }
+    struct Condition: Encodable {
+        let spawnsOnSurface: EmptyComponent?
+        let spawnsUnderground: EmptyComponent?
+        let spawnsOnBlockFilter: String?
+        let brightnessFilter: BrightnessFilter
+        let difficultyFilter: DifficultyFilter?
+        let weight: Weight
+        let herd: Herd?
+        let biomeFilter: BiomeFilter
+        enum CodingKeys: String, CodingKey {
+            case spawnsOnSurface = "minecraft:spawns_on_surface"
+            case spawnsUnderground = "minecraft:spawns_underground"
+            case spawnsOnBlockFilter = "minecraft:spawns_on_block_filter"
+            case brightnessFilter = "minecraft:brightness_filter"
+            case difficultyFilter = "minecraft:difficulty_filter"
+            case weight = "minecraft:weight"
+            case herd = "minecraft:herd"
+            case biomeFilter = "minecraft:biome_filter"
+        }
+    }
     struct EmptyComponent: Encodable {}
     struct BrightnessFilter: Encodable { let min: Int; let max: Int; let adjustForWeather: Bool; enum CodingKeys: String, CodingKey { case min; case max; case adjustForWeather = "adjust_for_weather" } }
+    struct DifficultyFilter: Encodable { let min: String; let max: String }
     struct Weight: Encodable { let `default`: Int; enum CodingKeys: String, CodingKey { case `default` = "default" } }
     struct Herd: Encodable { let minSize: Int; let maxSize: Int; enum CodingKeys: String, CodingKey { case minSize = "min_size"; case maxSize = "max_size" } }
-    struct BiomeFilter: Encodable { let test: String; let `operator`: String; let value: String }
+    struct BiomeFilter: Encodable {
+        let test: String?
+        let `operator`: String?
+        let value: String?
+        let allOf: [BiomeFilter]?
+        enum CodingKeys: String, CodingKey { case test; case `operator`; case value; case allOf = "all_of" }
+
+        init(test: String, operator: String?, value: String) {
+            self.test = test
+            self.operator = `operator`
+            self.value = value
+            self.allOf = nil
+        }
+
+        init(allOf: [BiomeFilter]) {
+            self.test = nil
+            self.operator = nil
+            self.value = nil
+            self.allOf = allOf
+        }
+    }
     enum CodingKeys: String, CodingKey { case formatVersion = "format_version"; case spawnRules = "minecraft:spawn_rules" }
 }
 struct ClientEntityDocument: Encodable {

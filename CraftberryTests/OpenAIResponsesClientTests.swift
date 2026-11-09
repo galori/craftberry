@@ -7,6 +7,26 @@ import XCTest
 #endif
 
 final class OpenAIResponsesClientTests: XCTestCase {
+    func testClientAssemblesHostileEntitySetFromStructuredIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A hostile creature pack.","materialHostileEntitySet":{"materialName":"Azure","color":"red","sourceItem":"diamond","sourceCount":4,"health":24}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        let generation = try await client.generateProject(from: "A hostile Azure creature that attacks players")
+
+        XCTAssertEqual(generation.project?.entities.first?.archetype, .hostile)
+        XCTAssertEqual(generation.project?.entities.first?.health, 24)
+    }
+
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500}}

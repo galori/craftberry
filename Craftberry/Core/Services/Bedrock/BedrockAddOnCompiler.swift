@@ -210,7 +210,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         identifier: identifier,
                         isSpawnable: true,
                         isSummonable: true,
-                        spawnCategory: "creature"
+                        spawnCategory: entity.archetype == .hostile ? "monster" : "creature"
                     ),
                     componentGroups: [
                         babyGroupName: EntityDocument.ComponentGroup(
@@ -239,7 +239,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         )
                     ],
                     components: EntityDocument.Components(
-                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, "mob"]),
+                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, entity.archetype == .hostile ? "monster" : "animal", "mob"]),
                         breathable: EntityDocument.Breathable(totalSupply: 15, suffocateTime: 0),
                         collisionBox: EntityDocument.CollisionBox(width: 0.6, height: 0.8),
                         nameable: EntityDocument.EmptyComponent(),
@@ -247,7 +247,32 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         movement: EntityDocument.Movement(value: 0.25),
                         physics: EntityDocument.EmptyComponent(),
                         pushable: EntityDocument.Pushable(isPushable: true, isPushableByPiston: true),
-                        scale: EntityDocument.Scale(value: entity.scale)
+                        scale: EntityDocument.Scale(value: entity.scale),
+                        attack: entity.archetype == .hostile ? EntityDocument.Attack(damage: 3) : nil,
+                        behaviorMeleeBoxAttack: entity.archetype == .hostile
+                            ? EntityDocument.BehaviorMeleeBoxAttack(trackTarget: true, priority: 3)
+                            : nil,
+                        behaviorNearestAttackableTarget: entity.archetype == .hostile
+                            ? EntityDocument.BehaviorNearestAttackableTarget(
+                                mustSee: true,
+                                reselectTargets: true,
+                                withinRadius: 25,
+                                entityTypes: [
+                                    EntityDocument.BehaviorNearestAttackableTarget.EntityType(
+                                        filters: .init(anyOf: [
+                                            .init(test: "is_family", subject: "other", value: "player")
+                                        ]),
+                                        maxDist: 35
+                                    )
+                                ],
+                                priority: 2
+                            )
+                            : nil,
+                        jumpStatic: entity.archetype == .hostile ? EntityDocument.EmptyComponent() : nil,
+                        movementBasic: entity.archetype == .hostile ? EntityDocument.EmptyComponent() : nil,
+                        navigationWalk: entity.archetype == .hostile
+                            ? EntityDocument.NavigationWalk(canPassDoors: true, canWalk: true)
+                            : nil
                     )
                 )
             )
@@ -265,15 +290,28 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let spawnDocument = SpawnRuleDocument(
                 formatVersion: profile.spawnRuleFormatVersion,
                 spawnRules: SpawnRuleDocument.SpawnRules(
-                    description: SpawnRuleDocument.Description(identifier: identifier, populationControl: "animal"),
+                    description: SpawnRuleDocument.Description(identifier: identifier, populationControl: entity.archetype == .hostile ? "monster" : "animal"),
                     conditions: [
                         SpawnRuleDocument.Condition(
                             spawnsOnSurface: SpawnRuleDocument.EmptyComponent(),
-                            spawnsOnBlockFilter: "minecraft:grass_block",
-                            brightnessFilter: SpawnRuleDocument.BrightnessFilter(min: 7, max: 15, adjustForWeather: false),
-                            weight: SpawnRuleDocument.Weight(default: 10),
-                            herd: SpawnRuleDocument.Herd(minSize: 2, maxSize: 4),
-                            biomeFilter: SpawnRuleDocument.BiomeFilter(test: "has_biome_tag", operator: "==", value: "animal")
+                            spawnsUnderground: entity.archetype == .hostile ? SpawnRuleDocument.EmptyComponent() : nil,
+                            spawnsOnBlockFilter: entity.archetype == .hostile ? nil : "minecraft:grass_block",
+                            brightnessFilter: SpawnRuleDocument.BrightnessFilter(
+                                min: entity.archetype == .hostile ? 0 : 7,
+                                max: entity.archetype == .hostile ? 7 : 15,
+                                adjustForWeather: entity.archetype == .hostile
+                            ),
+                            difficultyFilter: entity.archetype == .hostile
+                                ? SpawnRuleDocument.DifficultyFilter(min: "easy", max: "hard")
+                                : nil,
+                            weight: SpawnRuleDocument.Weight(default: entity.archetype == .hostile ? 100 : 10),
+                            herd: entity.archetype == .hostile ? nil : SpawnRuleDocument.Herd(minSize: 2, maxSize: 4),
+                            biomeFilter: entity.archetype == .hostile
+                                ? SpawnRuleDocument.BiomeFilter(allOf: [
+                                    .init(test: "has_biome_tag", operator: nil, value: "monster"),
+                                    .init(test: "has_biome_tag", operator: "!=", value: "sulfur_caves")
+                                ])
+                                : SpawnRuleDocument.BiomeFilter(test: "has_biome_tag", operator: "==", value: "animal")
                         )
                     ]
                 )
