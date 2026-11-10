@@ -107,11 +107,11 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneEntitySetCanCraftSpawnEggInImportedCreativeWorld() throws {
+    func testCraftberryRedstoneHostileEntitySetCanCraftSpawnEggInImportedCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneEntitySet, gameMode: .creative)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneHostileEntitySet, gameMode: .creative)
         #endif
     }
 }
@@ -423,14 +423,14 @@ extension MinecraftE2EScenario {
         craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Redstone Seeds", ingredients: [.init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])], beforePickupVerification: nil, afterPickupVerification: .text("Seeds"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
     )
 
-    static let redstoneEntitySet = MinecraftE2EScenario(
-        launchArgument: "--ui-testing-redstone-entity-set",
-        prompt: "Generate a redstone entity set crafted from redstone",
-        projectName: "Redstone",
-        expectedCraftedItemName: "Redstone Spawn Egg",
-        behaviorPackName: "Redstone Behavior",
-        resourcePackName: "Redstone Resources",
-        craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Redstone Spawn Egg", ingredients: [.init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleCenter, .middleRight, .bottomLeft, .bottomCenter, .bottomRight])], beforePickupVerification: nil, afterPickupVerification: .text("Spawn"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
+    static let redstoneHostileEntitySet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-hostile-entity-set",
+        prompt: "Generate a redstone hostile creature set named Pulse with 24 health",
+        projectName: "Pulse",
+        expectedCraftedItemName: "Pulse Spawn Egg",
+        behaviorPackName: "Pulse Behavior",
+        resourcePackName: "Pulse Resources",
+        craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Pulse Spawn Egg", ingredients: [.init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleCenter, .middleRight, .bottomLeft, .bottomCenter, .bottomRight])], beforePickupVerification: nil, afterPickupVerification: .text("Spawn"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
     )
 
     static let redstoneBlockSet = MinecraftE2EScenario(

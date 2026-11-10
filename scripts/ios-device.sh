@@ -317,9 +317,9 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         entity)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneEntitySetCanCraftSpawnEggInImportedCreativeWorld"
-            result_name="MinecraftRedstoneEntitySetE2EUITests"
-            prepared_world_name="Redstone (Creative)"
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneHostileEntitySetCanCraftSpawnEggInImportedCreativeWorld"
+            result_name="MinecraftRedstoneHostileEntitySetE2EUITests"
+            prepared_world_name="Pulse (Creative)"
             ;;
         structure)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneStructureSetCanCraftBlockInImportedCreativeWorld"

@@ -82,6 +82,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneStructureSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-structure-set")
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
+        let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let usesRevisionFlow = ProcessInfo.processInfo.arguments.contains("--ui-testing-revision-flow")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
@@ -116,6 +117,17 @@ private struct UITestingLLMClient: LLMClient {
                 sourceItem: "minecraft:redstone",
                 sourceCount: 4,
                 shortDescription: "A redstone crop kit with seeds, crop block, and produce.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneHostileEntitySet {
+            project = try AddOnProject.materialHostileEntitySet(
+                materialName: "Pulse",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                health: 24,
+                shortDescription: "A redstone hostile Pulse creature with 24 health.",
                 originalPrompt: prompt,
                 identity: identity
             )
