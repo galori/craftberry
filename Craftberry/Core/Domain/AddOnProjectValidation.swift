@@ -263,6 +263,54 @@ public enum AddOnProjectValidator {
                     appendUnsupportedTrait(.enchantment, itemPath: itemPath, profile: profile, issues: &issues)
                 }
             }
+            if let repair = item.traits.repair {
+                if item.traits.durability == nil {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "repair_requires_durability",
+                            path: "\(itemPath).traits.repair",
+                            message: "Repairable items must have durability."
+                        )
+                    )
+                }
+                switch repair.repairItem {
+                case .vanilla(let identifier):
+                    if !profile.vanillaItemIdentifiers.contains(identifier) {
+                        issues.append(
+                            CompilationIssue(
+                                severity: .error,
+                                code: "unsupported_repair_item",
+                                path: "\(itemPath).traits.repair.repairItem",
+                                message: "Repair item \(identifier) is not in the active profile catalog."
+                            )
+                        )
+                    }
+                case .generated(let id):
+                    if !itemIDs.contains(id) {
+                        issues.append(
+                            CompilationIssue(
+                                severity: .error,
+                                code: "missing_repair_item",
+                                path: "\(itemPath).traits.repair.repairItem",
+                                message: "Repair item \(id.rawValue) is not part of this project."
+                            )
+                        )
+                    }
+                case .tag:
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "invalid_repair_item",
+                            path: "\(itemPath).traits.repair.repairItem",
+                            message: "Repair items must reference a vanilla or generated item identifier."
+                        )
+                    )
+                }
+                if !profile.supportedItemTraits.contains(.repair) {
+                    appendUnsupportedTrait(.repair, itemPath: itemPath, profile: profile, issues: &issues)
+                }
+            }
             if item.traits.handEquipped, !profile.supportedItemTraits.contains(.handEquipped) {
                 appendUnsupportedTrait(.handEquipped, itemPath: itemPath, profile: profile, issues: &issues)
             }

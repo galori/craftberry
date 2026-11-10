@@ -48,12 +48,14 @@ final class ExamplePromptLibraryTests: XCTestCase {
         let consumableSets = corpus.filter { $0.contains("consumable set") }
         let blockSets = corpus.filter { $0.contains("block set") }
         let ingotSets = corpus.filter { $0.contains("ingot") }
+        let repairableSwordSets = corpus.filter { $0.contains("repairable") || $0.contains("repaired with") }
         XCTAssertGreaterThanOrEqual(toolSets.count, 4)
         XCTAssertGreaterThanOrEqual(weaponSets.count, 4)
         XCTAssertGreaterThanOrEqual(armorSets.count, 4)
         XCTAssertGreaterThanOrEqual(consumableSets.count, 4)
         XCTAssertGreaterThanOrEqual(blockSets.count, 4)
         XCTAssertGreaterThanOrEqual(ingotSets.count, 4)
+        XCTAssertGreaterThanOrEqual(repairableSwordSets.count, 3)
     }
 
     func testSelectionReturnsTheRequestedNumberOfDistinctPrompts() {

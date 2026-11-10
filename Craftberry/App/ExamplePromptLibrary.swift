@@ -14,9 +14,9 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// Every prompt must stay inside the active capability profile: only materials from
 /// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, protection
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
-/// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
+/// set, armor set, consumable set, block set, furnace set, smithing set, and repairable sword set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + structureSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + repairableSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + structureSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -59,6 +59,12 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🌋", text: "A Cinder ingot from blaze rods, with an 18 damage sword"),
         ExamplePrompt(emoji: "💎", text: "An emerald ingot named Jade with a 750 durability sword"),
         ExamplePrompt(emoji: "🕳️", text: "A netherite Voidcore ingot and its matching sword")
+    ]
+
+    private static let repairableSwordSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "💎", text: "A diamond sword set named Azure, repairable with diamonds"),
+        ExamplePrompt(emoji: "💚", text: "An emerald sword set named Verdant, repaired with emeralds"),
+        ExamplePrompt(emoji: "🪙", text: "A gold sword set named Gilded, repairable with gold ingots")
     ]
 
     private static let toolSets: [ExamplePrompt] = [

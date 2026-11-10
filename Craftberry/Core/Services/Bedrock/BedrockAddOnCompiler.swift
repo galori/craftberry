@@ -342,7 +342,18 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                             )
                         },
                         fuel: item.traits.fuel.map { ItemDocument.Fuel(duration: $0.duration) },
-                        enchantable: item.traits.enchantment.map { ItemDocument.Enchantable(slot: "sword", value: $0.value) }
+                        enchantable: item.traits.enchantment.map { ItemDocument.Enchantable(slot: "sword", value: $0.value) },
+                        repairable: item.traits.repair.map {
+                            let repairIdentifier: String
+                            switch $0.repairItem {
+                            case .vanilla(let identifier): repairIdentifier = identifier
+                            case .generated(let id): repairIdentifier = self.identifier(for: id, namespace: project.namespace)
+                            case .tag(let identifier): repairIdentifier = "#\(identifier)"
+                            }
+                            return ItemDocument.Repairable(
+                                repairItems: [ItemDocument.RepairItem(items: [repairIdentifier], repairAmount: "query.max_durability * 0.25")]
+                            )
+                        }
                     )
                 )
             )

@@ -183,6 +183,12 @@ public struct EnchantmentTrait: Codable, Equatable, Sendable {
     public init(value: Int) { self.value = value }
 }
 
+public struct RepairTrait: Codable, Equatable, Sendable {
+    public let repairItem: ContentReference
+
+    public init(repairItem: ContentReference) { self.repairItem = repairItem }
+}
+
 public struct ItemTraits: Codable, Equatable, Sendable {
     public let combat: CombatTrait?
     public let durability: DurabilityTrait?
@@ -192,6 +198,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
     public let food: FoodTrait?
     public let fuel: FuelTrait?
     public let enchantment: EnchantmentTrait?
+    public let repair: RepairTrait?
 
     public init(
         combat: CombatTrait? = nil,
@@ -201,7 +208,8 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         armor: ArmorTrait? = nil,
         food: FoodTrait? = nil,
         fuel: FuelTrait? = nil,
-        enchantment: EnchantmentTrait? = nil
+        enchantment: EnchantmentTrait? = nil,
+        repair: RepairTrait? = nil
     ) {
         self.combat = combat
         self.durability = durability
@@ -211,6 +219,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         self.food = food
         self.fuel = fuel
         self.enchantment = enchantment
+        self.repair = repair
     }
 }
 
@@ -804,7 +813,21 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         let ingotID = ContentID("\(stem)_ingot")
         let swordID = ContentID("\(stem)_sword")
         let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
-        let sword = ItemDefinition(id: swordID, displayName: swordDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "\(material) Sword", menuCategory: .equipment, menuGroup: "minecraft:itemGroup.name.sword", traits: ItemTraits(combat: CombatTrait(attackBonus: attackBonus), durability: DurabilityTrait(maximum: durability), handEquipped: true, maximumStackSize: 1, enchantment: EnchantmentTrait(value: 10)), visualResourceID: swordID)
+        let sword = ItemDefinition(
+            id: swordID,
+            displayName: swordDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "\(material) Sword",
+            menuCategory: .equipment,
+            menuGroup: "minecraft:itemGroup.name.sword",
+            traits: ItemTraits(
+                combat: CombatTrait(attackBonus: attackBonus),
+                durability: DurabilityTrait(maximum: durability),
+                handEquipped: true,
+                maximumStackSize: 1,
+                enchantment: EnchantmentTrait(value: 10),
+                repair: RepairTrait(repairItem: .vanilla(sourceItem))
+            ),
+            visualResourceID: swordID
+        )
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let swordRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_sword_recipe"), tags: ["crafting_table"], pattern: [" I ", " I ", " S "], ingredients: ["I": .generated(ingotID), "S": .vanilla("minecraft:stick")], result: RecipeResult(item: .generated(swordID), count: 1), unlock: [.generated(ingotID)])
         return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(sword), .shapelessRecipe(ingotRecipe), .shapedRecipe(swordRecipe), .visualResource(VisualResource(id: ingotID, kind: .ingotPixelArt, color: color)), .visualResource(VisualResource(id: swordID, kind: .swordPixelArt, color: color))])

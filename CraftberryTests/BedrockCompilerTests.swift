@@ -248,6 +248,11 @@ final class BedrockCompilerTests: XCTestCase {
         let enchantable = try XCTUnwrap(components["minecraft:enchantable"] as? [String: Any])
         XCTAssertEqual(enchantable["slot"] as? String, "sword")
         XCTAssertEqual(enchantable["value"] as? Int, 10)
+        let repairable = try XCTUnwrap(components["minecraft:repairable"] as? [String: Any])
+        let repairItems = try XCTUnwrap(repairable["repair_items"] as? [[String: Any]])
+        XCTAssertEqual(repairItems.count, 1)
+        XCTAssertEqual(repairItems[0]["items"] as? [String], ["minecraft:diamond"])
+        XCTAssertEqual(repairItems[0]["repair_amount"] as? String, "query.max_durability * 0.25")
     }
     func testCompilerPersistsProjectSidecarBesideVersionedBuild() throws {
         let project = try makeProject()

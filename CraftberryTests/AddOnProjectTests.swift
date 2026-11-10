@@ -188,10 +188,53 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(project.items.map(\.id), [ContentID("azure_a1b2c3_ingot"), ContentID("azure_a1b2c3_sword")])
         XCTAssertEqual(project.items.first?.displayName, "Azure Ingot")
         XCTAssertEqual(project.items.first?.traits, ItemTraits())
+        XCTAssertEqual(project.items.last?.traits.repair, RepairTrait(repairItem: .vanilla("minecraft:diamond")))
         XCTAssertEqual(project.shapelessRecipes.first?.ingredients, Array(repeating: .vanilla("minecraft:diamond"), count: 4))
         XCTAssertEqual(project.recipes.first?.pattern, [" I ", " I ", " S "])
         XCTAssertEqual(project.recipes.first?.ingredients["I"], .generated(ContentID("azure_a1b2c3_ingot")))
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
+    func testRepairTraitRequiresDurabilityAndAnItemInTheProfileCatalog() throws {
+        let project = try AddOnProject.materialSwordSet(
+            materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4,
+            originalPrompt: "Azure sword repaired with diamonds", identity: testIdentity()
+        )
+        let sword = try XCTUnwrap(project.items.last)
+        let invalidSword = ItemDefinition(
+            id: sword.id,
+            displayName: sword.displayName,
+            menuCategory: sword.menuCategory,
+            menuGroup: sword.menuGroup,
+            traits: ItemTraits(
+                combat: sword.traits.combat,
+                handEquipped: sword.traits.handEquipped,
+                maximumStackSize: sword.traits.maximumStackSize,
+                enchantment: sword.traits.enchantment,
+                repair: RepairTrait(repairItem: .vanilla("minecraft:unknown_item"))
+            ),
+            visualResourceID: sword.visualResourceID
+        )
+        let invalidProject = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content.map { node in
+                if case .item(let item) = node, item.id == sword.id { return .item(invalidSword) }
+                return node
+            }
+        )
+
+        let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
+
+        XCTAssertEqual(
+            Set<String>(report.errors.map(\.code)),
+            ["repair_requires_durability", "unsupported_repair_item"]
+        )
     }
 
     func testRecipeBookRowsCoverMaterialSwordSet() throws {

@@ -103,6 +103,36 @@ enum ExamplePromptResponseCache {
             )
 
         // MARK: - Material sword sets
+        case "An enchantable Glacier sword and matching ingot from diamonds":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Glacier",
+                color: .cyan,
+                sourceItem: "minecraft:diamond",
+                sourceCount: 4,
+                shortDescription: "An enchantable Glacier sword and matching diamond ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An enchantable amethyst Duskshard sword with its matching ingot":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Duskshard",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                sourceCount: 4,
+                shortDescription: "An enchantable amethyst Duskshard sword with matching ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An enchantable iron Ironheart sword and matching ingot":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Ironheart",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                sourceCount: 4,
+                shortDescription: "An enchantable iron Ironheart sword and ingot.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
         case "A Glacier ingot and matching sword, from 4 diamonds":
             project = try AddOnProject.materialSwordSet(
                 materialName: "Glacier",
@@ -196,6 +226,38 @@ enum ExamplePromptResponseCache {
                 attackBonus: 10,
                 durability: 500,
                 shortDescription: "A netherite Voidcore ingot and matching sword.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+
+        // MARK: - Repairable sword sets
+        case "A diamond sword set named Azure, repairable with diamonds":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Azure",
+                color: .blue,
+                sourceItem: "minecraft:diamond",
+                sourceCount: 4,
+                shortDescription: "A diamond Azure sword set repaired with diamonds.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An emerald sword set named Verdant, repaired with emeralds":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Verdant",
+                color: .green,
+                sourceItem: "minecraft:emerald",
+                sourceCount: 4,
+                shortDescription: "An emerald Verdant sword set repaired with emeralds.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "A gold sword set named Gilded, repairable with gold ingots":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Gilded",
+                color: .gold,
+                sourceItem: "minecraft:gold_ingot",
+                sourceCount: 4,
+                shortDescription: "A gold Gilded sword set repaired with gold ingots.",
                 originalPrompt: originalPrompt,
                 identity: identity
             )
@@ -1339,6 +1401,9 @@ enum ExamplePromptResponseCache {
             "A deep blue lapis sword named Tidecaller, 11 damage",
             "A netherite sword named Ashfang with 28 damage",
             "A pale quartz sword named Moonsliver, 9 damage",
+            "An enchantable Glacier sword and matching ingot from diamonds",
+            "An enchantable amethyst Duskshard sword with its matching ingot",
+            "An enchantable iron Ironheart sword and matching ingot",
             "A Glacier ingot and matching sword, from 4 diamonds",
             "A golden Sunforge ingot plus its matching sword",
             "An iron Ironheart ingot and sword with 14 damage",
@@ -1347,6 +1412,9 @@ enum ExamplePromptResponseCache {
             "A Cinder ingot from blaze rods, with an 18 damage sword",
             "An emerald ingot named Jade with a 750 durability sword",
             "A netherite Voidcore ingot and its matching sword",
+            "A diamond sword set named Azure, repairable with diamonds",
+            "An emerald sword set named Verdant, repaired with emeralds",
+            "A gold sword set named Gilded, repairable with gold ingots",
             "A redstone tool set: sword, pickaxe, axe, shovel, hoe",
             "A diamond tool set named Frostforge for a mining trip",
             "A gold tool set named Harvest with a 600 durability hoe",
