@@ -25,11 +25,13 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|structure] [--fresh-world|--delete-world]
+  minecraft-e2e [redstone|emerald|share|inspect|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|structure] [--fresh-world|--delete-world]
           Run a full Craftberry-to-Minecraft acceptance test, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
           remove that exact test world before and after the run.
+          inspect leaves a fresh Emerald test world open in Minecraft so the
+          loaded screen can be checked directly; cleanup is deferred.
   minecraft-e2e-all [--fresh-world]
           Run all thirteen scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
@@ -261,6 +263,7 @@ minecraft_e2e_on_device() {
     local test_selector
     local result_name
     local prepared_world_name=""
+    local preserve_minecraft_for_inspection="no"
     case "$scenario" in
         redstone)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneToolSetCanBeImportedActivatedAndCraftedIntoPickaxe"
@@ -275,6 +278,12 @@ minecraft_e2e_on_device() {
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryShareTargetOpensMinecraftAndImportsWorld"
             result_name="MinecraftShareTargetE2EUITests"
             prepared_world_name="Emerald Test Sword (Creative)"
+            ;;
+        inspect)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryEmeraldWorldLoadsAndRemainsOpenForScreenInspection"
+            result_name="MinecraftWorldScreenInspectionE2EUITests"
+            prepared_world_name="Emerald Test Sword (Creative)"
+            preserve_minecraft_for_inspection="yes"
             ;;
         weapon)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneWeaponSetCanCraftSpearInImportedCreativeWorld"
@@ -332,7 +341,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, or structure)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, inspect, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, or structure)." >&2
             exit 1
             ;;
     esac
@@ -368,7 +377,11 @@ minecraft_e2e_on_device() {
     local result_path="$OUTPUT_DIR/$result_name-$timestamp.xcresult"
 
     echo "Running full Minecraft $scenario E2E on Xcode device $XCODE_DEVICE_ID (CoreDevice $CORE_DEVICE_ID)"
-    echo "The XCTest teardown terminates $MINECRAFT_BUNDLE_ID before Mac-side AFC cleanup runs."
+    if [[ "$preserve_minecraft_for_inspection" == "yes" ]]; then
+        echo "This inspection run leaves Minecraft and the exact Emerald test world open after XCTest."
+    else
+        echo "The XCTest teardown terminates $MINECRAFT_BUNDLE_ID before Mac-side AFC cleanup runs."
+    fi
 
     set +e
     CRAFTBERRY_E2E_REUSE_WORLD="$world_exists_flag" xcodebuild \
@@ -386,6 +399,11 @@ minecraft_e2e_on_device() {
     set -e
 
     echo "Result bundle: $result_path"
+    if [[ "$preserve_minecraft_for_inspection" == "yes" ]]; then
+        echo "Leaving Minecraft open with the exact Emerald test world for direct screen inspection."
+        return "$test_status"
+    fi
+
     terminate_minecraft_on_device "$CORE_DEVICE_ID"
     echo "Cleaning Minecraft test data via AFC..."
 

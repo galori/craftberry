@@ -204,7 +204,11 @@ final class MinecraftE2EHarness {
         testCase.attachScreenshot("Minecraft confirmed the preconfigured world import")
     }
 
-    func runPreconfiguredWorld(_ scenario: MinecraftE2EScenario, gameMode: MinecraftWorldGameMode) throws {
+    func runPreconfiguredWorld(
+        _ scenario: MinecraftE2EScenario,
+        gameMode: MinecraftWorldGameMode,
+        leaveMinecraftOpenForInspection: Bool = false
+    ) throws {
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
             throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
@@ -235,9 +239,11 @@ final class MinecraftE2EHarness {
         try tapMinecraftShareDestination(in: craftberry)
 
         let minecraft = XCUIApplication(bundleIdentifier: minecraftBundleID)
-        testCase.addTeardownBlock { [testCase] in
-            minecraft.terminate()
-            testCase.attachScreenshot("Minecraft terminated before world cleanup")
+        if !leaveMinecraftOpenForInspection {
+            testCase.addTeardownBlock { [testCase] in
+                minecraft.terminate()
+                testCase.attachScreenshot("Minecraft terminated before world cleanup")
+            }
         }
         XCTAssertTrue(minecraft.wait(for: .runningForeground, timeout: 30), "Minecraft did not open after exporting the preconfigured .mcworld.")
         Thread.sleep(forTimeInterval: 10)
@@ -286,6 +292,10 @@ final class MinecraftE2EHarness {
         )
         Thread.sleep(forTimeInterval: 45)
         testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
+        if leaveMinecraftOpenForInspection {
+            print("[MinecraftE2EHarness] Leaving Minecraft and the exact Emerald test world open for direct screen inspection.")
+            return
+        }
 
         MinecraftDebuggerConsole.current = console
         testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }
