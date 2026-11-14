@@ -13,6 +13,13 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/gamemode survival @s") })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("You died") })
         XCTAssertFalse(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/damage @s 3") })
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.contains("/time set day"))
+        XCTAssertTrue(commands.contains("/kill @e[family=monster]"))
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Chat commands must stay on the calibrated lowercase keyboard plane.")
     }
 
     func testPostCraftingStepsUseTheirOwnStablePhase() {

@@ -466,7 +466,6 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Set daytime for a controlled hostile test", action: .chatCommand("/time set day")),
             MinecraftStep(name: "Clear weather for a controlled hostile test", action: .chatCommand("/weather clear")),
             MinecraftStep(name: "Set a non-peaceful difficulty for hostile AI", action: .chatCommand("/difficulty normal")),
-            MinecraftStep(name: "Disable natural mob spawning", action: .chatCommand("/gamerule doMobSpawning false")),
             MinecraftStep(name: "Clear existing hostile mobs", action: .chatCommand("/kill @e[family=monster]")),
             MinecraftStep(name: "Build a safe, deterministic platform", action: .chatCommand("/fill 98 79 94 101 79 96 stone")),
             MinecraftStep(name: "Restore the spawn-egg target block", action: .chatCommand("/setblock 98 80 95 crafting_table")),
