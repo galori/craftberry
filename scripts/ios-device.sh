@@ -25,13 +25,13 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|structure] [--fresh-world|--delete-world]
+  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|enchant|structure] [--fresh-world|--delete-world]
           Run a full Craftberry-to-Minecraft acceptance test, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
           remove that exact test world before and after the run.
   minecraft-e2e-all [--fresh-world]
-          Run all thirteen scenarios sequentially. The regular .mcaddon
+          Run all fourteen scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
           Each prepared-world check removes only its exact named test world.
           --fresh-world clears the reusable "craftberry test" world before
@@ -322,8 +322,13 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         entity)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneEntitySetCanCraftSpawnEggInImportedCreativeWorld"
-            result_name="MinecraftRedstoneEntitySetE2EUITests"
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneHostileEntityDamagesPlayerInSurvival"
+            result_name="MinecraftRedstoneHostileEntityE2EUITests"
+            prepared_world_name="Redstone (Creative)"
+            ;;
+        enchant)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneMaterialSwordReachesEnchantingCalibrationBoundary"
+            result_name="MinecraftRedstoneEnchantableSwordE2EUITests"
             prepared_world_name="Redstone (Creative)"
             ;;
         structure)
@@ -332,7 +337,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, or structure)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, enchant, or structure)." >&2
             exit 1
             ;;
     esac
@@ -419,7 +424,7 @@ minecraft_e2e_all_on_device() {
             *) echo "error: unknown flag '$1' for minecraft-e2e-all (expected --fresh-world)" >&2; exit 1 ;;
         esac
     done
-    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing ore crop entity structure)
+    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing ore crop entity enchant structure)
     local overall_status=0
     local first="yes"
     for scenario in "${scenarios[@]}"; do

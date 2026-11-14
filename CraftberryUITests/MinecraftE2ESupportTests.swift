@@ -2,6 +2,57 @@ import ImageIO
 import XCTest
 
 final class MinecraftE2ESupportTests: XCTestCase {
+    func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() {
+        let scenario = MinecraftE2EScenario.redstoneHostileEntitySet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-hostile-entity-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Spawn Egg")
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[0].destinations, [.topCenter, .middleLeft, .middleRight, .bottomCenter])
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[1].searchText, "egg")
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[1].destinations, [.middleCenter])
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/gamemode survival @s") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("You died") })
+        XCTAssertFalse(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/damage @s 3") })
+    }
+
+    func testPostCraftingStepsUseTheirOwnStablePhase() {
+        let steps = MinecraftE2EScenario.redstoneHostileEntitySet.postCraftingSteps
+        let phased = steps.phased(as: .behavior)
+
+        XCTAssertEqual(phased.first?.id, "behavior:1")
+        XCTAssertEqual(phased.last?.id, "behavior:\(steps.count)")
+        XCTAssertTrue(phased.first?.name.contains("daytime") == true)
+    }
+
+    func testEnchantScenarioUsesEnchantableMaterialSwordAndStopsAtCalibrationBoundary() {
+        let scenario = MinecraftE2EScenario.redstoneEnchantableSwordSet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-enchantable-sword-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Sword")
+        XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Ingot", "Redstone Sword"])
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/setblock 98 80 95 enchanting_table") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Enchant") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { step in
+            if case .calibrationRequired = step.action { return true }
+            return false
+        })
+        XCTAssertFalse(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/enchant @s sharpness") })
+    }
+
+    func testCalibrationRequiredStepFailsWithAnExplicitCalibrationReason() {
+        let executor = MinecraftStepExecutor()
+        let step = MinecraftPhasedStep(
+            id: "behavior:1",
+            name: "Calibrate enchanting slot taps",
+            action: .calibrationRequired("Enchanting screen slot taps are not calibrated.")
+        )
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertFalse(result.succeeded)
+        XCTAssertEqual(result.failureReason, "Enchanting screen slot taps are not calibrated.")
+    }
+
     func testTypedJSONDecodingMapsLegacyActions() throws {
         let data = Data(#"""
         [

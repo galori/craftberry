@@ -163,6 +163,7 @@ extension MinecraftStep.Action {
         case .chatCommand(let t): "chatCommand(\(t))"
         case .assertText(let t): "assertText(\(t))"
         case .assertPixels(let e): "assertPixels(\(e))"
+        case .calibrationRequired(let reason): "calibrationRequired(\(reason))"
         }
     }
 }

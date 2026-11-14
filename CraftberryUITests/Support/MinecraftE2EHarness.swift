@@ -159,9 +159,15 @@ final class MinecraftE2EHarness {
             run(step, using: console)
         }
 
-        let cleanupSteps = MinecraftE2EStepSlices.postScenarioCleanup.phased(as: .config)
-        for step in cleanupSteps {
+        for step in scenario.postCraftingSteps.phased(as: .behavior) {
             run(step, using: console)
+        }
+
+        if scenario.cleansUpInWorld {
+            let cleanupSteps = MinecraftE2EStepSlices.postScenarioCleanup.phased(as: .config)
+            for step in cleanupSteps {
+                run(step, using: console)
+            }
         }
     }
 
@@ -295,8 +301,13 @@ final class MinecraftE2EHarness {
         for step in compiler.compile(scenario.craftingPlan).phased(as: .crafting) {
             run(step, using: console)
         }
-        for step in MinecraftE2EStepSlices.postScenarioCleanup.phased(as: .config) {
+        for step in scenario.postCraftingSteps.phased(as: .behavior) {
             run(step, using: console)
+        }
+        if scenario.cleansUpInWorld {
+            for step in MinecraftE2EStepSlices.postScenarioCleanup.phased(as: .config) {
+                run(step, using: console)
+            }
         }
     }
 
