@@ -518,7 +518,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Set daytime for the enchanting test", action: .chatCommand("/time set day")),
             MinecraftStep(name: "Place an enchanting table at the calibrated station", action: .chatCommand("/setblock 98 80 95 enchanting_table")),
             MinecraftStep(name: "Give the player lapis for the enchanting table", action: .chatCommand("/give @s lapis_lazuli 3")),
-            MinecraftStep(name: "Give the player levels for the enchanting table", action: .chatCommand("/xp 30L @s")),
+            MinecraftStep(name: "Give the player experience points for low-level enchanting options", action: .chatCommand("/xp 30 @s")),
             MinecraftStep(name: "Enter Survival before opening the enchanting table", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Open the enchanting table using the calibrated world interaction point", action: .tap(x: 0.5075, y: 0.265)),
             MinecraftStep(name: "Confirm the enchanting-table interface is open", action: .assertText("Enchant")),

@@ -39,6 +39,12 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Ingot", "Redstone Sword"])
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/setblock 98 80 95 enchanting_table") })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Enchant") })
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.contains("/xp 30 @s"))
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Enchanting setup commands must stay on the calibrated lowercase keyboard plane.")
         XCTAssertTrue(scenario.postCraftingSteps.contains { step in
             if case .calibrationRequired = step.action { return true }
             return false

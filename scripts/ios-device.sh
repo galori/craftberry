@@ -26,12 +26,14 @@ Commands:
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
   minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|enchant|structure] [--fresh-world|--delete-world]
-          Run a full Craftberry-to-Minecraft acceptance test, defaulting to
+          Run a focused Craftberry-to-Minecraft scenario, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
           remove that exact test world before and after the run.
+          The enchant scenario is a calibration checkpoint and is excluded
+          from minecraft-e2e-all until it verifies an applied enchantment.
   minecraft-e2e-all [--fresh-world]
-          Run all fourteen scenarios sequentially. The regular .mcaddon
+          Run all thirteen acceptance scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
           Each prepared-world check removes only its exact named test world.
           --fresh-world clears the reusable "craftberry test" world before
@@ -424,7 +426,7 @@ minecraft_e2e_all_on_device() {
             *) echo "error: unknown flag '$1' for minecraft-e2e-all (expected --fresh-world)" >&2; exit 1 ;;
         esac
     done
-    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing ore crop entity enchant structure)
+    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing ore crop entity structure)
     local overall_status=0
     local first="yes"
     for scenario in "${scenarios[@]}"; do
