@@ -70,7 +70,7 @@ Consider Bedrock Dedicated Server as an extra, faster engine-load check only aft
   3. Only then, **from the main worktree**, delete the task's worktree (`git -C /Users/gall/workspace/craftberry worktree remove worktrees/<slug>` or `git worktree remove <absolute-path-to-worktree>`) and prune the branch (`git branch -d <branch>`). Do not run `git worktree remove` targeting the worktree that contains your current `pwd`; if you need `--force`, you are likely still inside it — `cd` out first.
   4. `git worktree list` again to confirm removal before starting the next task.
   - If your session is still rooted in the task worktree, do not remove it — create the next task's worktree first or switch sessions, and **ask before deleting any worktree you are currently inside**.
-- E2E device acceptance remains required for `ROADMAP.md` increments under “Fast feedback and Minecraft acceptance.” It does not replace green CI checks.
+- E2E device acceptance remains required for behavior tracked in the Craftberry Orca roadmap at `~/workspace/repo-notes/projects/craftberry/`. It does not replace green CI checks.
 
 ### Required after every change
 
@@ -91,9 +91,12 @@ Consider Bedrock Dedicated Server as an extra, faster engine-load check only aft
 - `CraftberryUITests/` — focused user-flow smoke tests for prompt, result, and error states; also holds `MinecraftHandoffUITests`, which drives Safari (not Craftberry) for standalone Minecraft-import validation.
 - `Tools/MinecraftFixture/` — a `swift run`-able CraftberryCore consumer that compiles a fresh fixture `.mcaddon` on the Mac for `scripts/minecraft-import.sh`, without needing a device.
 - `Config/` — tracked configuration examples only; real local secrets are ignored.
-- `ROADMAP.md` — active add-on architecture, constraints, and incremental delivery plan.
-- `CAPABILITIES.md` — support and verification matrix for each pinned Bedrock profile.
-- `PLAN.md` — historical custom-sword POC plan.
+- `ROADMAP.md` — pointer to the canonical Orca project roadmap and handoffs.
+- `~/workspace/repo-notes/projects/craftberry/` — Orca project status, roadmap, decisions, and active work plans.
+- `CAPABILITIES.md` — repository-facing support and verification matrix for the pinned Bedrock profile.
+- `PLAN.md` and `PHASE2_MATERIAL_SWORD_SET.md` — pointers to historical Orca plans.
+- `REMOTE_DEBUG.md` and `REFACTORING_OPPORTUNITIES.md` — pointers to Orca implementation history and the current engineering backlog.
+- `docs/MINECRAFT_DEVICE_AUTOMATION.md` — current device-automation and acceptance procedure.
 - `.scratch/` — ignored local scratch space for temporary handoffs, investigation notes, and repro artifacts. Contents never committed and survive reboots (unlike `/tmp`). Use it for anything that would otherwise go to `/tmp`.
 
 Update this section when the actual Xcode project layout is introduced or materially changed.

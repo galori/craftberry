@@ -1,6 +1,6 @@
 # Craftberry
 
-Craftberry is an iOS proof of concept for turning a natural-language prompt into a typed, locally validated Minecraft Bedrock add-on project and compiling it into a deterministic `.mcaddon`. The currently shipped vertical slice remains one custom sword; unsupported add-on families fail clearly.
+Craftberry is an iOS app for turning a natural-language prompt into a typed, locally validated Minecraft Bedrock add-on project and compiling it into a deterministic `.mcaddon`. It supports the bounded content families listed in [`CAPABILITIES.md`](CAPABILITIES.md); requests outside the active profile fail clearly. Project delivery status and handoffs are maintained in Orca.
 
 ```text
 Prompt → typed AddOnProject → local validation and asset generation
@@ -120,4 +120,4 @@ export/import and post-import cold launch:
 Both replace the temporary `MINECRAFT_E2E_OBSERVE_*` pauses and the
 60/45-second crafting observation sleeps, which have been removed.
 
-The core is also exposed as the `CraftberryCore` Swift package target for isolated Swift 6 compiler tests. See [ROADMAP.md](ROADMAP.md) for the active architecture and delivery plan, [CAPABILITIES.md](CAPABILITIES.md) for profile support and verification status, and [PLAN.md](PLAN.md) for the historical sword POC plan.
+The core is also exposed as the `CraftberryCore` Swift package target for isolated Swift 6 compiler tests. Current roadmap, project decisions, milestone status, and handoffs are maintained in the Orca project record at `~/workspace/repo-notes/projects/craftberry/`; [ROADMAP.md](ROADMAP.md) points to that source. See [CAPABILITIES.md](CAPABILITIES.md) for profile support and verification status and [docs/MINECRAFT_DEVICE_AUTOMATION.md](docs/MINECRAFT_DEVICE_AUTOMATION.md) for device-validation procedures.
