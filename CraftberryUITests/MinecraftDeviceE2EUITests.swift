@@ -115,11 +115,19 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneEntitySetCanCraftSpawnEggInImportedCreativeWorld() throws {
+    func testCraftberryRedstoneHostileEntityDamagesPlayerInSurvival() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
-        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneEntitySet, gameMode: .creative)
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneHostileEntitySet, gameMode: .creative)
+        #endif
+    }
+
+    func testCraftberryRedstoneMaterialSwordReachesEnchantingCalibrationBoundary() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneEnchantableSwordSet, gameMode: .creative)
         #endif
     }
 }
@@ -431,14 +439,95 @@ extension MinecraftE2EScenario {
         craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Redstone Seeds", ingredients: [.init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])], beforePickupVerification: nil, afterPickupVerification: .text("Seeds"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
     )
 
-    static let redstoneEntitySet = MinecraftE2EScenario(
-        launchArgument: "--ui-testing-redstone-entity-set",
-        prompt: "Generate a redstone entity set crafted from redstone",
+    static let redstoneHostileEntitySet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-hostile-entity-set",
+        prompt: "Generate a hostile redstone creature with a craftable spawn egg",
         projectName: "Redstone",
         expectedCraftedItemName: "Redstone Spawn Egg",
         behaviorPackName: "Redstone Behavior",
         resourcePackName: "Redstone Resources",
-        craftingPlan: MinecraftCraftingPlan(recipes: [.init(outputName: "Redstone Spawn Egg", ingredients: [.init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleCenter, .middleRight, .bottomLeft, .bottomCenter, .bottomRight])], beforePickupVerification: nil, afterPickupVerification: .text("Spawn"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: false)], finalHotbarTap: nil)
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Spawn Egg",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleLeft, .middleRight, .bottomCenter]),
+                        .init(searchText: "egg", resultColumn: 1, destinations: [.middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Spawn"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for a controlled hostile test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Clear weather for a controlled hostile test", action: .chatCommand("/weather clear")),
+            MinecraftStep(name: "Set a non-peaceful difficulty for hostile AI", action: .chatCommand("/difficulty normal")),
+            MinecraftStep(name: "Clear existing hostile mobs", action: .chatCommand("/kill @e[family=monster]")),
+            MinecraftStep(name: "Build a safe, deterministic platform", action: .chatCommand("/fill 98 79 94 101 79 96 stone")),
+            MinecraftStep(name: "Restore the spawn-egg target block", action: .chatCommand("/setblock 98 80 95 crafting_table")),
+            MinecraftStep(name: "Return to the calibrated spawn-egg position", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Enter Survival before using the hostile spawn egg", action: .chatCommand("/gamemode survival @s")),
+            MinecraftStep(name: "Select the crafted Redstone Spawn Egg", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
+            MinecraftStep(name: "Use the spawn egg on the nearby block", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Wait for the hostile creature to spawn", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Query for the hostile creature family", action: .chatCommand("/testfor @e[family=monster]")),
+            MinecraftStep(name: "Confirm a hostile creature spawned", action: .assertText("Found")),
+            MinecraftStep(name: "Wait for the hostile creature to attack in Survival", action: .wait(seconds: 45)),
+            MinecraftStep(name: "Verify hostile damage reaches zero health", action: .assertText("You died")),
+            MinecraftStep(name: "Respawn after verifying hostile damage", action: .tapTextRow(x: 0.5, text: "Respawn")),
+            MinecraftStep(name: "Wait for the player to respawn", action: .wait(seconds: 8))
+        ]
+    )
+
+    static let redstoneEnchantableSwordSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-enchantable-sword-set",
+        prompt: "Generate a redstone sword set with an enchantable sword",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Sword",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Ingot",
+                    ingredients: [.init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Redstone"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: true
+                ),
+                .init(
+                    outputName: "Redstone Sword",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleCenter]),
+                        .init(searchText: "stick", resultColumn: 3, destinations: [.bottomCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Sword"),
+                    outputDestination: slotAfterIngredientsReturn,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for the enchanting test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Place an enchanting table at the calibrated station", action: .chatCommand("/setblock 98 80 95 enchanting_table")),
+            MinecraftStep(name: "Give the player lapis for the enchanting table", action: .chatCommand("/give @s lapis_lazuli 3")),
+            MinecraftStep(name: "Give the player experience points for low-level enchanting options", action: .chatCommand("/xp 30 @s")),
+            MinecraftStep(name: "Enter Survival before opening the enchanting table", action: .chatCommand("/gamemode survival @s")),
+            MinecraftStep(name: "Open the enchanting table using the calibrated world interaction point", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Confirm the enchanting-table interface is open", action: .assertText("Enchant")),
+            MinecraftStep(
+                name: "CALIBRATION REQUIRED: select the sword, lapis, and enchantment option",
+                action: .calibrationRequired("The iPhone's enchanting-table inventory slots and option buttons need live calibration before this scenario can verify an applied enchantment. Use `scripts/minecraft-calibrate.sh start enchant` and capture the selected sword's resulting enchantment text before replacing this checkpoint.")
+            )
+        ],
+        cleansUpInWorld: false
     )
 
     static let redstoneBlockSet = MinecraftE2EScenario(

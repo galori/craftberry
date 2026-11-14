@@ -35,9 +35,8 @@ export/import and cold-launch, then exposes a JSON controller on
 Commands:
   start <scenario> [--break-at <id-or-name>] [--foreground]
         Start a calibration session for one scenario. Scenario is one of:
-          emerald | redstone | weapon | armor | world
-        (aliases: emerald, emeraldSword, redstone, redstoneToolSet,
-         weapon, redstoneWeaponSet, armor, redstoneArmorSet)
+          emerald | redstone | weapon | armor | entity | enchant | world
+        (aliases: emerald, redstone, weapon, armor, hostile, enchant)
         --break-at stops before the named step (id like config:12 or name).
         --foreground keeps this command alive until the session is stopped.
 
@@ -183,11 +182,17 @@ scenario_to_test_selector() {
         armor|redstoneArmorSet|redstone_armor_set|redstone-armor-set|redstoneArmor)
             printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationRedstoneArmorSet'
             ;;
+        entity|hostile|redstoneHostileEntity|redstone-hostile-entity)
+            printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationRedstoneHostileEntity'
+            ;;
+        enchant|redstoneEnchantableSword|redstone-enchantable-sword)
+            printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationRedstoneEnchantableSword'
+            ;;
         world|creativeWorld|preconfiguredWorld|preconfigured-world)
             printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationPreconfiguredCreativeWorld'
             ;;
         *)
-            echo "error: unknown scenario '$scenario' (expected emerald, redstone, weapon, armor, or world)." >&2
+            echo "error: unknown scenario '$scenario' (expected emerald, redstone, weapon, armor, entity, enchant, or world)." >&2
             exit 1
             ;;
     esac

@@ -82,11 +82,37 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneStructureSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-structure-set")
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
+        let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
+        let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let usesRevisionFlow = ProcessInfo.processInfo.arguments.contains("--ui-testing-revision-flow")
         let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
         let project: AddOnProject
-        if usesRevisionFlow && prompt.trimmingCharacters(in: .whitespacesAndNewlines) == "Increase the sword's damage" {
+        if usesRedstoneHostileEntitySet {
+            project = try AddOnProject.materialHostileEntitySet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                health: 24,
+                shortDescription: "A redstone hostile creature with a craftable spawn egg.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneEnchantableSwordSet {
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                swordDisplayName: "Redstone Sword",
+                attackBonus: 10,
+                durability: 500,
+                shortDescription: "A redstone ingot kit with a custom enchantable sword.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRevisionFlow && prompt.trimmingCharacters(in: .whitespacesAndNewlines) == "Increase the sword's damage" {
             project = try AddOnProject.sword(
                 displayName: "Cyan Test Sword",
                 color: .cyan,

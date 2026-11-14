@@ -3,6 +3,7 @@ import XCTest
 enum MinecraftE2EPhase: String {
     case config
     case crafting
+    case behavior
 }
 
 /// A `MinecraftStep` paired with a stable, run-local ID such as `config:12` or `crafting:4`.
@@ -201,6 +202,8 @@ final class MinecraftStepExecutor {
                 return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name).")
             }
             return .success(step)
+        case .calibrationRequired(let reason):
+            return .failure(step, reason: reason)
         }
     }
 
