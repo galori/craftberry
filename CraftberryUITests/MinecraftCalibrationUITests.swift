@@ -53,6 +53,32 @@ final class MinecraftCalibrationUITests: XCTestCase {
         #endif
     }
 
+    func testCalibrationRedstoneHostileEntity() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Calibration requires Minecraft on the dedicated physical iPhone.")
+        #else
+        let breakAt = ProcessInfo.processInfo.environment["MINECRAFT_CALIBRATION_BREAK_AT"]
+        try MinecraftCalibrationHarness(testCase: self).runPreconfiguredWorldCalibration(
+            .redstoneHostileEntitySet,
+            gameMode: .creative,
+            breakAt: breakAt
+        )
+        #endif
+    }
+
+    func testCalibrationRedstoneEnchantableSword() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Calibration requires Minecraft on the dedicated physical iPhone.")
+        #else
+        let breakAt = ProcessInfo.processInfo.environment["MINECRAFT_CALIBRATION_BREAK_AT"]
+        try MinecraftCalibrationHarness(testCase: self).runPreconfiguredWorldCalibration(
+            .redstoneEnchantableSwordSet,
+            gameMode: .creative,
+            breakAt: breakAt
+        )
+        #endif
+    }
+
     func testCalibrationPreconfiguredCreativeWorld() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("Calibration requires Minecraft on the dedicated physical iPhone.")

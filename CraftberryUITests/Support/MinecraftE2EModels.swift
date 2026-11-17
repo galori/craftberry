@@ -21,6 +21,7 @@ struct MinecraftStep: Equatable {
         case chatCommand(String)
         case assertText(String)
         case assertPixels(MinecraftPixelExpectation)
+        case calibrationRequired(String)
     }
 
     let name: String
@@ -113,6 +114,8 @@ struct MinecraftE2EScenario {
     let behaviorPackName: String
     let resourcePackName: String
     let craftingPlan: MinecraftCraftingPlan
+    var postCraftingSteps: [MinecraftStep] = []
+    var cleansUpInWorld: Bool = true
 }
 
 enum MinecraftWorldGameMode: String {

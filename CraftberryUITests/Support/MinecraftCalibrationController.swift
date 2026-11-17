@@ -40,6 +40,7 @@ final class MinecraftCalibrationController {
         scenario: MinecraftE2EScenario,
         configSteps: [MinecraftStep],
         craftingPlan: MinecraftCraftingPlan,
+        postCraftingSteps: [MinecraftStep] = [],
         compiler: MinecraftCraftingPlanCompiler = MinecraftCraftingPlanCompiler(),
         app: XCUIApplication,
         executor: MinecraftStepExecutor,
@@ -47,7 +48,8 @@ final class MinecraftCalibrationController {
     ) {
         let phasedConfig = configSteps.phased(as: .config)
         let phasedCrafting = compiler.compile(craftingPlan).phased(as: .crafting)
-        let all = phasedConfig + phasedCrafting
+        let phasedBehavior = postCraftingSteps.phased(as: .behavior)
+        let all = phasedConfig + phasedCrafting + phasedBehavior
         let scenarioId = scenario.launchArgument
 
         // Placed in a convenience init so the stored closures capture the
