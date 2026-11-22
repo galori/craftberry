@@ -18,7 +18,9 @@ final class MinecraftE2ESupportTests: XCTestCase {
             return command
         }
         XCTAssertTrue(commands.contains("/time set day"))
+        XCTAssertTrue(commands.contains("/gamerule domobspawning false"))
         XCTAssertTrue(commands.contains("/kill @e[family=monster]"))
+        XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Chat commands must stay on the calibrated lowercase keyboard plane.")
     }
 
@@ -266,6 +268,18 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let tableEvents = MinecraftCommandKeyboard().events(for: "crafting_table")
         let underscoreIndex = tableEvents.firstIndex(of: .coordinate(0.1435, 0.7165))!
         XCTAssertEqual(tableEvents[underscoreIndex + 2], .key("letters"))
+    }
+
+    func testCommandKeyboardPlanningCoversBracketsAndEqualsOnSecondSymbolsPlane() {
+        let events = MinecraftCommandKeyboard().events(for: "/kill @e[family=monster]")
+
+        XCTAssertTrue(events.contains(.coordinate(0.1435, 0.630)), "Expected '[' on the #+= top row.")
+        XCTAssertTrue(events.contains(.coordinate(0.2233, 0.630)), "Expected ']' on the #+= top row.")
+        XCTAssertTrue(events.contains(.coordinate(0.8620, 0.630)), "Expected '=' on the #+= top row.")
+
+        // Brackets must route through the symbols plane, not the numbers-plane key lookup.
+        let bracketIndex = events.firstIndex(of: .coordinate(0.1435, 0.630))!
+        XCTAssertTrue(events[..<bracketIndex].contains(.coordinate(0.1435, 0.8117)), "Reaching '[' must tap the #+= plane switch.")
     }
 
     func testPhasedStepsGetStableRunLocalIDsStartingAtOnePerPhase() {

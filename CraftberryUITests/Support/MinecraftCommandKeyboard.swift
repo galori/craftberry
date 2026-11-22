@@ -65,7 +65,17 @@ struct MinecraftCommandKeyboard {
             "^": .coordinate(0.6225, 0.630),
             "~": .coordinate(0.376, 0.7165),
             // XCTest does not reliably address this symbol through accessibility lookup on iPhone 13 Pro.
-            "_": .coordinate(0.1435, 0.7165)
+            "_": .coordinate(0.1435, 0.7165),
+            // Second symbols (#+=) plane, top row: `[` `]` `{` `}` `#` `%` `^` `*` `+` `=`,
+            // confirmed from an iPhone 13 Pro device screenshot showing this exact row order.
+            // `[` aligns vertically with `_` (leftmost key, from the same screenshot family
+            // that fixed `^`/`~`/`_`); `]` and `=` are spaced from the measured `[`-to-`^`
+            // span (6 gaps over 0.479 normalized units). `=` has no numbers-plane key, so it
+            // must come from this plane as well. Verified live: `/kill @e[family=monster]`
+            // typed exactly and Minecraft reported its kills.
+            "[": .coordinate(0.1435, 0.630),
+            "]": .coordinate(0.2233, 0.630),
+            "=": .coordinate(0.8620, 0.630)
         ]
 
         var events: [Event] = []

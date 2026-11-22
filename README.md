@@ -49,6 +49,24 @@ For every future content-family or material enhancement:
 - When device validation reveals a new engine constraint, add the concise
   lesson here and mirror any procedural change in AGENTS.md; keep this list
   updated as the compatibility profile grows.
+- Entity format 1.26.10 removed `minecraft:pushable`: emit
+  `minecraft:pushable_by_entity` and `minecraft:pushable_by_block` (both `{}`,
+  pinned to chicken 1.26.10). The legacy key fails the whole entity file with
+  "not present in the Schema" in the Content Log.
+- Custom spawn-egg items need `minecraft:entity_placer` with the entity id, or
+  the egg is a generic item and using it does nothing. The egg's entity must
+  also load: a rejected entity file surfaces at use time as a silent fizzle
+  (no spawn, no consumption) and at summon time as an unknown-type syntax
+  error, never at import.
+- Do not reuse a vanilla render controller with variant arrays for custom
+  entities: `controller.render.pig` errors on the missing `texture.saddled`
+  variant. Ship a minimal per-entity controller plus its body texture instead.
+- The iOS prediction bar displaces SwiftUI `.toolbar(placement: .keyboard)`
+  content, hiding Done buttons; prompt fields that accept game terms disable
+  autocorrection so predictions neither corrupt input nor remove the toolbar.
+- Bedrock's chat header shows either the classic "Chat and Commands" title or a
+  "My Position" coordinates/sharing variant; chat-open detection must accept
+  both, since the input bar below behaves identically.
 
 ## Physical iPhone workflow
 

@@ -92,7 +92,11 @@ final class MinecraftStepExecutor {
         }
         let resolvedOCR = ocr
         self.chatScreenDetector = chatScreenDetector ?? { timeout in
+            // The chat header shows either the classic "Chat and Commands" title or a
+            // "My Position" coordinates/sharing variant (observed live on iPhone 13 Pro);
+            // the input bar below behaves identically in both, so accept either.
             resolvedOCR.waitForRecognizedText("Chat and Commands", timeout: timeout)
+                || resolvedOCR.waitForRecognizedText("My Position", timeout: timeout)
         }
     }
 

@@ -135,6 +135,11 @@ public enum AddOnProjectValidator {
             } else if visualResourceKinds[entity.spawnEggResourceID] != .entityPixelArt {
                 issues.append(CompilationIssue(severity: .error, code: "invalid_entity_spawn_egg_resource", path: "\(path).spawnEggResourceID", message: "Entity spawn egg resource \(entity.spawnEggResourceID.rawValue) must be a entityPixelArt visual."))
             }
+            if !visualResourceIDs.contains(entity.textureResourceID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_entity_texture_resource", path: "\(path).textureResourceID", message: "Entity references missing body texture visual resource \(entity.textureResourceID.rawValue)."))
+            } else if visualResourceKinds[entity.textureResourceID] != .entityTexture {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_entity_texture_resource", path: "\(path).textureResourceID", message: "Entity body texture resource \(entity.textureResourceID.rawValue) must be a entityTexture visual."))
+            }
             if entity.displayName.contains("\n") || entity.displayName.contains("\r") {
                 issues.append(CompilationIssue(severity: .error, code: "invalid_localization_value", path: "\(path).displayName", message: "Entity display names cannot contain line breaks."))
             }
@@ -339,6 +344,21 @@ public enum AddOnProjectValidator {
                 }
                 if !profile.supportedItemTraits.contains(.fuel) {
                     appendUnsupportedTrait(.fuel, itemPath: itemPath, profile: profile, issues: &issues)
+                }
+            }
+            if let placer = item.traits.entityPlacer {
+                if !entityIDs.contains(placer.entityID) {
+                    issues.append(
+                        CompilationIssue(
+                            severity: .error,
+                            code: "missing_placer_entity",
+                            path: "\(itemPath).traits.entityPlacer.entityID",
+                            message: "Item references missing entity \(placer.entityID.rawValue) for its entity placer."
+                        )
+                    )
+                }
+                if !profile.supportedItemTraits.contains(.entityPlacer) {
+                    appendUnsupportedTrait(.entityPlacer, itemPath: itemPath, profile: profile, issues: &issues)
                 }
             }
             if !(1...64).contains(item.traits.maximumStackSize) {

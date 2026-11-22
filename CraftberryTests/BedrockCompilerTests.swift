@@ -671,6 +671,12 @@ final class BedrockCompilerTests: XCTestCase {
         let components = try XCTUnwrap(entityBody["components"] as? [String: Any])
         let health = try XCTUnwrap(components["minecraft:health"] as? [String: Any])
         XCTAssertEqual(health["value"] as? Int, 10)
+        // Pushability pinned to chicken 1.26.10: the legacy minecraft:pushable was split
+        // into pushable_by_entity/pushable_by_block, and the engine rejects the whole
+        // entity file when the legacy key is present (confirmed live via Content Log).
+        XCTAssertNil(components["minecraft:pushable"])
+        XCTAssertNotNil(components["minecraft:pushable_by_entity"] as? [String: Any])
+        XCTAssertNotNil(components["minecraft:pushable_by_block"] as? [String: Any])
         // Spawn rule pinned to chicken 1.8.0
         let spawn = try json(named: "spawn_rules/azure_a1b2c3_spawn_rule.json", in: behavior)
         XCTAssertEqual(spawn["format_version"] as? String, "1.8.0")
@@ -691,7 +697,21 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(clientDesc["identifier"] as? String, "craftberry:azure_a1b2c3_creature")
         XCTAssertEqual((clientDesc["materials"] as? [String: String])?["default"], "entity_alphatest")
         XCTAssertEqual((clientDesc["geometry"] as? [String: String])?["default"], "geometry.pig")
-        XCTAssertEqual((clientDesc["render_controllers"] as? [String])?.first, "controller.render.pig")
+        XCTAssertEqual((clientDesc["render_controllers"] as? [String])?.first, "controller.render.azure_a1b2c3_creature")
+        // Render controller pinned to pig.render_controllers.json minus its saddle texture
+        // array: the shared pig controller errors on our single-texture entity (confirmed
+        // live via Content Log), so each entity ships its own minimal controller.
+        let controller = try json(named: "render_controllers/azure_a1b2c3_creature.render_controllers.json", in: resources)
+        XCTAssertEqual(controller["format_version"] as? String, "1.8.0")
+        let controllers = try XCTUnwrap(controller["render_controllers"] as? [String: Any])
+        let ours = try XCTUnwrap(controllers["controller.render.azure_a1b2c3_creature"] as? [String: Any])
+        XCTAssertEqual(ours["geometry"] as? String, "Geometry.default")
+        XCTAssertEqual((ours["materials"] as? [[String: String]])?.first?["*"], "Material.default")
+        XCTAssertEqual(ours["textures"] as? [String], ["Texture.default"])
+        // Entity body texture (pig-UV placeholder in material colors). A missing texture
+        // leaves the creature unrenderable, so assert exact bytes, not just presence.
+        let bodyTexture = try XCTUnwrap(resources.first { $0.path == "textures/entity/azure_a1b2c3_creature.png" })
+        XCTAssertEqual(PNGInspector.dimensions(of: bodyTexture.data), .init(width: 64, height: 32))
         let spawnEgg = try XCTUnwrap(clientDesc["spawn_egg"] as? [String: String])
         XCTAssertEqual(spawnEgg["texture"], "azure_a1b2c3_spawn_egg")
         // Spawn egg item
@@ -700,6 +720,14 @@ final class BedrockCompilerTests: XCTestCase {
         let textureMap = try json(named: "textures/item_texture.json", in: resources)
         let textureData = try XCTUnwrap(textureMap["texture_data"] as? [String: Any])
         XCTAssertNotNil(textureData["azure_a1b2c3_spawn_egg"])
+        // The egg must place its entity when used; without minecraft:entity_placer it is
+        // a plain generic item and tapping a block with it spawns nothing (confirmed live:
+        // /testfor found no monster after using the crafted egg).
+        let spawnEggItem = try json(named: "items/azure_a1b2c3_spawn_egg.json", in: behavior)
+        let spawnEggItemBody = try XCTUnwrap(spawnEggItem["minecraft:item"] as? [String: Any])
+        let spawnEggComponents = try XCTUnwrap(spawnEggItemBody["components"] as? [String: Any])
+        let placer = try XCTUnwrap(spawnEggComponents["minecraft:entity_placer"] as? [String: Any])
+        XCTAssertEqual(placer["entity"] as? String, "craftberry:azure_a1b2c3_creature")
     }
 
     func testCompilerEmitsHostilePlayerTargetingBehaviorPinnedToZombieSample() throws {
