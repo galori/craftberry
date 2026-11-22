@@ -32,11 +32,18 @@ USAGE
 afc() { afcclient --documents "$BUNDLE_ID" -- "$@"; }
 
 # Log names sort chronologically because they embed a timestamp.
-log_names() { afc ls "$LOG_DIR" 2>/dev/null | grep '^ContentLog.*\.txt$' | sort || true; }
+# Fails (nonzero, with afcclient's message) if the listing itself fails, so a
+# disconnected device is distinguishable from an empty log directory.
+log_names() {
+    local listing
+    listing="$(afc ls "$LOG_DIR")" || return 1
+    printf '%s\n' "$listing" | grep '^ContentLog.*\.txt$' | sort || true
+}
 
 newest() {
     local n
-    n="$(log_names | tail -1)"
+    n="$(log_names)" || exit 1
+    n="$(printf '%s\n' "$n" | tail -1)"
     [[ -n "$n" ]] || { echo "error: no ContentLog files on device (see 'status')" >&2; exit 1; }
     echo "$n"
 }
@@ -45,7 +52,11 @@ newest() {
 fetch() {
     local tmp
     tmp="$(mktemp -d)/log.txt"
-    afc get "$LOG_DIR/$1" "$tmp" >/dev/null
+    if ! afc get "$LOG_DIR/$1" "$tmp" >/dev/null; then
+        rm -rf "$(dirname "$tmp")"
+        echo "error: failed to download $1" >&2
+        return 1
+    fi
     echo "$tmp"
 }
 
@@ -71,15 +82,15 @@ case "$cmd" in
         ;;
     list) log_names ;;
     show)
-        f="${1:-$(newest)}"; tmp="$(fetch "$f")"; filter <"$tmp"; rm -f "$tmp" ;;
+        f="${1:-$(newest)}"; tmp="$(fetch "$f")" || exit 1; filter <"$tmp"; rm -f "$tmp" ;;
     errors)
-        f="${1:-$(newest)}"; tmp="$(fetch "$f")"; grep -iE '\]\[(warn|warning|error)\]' "$tmp" || true; rm -f "$tmp" ;;
+        f="${1:-$(newest)}"; tmp="$(fetch "$f")" || exit 1; grep -iE '\]\[(warn|warning|error)\]' "$tmp" || true; rm -f "$tmp" ;;
     mark)
-        f="$(newest)"; tmp="$(fetch "$f")"; mkdir -p "$STATE_DIR"
+        f="$(newest)"; tmp="$(fetch "$f")" || exit 1; mkdir -p "$STATE_DIR"
         printf '%s %s\n' "$f" "$(size_of "$tmp")" >"$STATE_DIR/mark"
         echo "marked $f at $(size_of "$tmp") bytes"; rm -f "$tmp" ;;
     since)
-        f="$(newest)"; tmp="$(fetch "$f")"; off=0
+        f="$(newest)"; tmp="$(fetch "$f")" || exit 1; off=0
         if [[ -f "$STATE_DIR/mark" ]]; then
             read -r mf moff <"$STATE_DIR/mark"
             [[ "$mf" == "$f" ]] && off="$moff"

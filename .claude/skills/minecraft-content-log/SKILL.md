@@ -17,7 +17,7 @@ Use `scripts/minecraft-content-log.sh` — it reads the log files Minecraft writ
 ## Notes
 
 - Minecraft creates a new `ContentLog<timestamp>_N.txt` per game launch; the script defaults to the newest. `since` treats a newer file than the mark as all-new.
-- An empty file means nothing was logged (clean load), not that logging is broken. Confirm logging works by checking `status`, not file size.
+- An empty or short file is inconclusive, not proof of a clean load: Minecraft writes the log in chunks, so recent diagnostics may not be on disk yet. Wait, re-read after Minecraft has had time to flush (e.g. after backgrounding or relaunching the app), and only then declare the load clean. `status` shows the setting is on, not that pending lines reached disk.
 - Pack errors are logged when a world loads with the pack active, so open the world before reading.
 - Logs can contain world/pack names; don't commit them.
 - Don't confuse this with the on-screen Content Log OCR the E2E harness uses; this is the file on disk.
