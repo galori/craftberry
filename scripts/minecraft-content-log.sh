@@ -52,7 +52,8 @@ newest() {
 fetch() {
     local tmp
     tmp="$(mktemp -d)/log.txt"
-    if ! afc get "$LOG_DIR/$1" "$tmp" >/dev/null; then
+    # afcclient exits 0 for a missing remote file, so also require the local file.
+    if ! afc get "$LOG_DIR/$1" "$tmp" >/dev/null || [[ ! -f "$tmp" ]]; then
         rm -rf "$(dirname "$tmp")"
         echo "error: failed to download $1" >&2
         return 1
