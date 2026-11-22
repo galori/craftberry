@@ -2,7 +2,7 @@ import ImageIO
 import XCTest
 
 final class MinecraftE2ESupportTests: XCTestCase {
-    func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() {
+    func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() throws {
         let scenario = MinecraftE2EScenario.redstoneHostileEntitySet
 
         XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-hostile-entity-set")
@@ -22,6 +22,21 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(commands.contains("/kill @e[family=monster]"))
         XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Chat commands must stay on the calibrated lowercase keyboard plane.")
+        // The spawned creature kills the player within seconds, so the spawn check runs
+        // under resistance and the damage check only after clearing it (confirmed live:
+        // the player died before /testfor completed without protection).
+        XCTAssertTrue(commands.contains("/effect @s resistance 1000000 255"))
+        XCTAssertTrue(commands.contains("/effect @s clear"))
+        let names = scenario.postCraftingSteps.map(\.name)
+        let protect = try XCTUnwrap(names.firstIndex { $0.contains("resistance") })
+        let useEgg = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
+        let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm a hostile creature spawned") })
+        let clearEffects = try XCTUnwrap(names.firstIndex { $0.contains("Clear protection") })
+        let verifyDamage = try XCTUnwrap(names.firstIndex { $0.contains("zero health") })
+        XCTAssertLessThan(protect, useEgg)
+        XCTAssertLessThan(useEgg, confirmSpawn)
+        XCTAssertLessThan(confirmSpawn, clearEffects)
+        XCTAssertLessThan(clearEffects, verifyDamage)
     }
 
     func testPostCraftingStepsUseTheirOwnStablePhase() {
