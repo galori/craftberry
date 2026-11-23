@@ -37,6 +37,16 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(useEgg, confirmSpawn)
         XCTAssertLessThan(confirmSpawn, clearEffects)
         XCTAssertLessThan(clearEffects, verifyDamage)
+        // The spawn check runs from high above the platform: the freshly spawned
+        // creature mauls the adjacent player and its knockback breaks chat input
+        // (confirmed live: the testfor chat never got its keyboard next to the mob).
+        // The damage check returns to the calibrated position first.
+        let moveAway = try XCTUnwrap(names.firstIndex { $0.contains("Move away for a calm spawn check") })
+        let returnForDamage = try XCTUnwrap(names.firstIndex { $0.contains("Return for the damage check") })
+        XCTAssertLessThan(useEgg, moveAway)
+        XCTAssertLessThan(moveAway, confirmSpawn)
+        XCTAssertLessThan(clearEffects, returnForDamage)
+        XCTAssertLessThan(returnForDamage, verifyDamage)
     }
 
     func testPostCraftingStepsUseTheirOwnStablePhase() {
