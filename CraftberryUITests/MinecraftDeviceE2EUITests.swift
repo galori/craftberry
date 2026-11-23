@@ -521,7 +521,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Give the player lapis for the enchanting table", action: .chatCommand("/give @s lapis_lazuli 3")),
             MinecraftStep(name: "Give the player experience points for low-level enchanting options", action: .chatCommand("/xp 30 @s")),
             MinecraftStep(name: "Enter Survival before opening the enchanting table", action: .chatCommand("/gamemode survival @s")),
-            MinecraftStep(name: "Open the enchanting table using the calibrated world interaction point", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Open the enchanting table using the calibrated world interaction point", action: .tapUntilText(x: 0.5075, y: 0.265, fallbackX: 0.5075, fallbackY: 0.38, text: "Enchant")),
             MinecraftStep(name: "Confirm the enchanting-table interface is open", action: .assertText("Enchant")),
             MinecraftStep(
                 name: "CALIBRATION REQUIRED: select the sword, lapis, and enchantment option",

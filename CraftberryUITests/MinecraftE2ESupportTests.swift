@@ -36,6 +36,18 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(enterSurvival, verifyDamage)
     }
 
+    func testEnchantTableOpenRetriesAcrossTheTableBody() {
+        let steps = MinecraftE2EScenario.redstoneEnchantableSwordSet.postCraftingSteps
+        // A single tap point misses the table's narrow upper body on some runs, so the
+        // open step retries lower on the base and confirms via OCR before continuing.
+        XCTAssertTrue(steps.contains {
+            if case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let expected) = $0.action {
+                return x == 0.5075 && y == 0.265 && fallbackX == 0.5075 && fallbackY == 0.38 && expected == "Enchant"
+            }
+            return false
+        })
+    }
+
     func testPostCraftingStepsUseTheirOwnStablePhase() {
         let steps = MinecraftE2EScenario.redstoneHostileEntitySet.postCraftingSteps
         let phased = steps.phased(as: .behavior)
