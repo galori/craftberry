@@ -21,6 +21,7 @@ struct MinecraftStep: Equatable {
         case chatCommand(String)
         case assertText(String)
         case assertPixels(MinecraftPixelExpectation)
+        case tapUntilPixels(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, expectation: MinecraftPixelExpectation)
         case calibrationRequired(String)
     }
 
@@ -140,6 +141,22 @@ struct MinecraftCraftingPlan {
         let searchText: String
         let resultColumn: Int
         let destinations: [MinecraftCraftingSlot]
+        /// Optional per-destination pixel checks (parallel to
+        /// `destinations`): when set, each place tap is followed by a
+        /// tap-until-placed retry that recovers silently dropped taps.
+        let verifyPlacements: [MinecraftPixelExpectation]?
+
+        init(
+            searchText: String,
+            resultColumn: Int,
+            destinations: [MinecraftCraftingSlot],
+            verifyPlacements: [MinecraftPixelExpectation]? = nil
+        ) {
+            self.searchText = searchText
+            self.resultColumn = resultColumn
+            self.destinations = destinations
+            self.verifyPlacements = verifyPlacements
+        }
     }
 
     enum Verification: Equatable {
@@ -162,4 +179,6 @@ enum MinecraftCraftingSlot: CaseIterable {
 enum MinecraftPixelExpectation: Equatable {
     case redstonePickaxeOutput
     case redCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
+    case redAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
+    case cyanCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
 }

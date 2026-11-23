@@ -34,8 +34,28 @@ struct MinecraftCraftingPlanCompiler {
 
             let source = layout.creativeResult(column: ingredient.resultColumn)
             for (destinationIndex, slot) in ingredient.destinations.enumerated() {
+                // Settle after every pick and place: back-to-back inventory
+                // taps overrun a loaded game, which silently drops some
+                // (confirmed live: a stuck mid-screen cursor stack with the
+                // place never landing). One second each is inaudible in a
+                // four-minute run.
                 steps.append(.tap("Pick \(ordinal(destinationIndex + 1)) \(ingredient.searchText) stack", source))
-                steps.append(.tap("Place \(ingredient.searchText) in \(slot.displayName) recipe slot", layout.craftingSlot(slot)))
+                steps.append(MinecraftStep(name: "Wait after picking \(ingredient.searchText)", action: .wait(seconds: 1)))
+                let cell = layout.craftingSlot(slot)
+                steps.append(.tap("Place \(ingredient.searchText) in \(slot.displayName) recipe slot", cell))
+                steps.append(MinecraftStep(name: "Wait after placing \(ingredient.searchText)", action: .wait(seconds: 1)))
+                if let verifies = ingredient.verifyPlacements, destinationIndex < verifies.count {
+                    let verify = verifies[destinationIndex]
+                    steps.append(
+                        MinecraftStep(
+                            name: "Confirm \(ingredient.searchText) in \(slot.displayName) recipe slot",
+                            action: .tapUntilPixels(
+                                x: cell.x, y: cell.y, fallbackX: cell.x, fallbackY: cell.y,
+                                expectation: verify
+                            )
+                        )
+                    )
+                }
             }
         }
 
@@ -43,25 +63,56 @@ struct MinecraftCraftingPlanCompiler {
         if let verification = recipe.beforePickupVerification {
             steps.append(step(for: verification, name: "Confirm \(recipe.outputName) output is visible"))
         }
-        steps.append(.tap("Take \(recipe.outputName) output", layout.craftingOutput))
-        // Taking the output drops it straight into the hotbar, and Minecraft renders an item's name
-        // only in the tooltip raised by tapping that hotbar slot — nothing on the crafting screen
-        // spells the name out. So the name assertion has to come after the hotbar tap, not before
-        steps.append(.tap("Select \(recipe.outputName) in the hotbar", recipe.outputDestination))
-        // The tooltip appears after the hotbar tap and fades after ~1s. Give the UI a moment
-        // to raise it before OCR polls — confirmed live that redstone armor/boots need the tap
-        // to show the name, and without a brief pause the 0.5s poll can miss the transient text.
-        // Live polling showed the tooltip only lives ~300ms after the tap is visible to Vision
-        // (seen at 0.2-0.35s, gone by 0.5s), so 0.8s leaves almost no window. Use 0.2s to start
-        // the 8s poll while the tooltip is still up.
-        steps.append(MinecraftStep(name: "Wait for \(recipe.outputName) tooltip to appear", action: .wait(seconds: 0.2)))
-        if let verification = recipe.afterPickupVerification {
-            steps.append(step(for: verification, name: "Confirm crafted \(recipe.outputName)"))
-            // While the tooltip is up it swallows the next tap: confirmed live that closing the
-            // crafting table immediately after reading the tooltip only dismissed the tooltip, left
-            // the table open, and so left the previous recipe's leftover stacks sitting in the grid
-            // to corrupt the next recipe. Let it fade before anything else is tapped.
+        // Takes auto-move into first-free hotbar slots and repeat takes
+        // are safe (extras land in later slots that later steps ignore),
+        // so take nine times with generous settles: the repetition lands
+        // the output through later slots for scenarios that need an
+        // unselected pickup slot, and outlasts output-refill lulls that
+        // silently void single takes (confirmed live).
+        for attempt in 0..<9 {
+            let name = attempt == 0
+                ? "Take \(recipe.outputName) output"
+                : "Take \(recipe.outputName) output (retry \(attempt))"
+            steps.append(.tap(name, layout.craftingOutput))
+            steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 2)))
+        }
+        switch recipe.afterPickupVerification {
+        case .pixels(let expectation):
+            // Pixel verifications tap-until-placed: the engine silently
+            // ignores hotbar taps often enough that a single tap plus a
+            // one-shot assert flakes, while the slot pixels persist so the
+            // retry check cannot miss them the way OCR misses tooltips.
+            let slot = recipe.outputDestination
+            steps.append(
+                MinecraftStep(
+                    name: "Place \(recipe.outputName) and confirm",
+                    action: .tapUntilPixels(
+                        x: slot.x, y: slot.y, fallbackX: slot.x, fallbackY: slot.y,
+                        expectation: expectation
+                    )
+                )
+            )
             steps.append(MinecraftStep(name: "Wait for the \(recipe.outputName) tooltip to fade", action: .wait(seconds: 2)))
+        case .text, nil:
+            // Taking the output drops it straight into the hotbar, and Minecraft renders an item's name
+            // only in the tooltip raised by tapping that hotbar slot — nothing on the crafting screen
+            // spells the name out. So the name assertion has to come after the hotbar tap, not before
+            steps.append(.tap("Select \(recipe.outputName) in the hotbar", recipe.outputDestination))
+            // The tooltip appears after the hotbar tap and fades after ~1s. Give the UI a moment
+            // to raise it before OCR polls — confirmed live that redstone armor/boots need the tap
+            // to show the name, and without a brief pause the 0.5s poll can miss the transient text.
+            // Live polling showed the tooltip only lives ~300ms after the tap is visible to Vision
+            // (seen at 0.2-0.35s, gone by 0.5s), so 0.8s leaves almost no window. Use 0.2s to start
+            // the 8s poll while the tooltip is still up.
+            steps.append(MinecraftStep(name: "Wait for \(recipe.outputName) tooltip to appear", action: .wait(seconds: 0.2)))
+            if let verification = recipe.afterPickupVerification {
+                steps.append(step(for: verification, name: "Confirm crafted \(recipe.outputName)"))
+                // While the tooltip is up it swallows the next tap: confirmed live that closing the
+                // crafting table immediately after reading the tooltip only dismissed the tooltip, left
+                // the table open, and so left the previous recipe's leftover stacks sitting in the grid
+                // to corrupt the next recipe. Let it fade before anything else is tapped.
+                steps.append(MinecraftStep(name: "Wait for the \(recipe.outputName) tooltip to fade", action: .wait(seconds: 2)))
+            }
         }
 
         if recipe.shouldResetTableAfterPickup {

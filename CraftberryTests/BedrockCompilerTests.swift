@@ -111,6 +111,13 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_spear.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_hammer.json" })
 
+        let spearItem = try json(named: "items/azure_a1b2c3_spear.json", in: behavior)
+        let spearBody = try XCTUnwrap(spearItem["minecraft:item"] as? [String: Any])
+        let spearComponents = try XCTUnwrap(spearBody["components"] as? [String: Any])
+        // Non-armor items keep their explicit stack size (only armor-slot
+        // items omit it for the pre-1.26.30 wearable interaction).
+        XCTAssertEqual(spearComponents["minecraft:max_stack_size"] as? Int, 1)
+
         let spearRecipe = try json(named: "recipes/azure_a1b2c3_spear_recipe.json", in: behavior)
         let shapedRecipe = try XCTUnwrap(spearRecipe["minecraft:recipe_shaped"] as? [String: Any])
         XCTAssertEqual(shapedRecipe["pattern"] as? [String], ["  I", " S ", "S  "])
@@ -186,6 +193,17 @@ final class BedrockCompilerTests: XCTestCase {
         let wearable = try XCTUnwrap(helmetComponents["minecraft:wearable"] as? [String: Any])
         XCTAssertEqual(wearable["slot"] as? String, "slot.armor.head")
         XCTAssertEqual(wearable["protection"] as? Int, 2)
+        // Armor pin item format 1.26.60, exactly as the working Bedrock
+        // Wiki custom-armor reference: older items silently refuse to
+        // equip despite a clean Content Log.
+        XCTAssertEqual(helmetItem["format_version"] as? String, "1.26.60")
+        // No explicit hand_equipped (the wiki reference omits it).
+        XCTAssertNil(helmetComponents["minecraft:hand_equipped"])
+        // Explicit stack size 1 alongside wearable, exactly as the
+        // working Bedrock Wiki custom-armor reference emits it.
+        XCTAssertEqual(helmetComponents["minecraft:max_stack_size"] as? Int, 1)
+        let tags = try XCTUnwrap(helmetComponents["minecraft:tags"] as? [String: Any])
+        XCTAssertEqual(tags["tags"] as? [String], ["minecraft:is_armor"])
 
         let bootsRecipe = try json(named: "recipes/azure_a1b2c3_boots_recipe.json", in: behavior)
         let shapedRecipe = try XCTUnwrap(bootsRecipe["minecraft:recipe_shaped"] as? [String: Any])

@@ -112,27 +112,110 @@ struct MinecraftOCRInspector {
 
 struct MinecraftPixelInspector {
     /// Minecraft renders landscape inside the device's portrait screenshot buffer. Normalize the
-    /// raw buffer before sampling calibrated interface coordinates, just as the OCR inspector does.
-    private let orientations: [CGImagePropertyOrientation] = [.left, .right, .up, .down]
+    /// raw buffer before sampling calibrated interface coordinates. Only the two landscape
+    /// orientations are plausible in-game; the portrait views map calibrated regions onto
+    /// unrelated transposed patches (live: hotbar red leaking into an empty-cell region),
+    /// which would false-pass absence checks.
+    private let orientations: [CGImagePropertyOrientation] = [.left, .right]
 
     func matches(_ expectation: MinecraftPixelExpectation) -> Bool {
-        guard let image = XCUIScreen.main.screenshot().image.cgImage else { return false }
-        return matches(expectation, in: image)
+        guard let count = count(expectation) else { return false }
+        return decide(count: count, for: expectation)
+    }
+
+    /// The red-pixel count for logging what a pixel step actually saw. Nil
+    /// when no screenshot could be captured. Live screenshots honor their
+    /// own orientation tag (a single deterministic view); only tagless
+    /// synthetic images fall back to trying both landscape orientations.
+    /// Max-across-rotations must never feed absence checks: a transposed
+    /// view of red-hotbar UI reads hundreds of red pixels for an empty
+    /// slot and would false-fail every absence (confirmed live).
+    func count(_ expectation: MinecraftPixelExpectation) -> Int? {
+        let screenshot = XCUIScreen.main.screenshot().image
+        guard let image = screenshot.cgImage else { return nil }
+        if let orientation = pixelOrientation(for: screenshot.imageOrientation) {
+            guard let oriented = orientedImage(image, orientation: orientation) else { return nil }
+            let (xRange, yRange) = region(for: expectation)
+            return pixelCount(in: oriented, xRange: xRange, yRange: yRange, cyan: isCyan(expectation))
+        }
+        return count(expectation, in: image)
+    }
+
+    func count(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Int {
+        let (xRange, yRange) = region(for: expectation)
+        let cyan = isCyan(expectation)
+        return orientations.compactMap { orientation in
+            orientedImage(image, orientation: orientation).map {
+                pixelCount(in: $0, xRange: xRange, yRange: yRange, cyan: cyan)
+            }
+        }.max() ?? 0
+    }
+
+    private func isCyan(_ expectation: MinecraftPixelExpectation) -> Bool {
+        if case .cyanCluster = expectation { return true }
+        return false
     }
 
     func matches(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Bool {
+        decide(count: count(expectation, in: image), for: expectation)
+    }
+
+    private func decide(count: Int, for expectation: MinecraftPixelExpectation) -> Bool {
+        switch expectation {
+        case .redstonePickaxeOutput, .redCluster, .cyanCluster:
+            return count >= minimumCount(for: expectation)
+        case .redAbsent:
+            return count <= maximumCount(for: expectation)
+        }
+    }
+
+    private func pixelOrientation(for imageOrientation: UIImage.Orientation) -> CGImagePropertyOrientation? {
+        switch imageOrientation {
+        case .up: .up
+        case .down: .down
+        case .left: .left
+        case .right: .right
+        case .upMirrored, .downMirrored, .leftMirrored, .rightMirrored: nil
+        @unknown default: nil
+        }
+    }
+
+    private func region(for expectation: MinecraftPixelExpectation) -> (ClosedRange<CGFloat>, ClosedRange<CGFloat>) {
         switch expectation {
         case .redstonePickaxeOutput:
-            return orientations.contains { orientation in
-                guard let orientedImage = orientedImage(image, orientation: orientation) else { return false }
-                return redPixelCount(
-                    in: orientedImage,
-                    xRange: 0.67...0.73,
-                    yRange: 0.65...0.76
-                ) >= 20
-            }
-        case .redCluster(let xRange, let yRange, let minimumCount):
-            return redPixelCount(in: image, xRange: xRange, yRange: yRange) >= minimumCount
+            return (0.67...0.73, 0.65...0.76)
+        case .redCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
+        case .redAbsent(let xRange, let yRange, _):
+            return (xRange, yRange)
+        case .cyanCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
+        }
+    }
+
+    func minimumCount(for expectation: MinecraftPixelExpectation) -> Int {
+        switch expectation {
+        case .redstonePickaxeOutput:
+            return 20
+        case .redCluster(_, _, let minimumCount):
+            return minimumCount
+        case .cyanCluster(_, _, let minimumCount):
+            return minimumCount
+        case .redAbsent:
+            return 0
+        }
+    }
+
+    func maximumCount(for expectation: MinecraftPixelExpectation) -> Int {
+        switch expectation {
+        case .redstonePickaxeOutput:
+            return Int.max
+        case .redCluster:
+            return Int.max
+        case .cyanCluster:
+            return Int.max
+        case .redAbsent(_, _, let maximumCount):
+            return maximumCount
         }
     }
 
@@ -142,6 +225,10 @@ struct MinecraftPixelInspector {
     }
 
     private func redPixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>) -> Int {
+        pixelCount(in: image, xRange: xRange, yRange: yRange, cyan: false)
+    }
+
+    private func pixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, cyan: Bool) -> Int {
         let width = image.width
         let height = image.height
         guard let context = CGContext(
@@ -158,16 +245,20 @@ struct MinecraftPixelInspector {
 
         let pixelXRange = Int(CGFloat(width) * xRange.lowerBound)..<Int(CGFloat(width) * xRange.upperBound)
         let pixelYRange = Int(CGFloat(height) * yRange.lowerBound)..<Int(CGFloat(height) * yRange.upperBound)
-        var redPixels = 0
+        var matchedPixels = 0
         for y in pixelYRange {
             for x in pixelXRange {
                 let offset = ((y * width) + x) * 4
                 let red = Int(pixels[offset])
                 let green = Int(pixels[offset + 1])
                 let blue = Int(pixels[offset + 2])
-                if red > 140, red > green * 2, red > blue * 2 { redPixels += 1 }
+                if cyan {
+                    if blue > 140, blue > red * 2, green > red * 2 { matchedPixels += 1 }
+                } else if red > 140, red > green * 2, red > blue * 2 {
+                    matchedPixels += 1
+                }
             }
         }
-        return redPixels
+        return matchedPixels
     }
 }

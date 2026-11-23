@@ -43,7 +43,7 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneArmorSetCanCraftBootsInImportedCreativeWorld() throws {
+    func testCraftberryRedstoneArmorSetCanCraftAndEquipBootsInSurvival() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
@@ -248,30 +248,77 @@ extension MinecraftE2EScenario {
         behaviorPackName: "Redstone Behavior",
         resourcePackName: "Redstone Resources",
         craftingPlan: MinecraftCraftingPlan(
+            // Single recipe: the boots pick their ingots straight from
+            // Creative search, so no ingot-crafting prelude is needed (the
+            // identical shapeless ingot shape is covered across all other
+            // scenarios). Skipping the prelude also skips the mid-flow
+            // table close/reopen, whose post-reopen takes proved flaky.
             recipes: [
-                .init(
-                    outputName: "Redstone Ingot",
-                    ingredients: [
-                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
-                    ],
-                    beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
-                    outputDestination: firstCraftSlot,
-                    shouldResetTableAfterPickup: true
-                ),
                 .init(
                     outputName: "Redstone Boots",
                     ingredients: [
-                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
+                        // Each 64-stack cell measures ~1000 red pixels
+                        // against 0 empty in every plausible orientation
+                        // (threshold 600).
+                        MinecraftCraftingPlan.IngredientPlacement(
+                            searchText: "redstone ingot",
+                            resultColumn: 1,
+                            destinations: [.topLeft, .topRight, .middleLeft, .middleRight],
+                            verifyPlacements: [
+                                .redCluster(xRange: 0.639...0.669, yRange: 0.130...0.190, minimumCount: 600),
+                                .redCluster(xRange: 0.749...0.779, yRange: 0.130...0.190, minimumCount: 600),
+                                .redCluster(xRange: 0.639...0.669, yRange: 0.250...0.310, minimumCount: 600),
+                                .redCluster(xRange: 0.749...0.779, yRange: 0.250...0.310, minimumCount: 600)
+                            ]
+                        )
                     ],
-                    beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
+                    // Fails loudly when any place tap was dropped (no
+                    // output can appear): boots measure ~1442 red pixels
+                    // against 0 empty (threshold 800).
+                    beforePickupVerification: .pixels(.redCluster(xRange: 0.66...0.73, yRange: 0.63...0.75, minimumCount: 800)),
+                    // Pixels, not a tooltip: a fresh selection raises only
+                    // a ~500ms transient tooltip that OCR's multi-second
+                    // polls always miss (confirmed live). Six takes land
+                    // boots through slot 6, which stays unselected (and
+                    // therefore liftable) while selection sits on slot 1;
+                    // its icon measures 667 red pixels against 0 empty
+                    // (threshold 300).
+                    afterPickupVerification: .pixels(.redCluster(xRange: 0.548...0.575, yRange: 0.848...0.914, minimumCount: 300)),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],
             finalHotbarTap: nil
-        )
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime before the Survival equip test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Set peaceful difficulty before the Survival equip test", action: .chatCommand("/difficulty peaceful")),
+            MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
+            MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
+            MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
+            // No deselect needed: the boots land in slot 6 while selection
+            // stays on slot 1, so slot 6 is already unselected (and
+            // therefore liftable) when the inventory opens.
+            MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
+            MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
+            MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
+            MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
+            // Tap slot 6 to pick the boots up, tap feet to place them. The
+            // icon stays put visually through taps, but the stack moves
+            // logically (verified: a vanilla control pair swapped in and
+            // back out through this exact flow).
+            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
+            MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
+            // Lift-back proof, NOT a pixel count: run 37 proved the
+            // equipped boots render pixel-identical (874 red) to the
+            // empty-slot ghost, so no red threshold can ever pass here.
+            // Tapping the occupied feet slot lifts the boots and raises
+            // their "Boots" tooltip; tapping the ghost yields nothing, so
+            // the tooltip discriminates perfectly. "Boots", not "Redstone":
+            // Vision reads the pixel font's "Redstone" as "Fiedstone".
+            MinecraftStep(name: "Lift the boots back out to prove they equipped", action: .tapUntilText(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, text: "Boots")),
+            MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
+        ]
     )
 
     static let redstoneConsumableSet = MinecraftE2EScenario(

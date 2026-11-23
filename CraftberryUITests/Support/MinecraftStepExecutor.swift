@@ -202,8 +202,42 @@ final class MinecraftStepExecutor {
             }
             return .success(step)
         case .assertPixels(let expectation):
+            let count = pixels.count(expectation) ?? -1
+            print("[MinecraftE2E] \(step.name): pixel assert saw red=\(count) for \(expectation)")
             guard pixels.matches(expectation) else {
-                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name).")
+                onIntermediateScreenshot("\(step.name) - pixel assert failed state")
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(count)).")
+            }
+            return .success(step)
+        case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation):
+            // The pixels are checked before each tap: when the item is
+            // already in place no tap fires (a redundant tap would pick it
+            // back up onto the cursor). Retries recover taps the engine
+            // silently ignores; persistent absence still fails loudly.
+            let candidates = [
+                CGVector(dx: x, dy: y),
+                CGVector(dx: fallbackX, dy: fallbackY)
+            ]
+            for (index, offset) in candidates.enumerated() {
+                let count = pixels.count(expectation) ?? -1
+                print("[MinecraftE2E] \(step.name): pixel check \(index + 1) saw red=\(count) for \(expectation)")
+                if pixels.matches(expectation) {
+                    return .success(step)
+                }
+                // Instant taps: a press-and-hold reads as inspect, not
+                // actuation, on inventory slots (confirmed live: holds
+                // never move items while taps do).
+                tap(minecraft, offset)
+                wait(1)
+                if index < candidates.count - 1 {
+                    wait(1)
+                }
+            }
+            let finalCount = pixels.count(expectation) ?? -1
+            print("[MinecraftE2E] \(step.name): final pixel check saw red=\(finalCount) for \(expectation)")
+            guard pixels.matches(expectation) else {
+                onIntermediateScreenshot("\(step.name) - pixel check failed state")
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(finalCount)).")
             }
             return .success(step)
         case .calibrationRequired(let reason):

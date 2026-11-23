@@ -349,7 +349,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         for item in project.items.sorted(by: contentOrder) {
             let identifier = identifier(for: item.id, namespace: project.namespace)
             let document = ItemDocument(
-                formatVersion: profile.itemFormatVersion,
+                formatVersion: item.traits.armor == nil ? profile.itemFormatVersion : profile.armorItemFormatVersion,
                 item: ItemDocument.Item(
                     description: ItemDocument.Description(
                         identifier: identifier,
@@ -362,7 +362,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         displayName: ItemDocument.DisplayName(value: "item.\(identifier).name"),
                         icon: ItemDocument.Icon(textures: ["default": item.id.rawValue]),
                         maximumStackSize: item.traits.maximumStackSize,
-                        handEquipped: ItemDocument.HandEquipped(value: item.traits.handEquipped),
+                        handEquipped: item.traits.armor == nil ? ItemDocument.HandEquipped(value: item.traits.handEquipped) : nil,
                         damage: item.traits.combat.map { ItemDocument.Damage(value: $0.attackBonus) },
                         durability: item.traits.durability.map {
                             ItemDocument.Durability(
@@ -403,7 +403,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         useModifiers: item.traits.food == nil ? nil : ItemDocument.UseModifiers(
                             useDuration: 1.6,
                             movementModifier: 0.35
-                        )
+                        ),
+                        tags: item.traits.armor == nil ? nil : ItemDocument.Tags(tags: ["minecraft:is_armor"])
                     )
                 )
             )
