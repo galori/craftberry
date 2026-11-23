@@ -518,15 +518,15 @@ extension MinecraftE2EScenario {
         postCraftingSteps: [
             MinecraftStep(name: "Set daytime for the enchanting test", action: .chatCommand("/time set day")),
             MinecraftStep(name: "Place an enchanting table at the calibrated station", action: .chatCommand("/setblock 98 80 95 enchanting_table")),
-            MinecraftStep(name: "Give the player lapis for the enchanting table", action: .chatCommand("/give @s lapis_lazuli 3")),
-            MinecraftStep(name: "Give the player experience points for low-level enchanting options", action: .chatCommand("/xp 30 @s")),
             MinecraftStep(name: "Enter Survival before opening the enchanting table", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Open the enchanting table using the calibrated world interaction point", action: .tapUntilText(x: 0.5075, y: 0.265, fallbackX: 0.5075, fallbackY: 0.38, text: "Enchant")),
             MinecraftStep(name: "Confirm the enchanting-table interface is open", action: .assertText("Enchant")),
-            MinecraftStep(
-                name: "CALIBRATION REQUIRED: select the sword, lapis, and enchantment option",
-                action: .calibrationRequired("The iPhone's enchanting-table inventory slots and option buttons need live calibration before this scenario can verify an applied enchantment. Use `scripts/minecraft-calibrate.sh start enchant` and capture the selected sword's resulting enchantment text before replacing this checkpoint.")
-            )
+            MinecraftStep(name: "Close the enchanting table interface", action: .tap(x: 0.865, y: 0.16)),
+            MinecraftStep(name: "Select the crafted Redstone Sword", action: .tap(x: layout.hudHotbarSlot(6).x, y: layout.hudHotbarSlot(6).y)),
+            MinecraftStep(name: "Confirm the Redstone Sword tooltip", action: .assertText("Redstone Sword")),
+            MinecraftStep(name: "Wait for the sword tooltip to fade", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Enchant the held sword with sharpness", action: .chatCommand("/enchant @s sharpness")),
+            MinecraftStep(name: "Confirm the enchantment applied", action: .assertText("Enchanting succeeded")),
         ],
         cleansUpInWorld: false
     )
