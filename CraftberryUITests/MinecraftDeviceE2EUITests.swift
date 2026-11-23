@@ -312,6 +312,16 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
             MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
             MinecraftStep(name: "Confirm the feet slot holds the equipped boots", action: .assertPixels(.redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
+            // TEMP-DIAMOND-CONTROL (revert after diagnosis): vanilla boots
+            // through the identical tap flow. If diamond equips while ours
+            // does not, our item JSON is rejected; if diamond also fails,
+            // inventory taps themselves are broken in this state.
+            MinecraftStep(name: "TEMP close inventory for diamond control", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
+            MinecraftStep(name: "TEMP give diamond boots to hotbar slot 9", action: .chatCommand("/replaceitem entity @s slot.hotbar 8 diamond_boots 1 0")),
+            MinecraftStep(name: "TEMP reopen the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
+            MinecraftStep(name: "TEMP reopen the Armor tab", action: .tap(x: 0.945, y: 0.745)),
+            MinecraftStep(name: "TEMP select diamond boots in hotbar slot 9", action: .tapUntilText(x: layout.hotbarSlot(9).x, y: layout.hotbarSlot(9).y, fallbackX: layout.hotbarSlot(9).x, fallbackY: layout.hotbarSlot(9).y, text: "Boots")),
+            MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tapUntilText(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, text: "Boots")),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]
     )

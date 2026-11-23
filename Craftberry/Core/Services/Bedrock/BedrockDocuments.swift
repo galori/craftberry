@@ -64,7 +64,7 @@ struct ItemDocument: Encodable {
         let displayName: DisplayName
         let icon: Icon
         let maximumStackSize: Int
-        let handEquipped: HandEquipped
+        let handEquipped: HandEquipped?
         let damage: Damage?
         let durability: Durability?
         let wearable: Wearable?

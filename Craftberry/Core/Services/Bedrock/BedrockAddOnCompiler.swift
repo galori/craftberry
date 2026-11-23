@@ -362,7 +362,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         displayName: ItemDocument.DisplayName(value: "item.\(identifier).name"),
                         icon: ItemDocument.Icon(textures: ["default": item.id.rawValue]),
                         maximumStackSize: item.traits.maximumStackSize,
-                        handEquipped: ItemDocument.HandEquipped(value: item.traits.handEquipped),
+                        handEquipped: item.traits.armor == nil ? ItemDocument.HandEquipped(value: item.traits.handEquipped) : nil,
                         damage: item.traits.combat.map { ItemDocument.Damage(value: $0.attackBonus) },
                         durability: item.traits.durability.map {
                             ItemDocument.Durability(

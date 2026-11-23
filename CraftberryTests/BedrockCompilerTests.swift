@@ -193,9 +193,12 @@ final class BedrockCompilerTests: XCTestCase {
         let wearable = try XCTUnwrap(helmetComponents["minecraft:wearable"] as? [String: Any])
         XCTAssertEqual(wearable["slot"] as? String, "slot.armor.head")
         XCTAssertEqual(wearable["protection"] as? Int, 2)
-        // Armor pin item format 1.26.30 (the wearable fix version): older
-        // items silently refuse to equip despite a clean Content Log.
-        XCTAssertEqual(helmetItem["format_version"] as? String, "1.26.30")
+        // Armor pin item format 1.26.60, exactly as the working Bedrock
+        // Wiki custom-armor reference: older items silently refuse to
+        // equip despite a clean Content Log.
+        XCTAssertEqual(helmetItem["format_version"] as? String, "1.26.60")
+        // No explicit hand_equipped (the wiki reference omits it).
+        XCTAssertNil(helmetComponents["minecraft:hand_equipped"])
         // Explicit stack size 1 alongside wearable, exactly as the
         // working Bedrock Wiki custom-armor reference emits it.
         XCTAssertEqual(helmetComponents["minecraft:max_stack_size"] as? Int, 1)

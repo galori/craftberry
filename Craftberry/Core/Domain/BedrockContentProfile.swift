@@ -48,10 +48,10 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
     public let minimumEngineVersion: VersionTriplet
     public let manifestFormatVersion: Int
     public let itemFormatVersion: String
-    /// Armor items pin newer: the engine fixed `minecraft:wearable`
-    /// handling in item format 1.26.30, and armor-slot items on older
-    /// versions silently refuse to equip despite a clean Content Log
-    /// (confirmed live).
+    /// Armor items pin the newest known-good item format: armor-slot
+    /// items on older versions silently refuse to equip despite a
+    /// clean Content Log (confirmed live), matching the working
+    /// Bedrock Wiki custom-armor reference exactly.
     public let armorItemFormatVersion: String
     public let recipeFormatVersion: String
     public let blockFormatVersion: String
@@ -69,7 +69,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         minimumEngineVersion: VersionTriplet,
         manifestFormatVersion: Int,
         itemFormatVersion: String,
-        armorItemFormatVersion: String = "1.26.30",
+        armorItemFormatVersion: String = "1.26.60",
         recipeFormatVersion: String,
         blockFormatVersion: String,
         entityFormatVersion: String,
@@ -106,7 +106,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         minimumEngineVersion: VersionTriplet(major: 1, minor: 26, patch: 30),
         manifestFormatVersion: 2,
         itemFormatVersion: "1.21.100",
-        armorItemFormatVersion: "1.26.30",
+        armorItemFormatVersion: "1.26.60",
         recipeFormatVersion: "1.20.10",
         blockFormatVersion: "1.21.100",
         entityFormatVersion: "1.26.10",
