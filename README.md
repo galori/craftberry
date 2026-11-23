@@ -73,6 +73,17 @@ For every future content-family or material enhancement:
   item instead and assert the engine's success output.
 - The in-world HUD hotbar uses a tighter slot pitch than the crafting UI's
   hotbar row; HUD slot taps need their own calibration plus a tooltip confirm.
+- Block format 1.21.100 removed `minecraft:destroy_time`: emit
+  `minecraft:destructible_by_mining` with `seconds_to_destroy` instead, or the
+  whole block file fails with "not present in the Schema" in the Content Log.
+- `blocks.json` needs a top-level `format_version` (vanilla uses `1.21.40`);
+  without it the engine warns and assumes `1.1.0`.
+- Feature-rule scatter `extent` requires maximum greater than minimum; `[0, 0]`
+  fails the rule. Minimal valid scatter is `[0, 1]`.
+- A `.mcstructure` file directly in `structures/` registers under the
+  `mystructure` namespace; namespaced references need
+  `structures/<namespace>/<name>.mcstructure`, or the feature reports the
+  structure as not existing.
 
 ## Physical iPhone workflow
 

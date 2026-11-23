@@ -620,6 +620,16 @@ final class BedrockCompilerTests: XCTestCase {
         let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
         XCTAssertNil(desc["states"])
         XCTAssertEqual(block["format_version"] as? String, "1.21.100")
+        // minecraft:destroy_time does not exist in block format 1.21.100 (confirmed
+        // live: the engine rejects the whole block file as "not present in the
+        // Schema"); mining time goes in destructible_by_mining.seconds_to_destroy
+        // per metadata/json_schemas/server/block/1.21.110/Blocks.json at 921fafb0.
+        let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
+        XCTAssertNil(components["minecraft:destroy_time"])
+        let mining = try XCTUnwrap(components["minecraft:destructible_by_mining"] as? [String: Any])
+        XCTAssertEqual(mining["seconds_to_destroy"] as? Double, 3.0)
+        let blocksMap = try json(named: "blocks.json", in: resources)
+        XCTAssertEqual(blocksMap["format_version"] as? String, "1.21.40")
         let terrain = try json(named: "textures/terrain_texture.json", in: resources)
         XCTAssertNotNil((terrain["texture_data"] as? [String: Any])?["azure_a1b2c3_ore"])
     }
@@ -799,17 +809,17 @@ final class BedrockCompilerTests: XCTestCase {
         let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
         let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
         XCTAssertTrue(behavior.contains { $0.path == "blocks/azure_a1b2c3_block.json" })
-        XCTAssertTrue(behavior.contains { $0.path == "structures/azure_a1b2c3_hut.mcstructure" })
+        XCTAssertTrue(behavior.contains { $0.path == "structures/craftberry/azure_a1b2c3_hut.mcstructure" })
         XCTAssertTrue(behavior.contains { $0.path == "features/azure_a1b2c3_hut_feature.json" })
         XCTAssertTrue(behavior.contains { $0.path == "feature_rules/azure_a1b2c3_hut_rule.json" })
-        let mc = try XCTUnwrap(behavior.first { $0.path == "structures/azure_a1b2c3_hut.mcstructure" })
+        let mc = try XCTUnwrap(behavior.first { $0.path == "structures/craftberry/azure_a1b2c3_hut.mcstructure" })
         XCTAssertGreaterThan(mc.data.count, 80)
         let directory2 = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: directory2) }
         let result2 = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory2)
         let outer2 = try ZipArchiveReader.readEntries(at: result2.artifact.url)
         let behavior2 = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer2)
-        let mc2 = try XCTUnwrap(behavior2.first { $0.path == "structures/azure_a1b2c3_hut.mcstructure" })
+        let mc2 = try XCTUnwrap(behavior2.first { $0.path == "structures/craftberry/azure_a1b2c3_hut.mcstructure" })
         XCTAssertEqual(mc.data, mc2.data)
         let feature = try json(named: "features/azure_a1b2c3_hut_feature.json", in: behavior)
         let structureFeature = try XCTUnwrap(feature["minecraft:structure_template_feature"] as? [String: Any])
@@ -827,6 +837,14 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(ruleDesc["identifier"] as? String, "craftberry:azure_a1b2c3_hut_rule")
         XCTAssertEqual(ruleDesc["places_feature"] as? String, "craftberry:azure_a1b2c3_hut_feature")
         XCTAssertEqual(rule["format_version"] as? String, "1.13.0")
+        // Scatter extents require maximum greater than minimum (confirmed live: [0,0]
+        // fails the rule with "Bad value for extent"). Minimal valid scatter keeps the
+        // hut near its station for locate-based verification.
+        let distribution = try XCTUnwrap(ruleBody["distribution"] as? [String: Any])
+        for axis in ["x", "y", "z"] {
+            let scatter = try XCTUnwrap(distribution[axis] as? [String: Any], "missing \(axis) scatter")
+            XCTAssertEqual(scatter["extent"] as? [Int], [0, 1], "invalid \(axis) extent")
+        }
     }
 
     private func makeProject() throws -> AddOnProject {

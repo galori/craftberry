@@ -179,7 +179,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         states: states
                     ),
                     components: BlockDocument.Components(
-                        destroyTime: block.destroyTime,
+                        destructibleByMining: BlockDocument.Components.DestructibleByMining(secondsToDestroy: block.destroyTime),
                         mapColor: BlockDocument.MapColor(color: block.mapColor),
                         lightDampening: 15,
                         loot: "loot_tables/blocks/\(block.id.rawValue).json"
@@ -545,7 +545,10 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let structureIdentifier = identifier(for: structure.id, namespace: project.namespace)
             let blockIdentifier = identifier(for: structure.blockID, namespace: project.namespace)
             let mcData = try MCStructureEncoder.encodeHut(blockIdentifier: blockIdentifier, size: structure.size)
-            entries.append(ZipArchiveEntry(path: "structures/\(structure.id.rawValue).mcstructure", data: mcData))
+            // The first subfolder under structures/ defines the namespace: a file placed
+            // directly in structures/ registers as mystructure:<name>, so namespaced
+            // references like craftberry:<name> would fail to resolve (confirmed live).
+            entries.append(ZipArchiveEntry(path: "structures/\(project.namespace)/\(structure.id.rawValue).mcstructure", data: mcData))
 
             let featureIdentifier = "\(structureIdentifier)_feature"
             let featureDocument = StructureTemplateFeatureDocument(
@@ -570,9 +573,9 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     ),
                     distribution: .init(
                         iterations: 1,
-                        x: .init(distribution: "uniform", extent: [0, 0]),
-                        y: .init(distribution: "uniform", extent: [0, 0]),
-                        z: .init(distribution: "uniform", extent: [0, 0])
+                        x: .init(distribution: "uniform", extent: [0, 1]),
+                        y: .init(distribution: "uniform", extent: [0, 1]),
+                        z: .init(distribution: "uniform", extent: [0, 1])
                     )
                 )
             )

@@ -465,13 +465,21 @@ struct BlockDocument: Encodable {
     }
 
     struct Components: Encodable {
-        let destroyTime: Double
+        let destructibleByMining: DestructibleByMining
         let mapColor: MapColor
         let lightDampening: Int
         let loot: String
 
+        struct DestructibleByMining: Encodable {
+            let secondsToDestroy: Double
+
+            enum CodingKeys: String, CodingKey {
+                case secondsToDestroy = "seconds_to_destroy"
+            }
+        }
+
         enum CodingKeys: String, CodingKey {
-            case destroyTime = "minecraft:destroy_time"
+            case destructibleByMining = "minecraft:destructible_by_mining"
             case mapColor = "minecraft:map_color"
             case lightDampening = "minecraft:light_dampening"
             case loot = "minecraft:loot"
@@ -707,8 +715,19 @@ struct BlocksDocument: Encodable {
     }
 
     func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(entries)
+        var container = encoder.container(keyedBy: DynamicKey.self)
+        try container.encode("1.21.40", forKey: DynamicKey("format_version"))
+        for (key, entry) in entries.sorted(by: { $0.key < $1.key }) {
+            try container.encode(entry, forKey: DynamicKey(key))
+        }
+    }
+
+    private struct DynamicKey: CodingKey {
+        let stringValue: String
+        init(_ stringValue: String) { self.stringValue = stringValue }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        var intValue: Int? { nil }
+        init?(intValue: Int) { nil }
     }
 }
 
