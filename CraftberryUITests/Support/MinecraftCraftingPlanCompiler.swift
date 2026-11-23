@@ -63,7 +63,15 @@ struct MinecraftCraftingPlanCompiler {
         if let verification = recipe.beforePickupVerification {
             steps.append(step(for: verification, name: "Confirm \(recipe.outputName) output is visible"))
         }
+        // The output take is retried: the engine silently ignores taps
+        // often enough that a single take flakes, while extra takes are
+        // safe (a full cursor no-ops on unstackables; stackables just add
+        // harmless extra pairs that later steps ignore).
         steps.append(.tap("Take \(recipe.outputName) output", layout.craftingOutput))
+        steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 1)))
+        steps.append(.tap("Take \(recipe.outputName) output (retry 1)", layout.craftingOutput))
+        steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 1)))
+        steps.append(.tap("Take \(recipe.outputName) output (retry 2)", layout.craftingOutput))
         switch recipe.afterPickupVerification {
         case .pixels(let expectation):
             // Pixel verifications tap-until-placed: the engine silently

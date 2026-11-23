@@ -293,8 +293,9 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let names = steps.map(\.name)
 
         let takeIndex = names.firstIndex(of: "Take Redstone Boots output")!
-        XCTAssertEqual(names[takeIndex + 1], "Place Redstone Boots and confirm")
-        guard case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation) = steps[takeIndex + 1].action else {
+        let placeIndex = names.firstIndex(of: "Place Redstone Boots and confirm")!
+        XCTAssertLessThan(takeIndex, placeIndex)
+        guard case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation) = steps[placeIndex].action else {
             XCTFail("Expected tapUntilPixels step after the boots take")
             return
         }
