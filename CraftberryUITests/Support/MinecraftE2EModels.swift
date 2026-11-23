@@ -141,6 +141,22 @@ struct MinecraftCraftingPlan {
         let searchText: String
         let resultColumn: Int
         let destinations: [MinecraftCraftingSlot]
+        /// Optional per-destination pixel checks (parallel to
+        /// `destinations`): when set, each place tap is followed by a
+        /// tap-until-placed retry that recovers silently dropped taps.
+        let verifyPlacements: [MinecraftPixelExpectation]?
+
+        init(
+            searchText: String,
+            resultColumn: Int,
+            destinations: [MinecraftCraftingSlot],
+            verifyPlacements: [MinecraftPixelExpectation]? = nil
+        ) {
+            self.searchText = searchText
+            self.resultColumn = resultColumn
+            self.destinations = destinations
+            self.verifyPlacements = verifyPlacements
+        }
     }
 
     enum Verification: Equatable {

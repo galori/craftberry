@@ -257,7 +257,20 @@ extension MinecraftE2EScenario {
                 .init(
                     outputName: "Redstone Boots",
                     ingredients: [
-                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
+                        // Each 64-stack cell measures ~1000 red pixels
+                        // against 0 empty in every plausible orientation
+                        // (threshold 600).
+                        MinecraftCraftingPlan.IngredientPlacement(
+                            searchText: "redstone ingot",
+                            resultColumn: 1,
+                            destinations: [.topLeft, .topRight, .middleLeft, .middleRight],
+                            verifyPlacements: [
+                                .redCluster(xRange: 0.639...0.669, yRange: 0.130...0.190, minimumCount: 600),
+                                .redCluster(xRange: 0.749...0.779, yRange: 0.130...0.190, minimumCount: 600),
+                                .redCluster(xRange: 0.639...0.669, yRange: 0.250...0.310, minimumCount: 600),
+                                .redCluster(xRange: 0.749...0.779, yRange: 0.250...0.310, minimumCount: 600)
+                            ]
+                        )
                     ],
                     // Fails loudly when any place tap was dropped (no
                     // output can appear): boots measure ~1442 red pixels

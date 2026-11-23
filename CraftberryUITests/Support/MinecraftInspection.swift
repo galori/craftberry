@@ -112,8 +112,11 @@ struct MinecraftOCRInspector {
 
 struct MinecraftPixelInspector {
     /// Minecraft renders landscape inside the device's portrait screenshot buffer. Normalize the
-    /// raw buffer before sampling calibrated interface coordinates, just as the OCR inspector does.
-    private let orientations: [CGImagePropertyOrientation] = [.left, .right, .up, .down]
+    /// raw buffer before sampling calibrated interface coordinates. Only the two landscape
+    /// orientations are plausible in-game; the portrait views map calibrated regions onto
+    /// unrelated transposed patches (live: hotbar red leaking into an empty-cell region),
+    /// which would false-pass absence checks.
+    private let orientations: [CGImagePropertyOrientation] = [.left, .right]
 
     func matches(_ expectation: MinecraftPixelExpectation) -> Bool {
         guard let count = count(expectation) else { return false }

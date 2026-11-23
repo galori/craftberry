@@ -309,6 +309,19 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertFalse(names.contains(where: { $0.contains("Confirm crafted Redstone Boots") }))
     }
 
+    func testArmorPlanConfirmsEachIngredientPlacementWithPixels() {
+        let steps = MinecraftCraftingPlanCompiler().compile(MinecraftE2EScenario.redstoneArmorSet.craftingPlan)
+        let confirms = steps.filter { $0.name.hasPrefix("Confirm redstone ingot in") }
+
+        XCTAssertEqual(confirms.count, 4)
+        for step in confirms {
+            guard case .tapUntilPixels = step.action else {
+                XCTFail("Expected tapUntilPixels for \(step.name)")
+                return
+            }
+        }
+    }
+
     func testCommandKeyboardPlanningCoversLettersNumbersSymbolsSpacesAndDeadKeys() {
         let events = MinecraftCommandKeyboard().events(for: "/tp @s 100 80 95_~^")
 
@@ -748,7 +761,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let image = try syntheticImage(
             width: 100,
             height: 100,
-            redRect: CGRect(x: 68, y: 66, width: 8, height: 8)
+            redRect: CGRect(x: 23, y: 67, width: 11, height: 6)
         )
 
         XCTAssertTrue(inspector.matches(.redstonePickaxeOutput, in: image))
@@ -769,10 +782,13 @@ final class MinecraftE2ESupportTests: XCTestCase {
     }
 
     private func syntheticImage(redCluster: Bool) throws -> CGImage {
+        // The blob sits where a .left (90° CCW) normalization moves it into
+        // the 0.2...0.3 expectation window, mirroring a portrait device
+        // buffer holding landscape content.
         try syntheticImage(
             width: 20,
             height: 20,
-            redRect: redCluster ? CGRect(x: 4, y: 4, width: 4, height: 6) : nil
+            redRect: redCluster ? CGRect(x: 13, y: 4, width: 3, height: 3) : nil
         )
     }
 

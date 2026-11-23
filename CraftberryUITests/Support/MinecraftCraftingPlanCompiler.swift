@@ -41,8 +41,21 @@ struct MinecraftCraftingPlanCompiler {
                 // four-minute run.
                 steps.append(.tap("Pick \(ordinal(destinationIndex + 1)) \(ingredient.searchText) stack", source))
                 steps.append(MinecraftStep(name: "Wait after picking \(ingredient.searchText)", action: .wait(seconds: 1)))
-                steps.append(.tap("Place \(ingredient.searchText) in \(slot.displayName) recipe slot", layout.craftingSlot(slot)))
+                let cell = layout.craftingSlot(slot)
+                steps.append(.tap("Place \(ingredient.searchText) in \(slot.displayName) recipe slot", cell))
                 steps.append(MinecraftStep(name: "Wait after placing \(ingredient.searchText)", action: .wait(seconds: 1)))
+                if let verifies = ingredient.verifyPlacements, destinationIndex < verifies.count {
+                    let verify = verifies[destinationIndex]
+                    steps.append(
+                        MinecraftStep(
+                            name: "Confirm \(ingredient.searchText) in \(slot.displayName) recipe slot",
+                            action: .tapUntilPixels(
+                                x: cell.x, y: cell.y, fallbackX: cell.x, fallbackY: cell.y,
+                                expectation: verify
+                            )
+                        )
+                    )
+                }
             }
         }
 
