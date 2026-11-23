@@ -296,11 +296,6 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
             MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
-            // TEMP-DIAMOND-CONTROL (revert after diagnosis): the /give runs
-            // here, before the inventory opens, so no close/reopen cycle is
-            // needed — the close tap never worked on the survival inventory
-            // and the reopen toggle left the UI in a no-"Crafting" state.
-            MinecraftStep(name: "TEMP give diamond boots to hotbar slot 9", action: .chatCommand("/replaceitem entity @s slot.hotbar 8 diamond_boots 1 0")),
             // No deselect needed: the boots land in slot 6 while selection
             // stays on slot 1, so slot 6 is already unselected (and
             // therefore liftable) when the inventory opens.
@@ -308,21 +303,10 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
-            // TEMP-DIAMOND-CONTROL (revert after diagnosis): runs FIRST on
-            // the empty feet slot, because the main red assert below fails
-            // before any later control could run. If diamond equips (cyan
-            // passes) while ours then fails to swap in, our item JSON is
-            // rejected; if diamond also fails, inventory taps themselves
-            // are broken in this state.
-            MinecraftStep(name: "TEMP select diamond boots in hotbar slot 9", action: .tapUntilText(x: layout.hotbarSlot(9).x, y: layout.hotbarSlot(9).y, fallbackX: layout.hotbarSlot(9).x, fallbackY: layout.hotbarSlot(9).y, text: "Boots")),
-            MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tap(x: 0.552, y: 0.616)),
-            MinecraftStep(name: "TEMP confirm diamond boots equipped", action: .assertPixels(.cyanCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 800))),
-            // Tap-to-select, gated by the boots tooltip (which persists
-            // while selected, unlike fresh-selection flashes): the
-            // following feet tap moves the selected stack. Taps never
-            // lift straight out of the slot (confirmed live: the icon
-            // stays put through repeated taps), so a redAbsent gate here
-            // can never pass.
+            // Tap slot 6 to pick the boots up, tap feet to place them. The
+            // icon stays put visually through taps, but the stack moves
+            // logically (verified: a vanilla control pair swapped in and
+            // back out through this exact flow).
             MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
             MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
             // Lift-back proof, NOT a pixel count: run 37 proved the
