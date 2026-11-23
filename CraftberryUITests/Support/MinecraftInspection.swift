@@ -120,13 +120,24 @@ struct MinecraftPixelInspector {
 
     func matches(_ expectation: MinecraftPixelExpectation) -> Bool {
         guard let count = count(expectation) else { return false }
-        return count >= minimumCount(for: expectation)
+        return decide(count: count, for: expectation)
     }
 
-    /// The highest red-pixel count across orientations, for logging what a
-    /// pixel step actually saw. Nil when no screenshot could be captured.
+    /// The red-pixel count for logging what a pixel step actually saw. Nil
+    /// when no screenshot could be captured. Live screenshots honor their
+    /// own orientation tag (a single deterministic view); only tagless
+    /// synthetic images fall back to trying both landscape orientations.
+    /// Max-across-rotations must never feed absence checks: a transposed
+    /// view of red-hotbar UI reads hundreds of red pixels for an empty
+    /// slot and would false-fail every absence (confirmed live).
     func count(_ expectation: MinecraftPixelExpectation) -> Int? {
-        guard let image = XCUIScreen.main.screenshot().image.cgImage else { return nil }
+        let screenshot = XCUIScreen.main.screenshot().image
+        guard let image = screenshot.cgImage else { return nil }
+        if let orientation = pixelOrientation(for: screenshot.imageOrientation) {
+            guard let oriented = orientedImage(image, orientation: orientation) else { return nil }
+            let (xRange, yRange) = region(for: expectation)
+            return redPixelCount(in: oriented, xRange: xRange, yRange: yRange)
+        }
         return count(expectation, in: image)
     }
 
@@ -140,7 +151,27 @@ struct MinecraftPixelInspector {
     }
 
     func matches(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Bool {
-        count(expectation, in: image) >= minimumCount(for: expectation)
+        decide(count: count(expectation, in: image), for: expectation)
+    }
+
+    private func decide(count: Int, for expectation: MinecraftPixelExpectation) -> Bool {
+        switch expectation {
+        case .redstonePickaxeOutput, .redCluster:
+            return count >= minimumCount(for: expectation)
+        case .redAbsent:
+            return count <= maximumCount(for: expectation)
+        }
+    }
+
+    private func pixelOrientation(for imageOrientation: UIImage.Orientation) -> CGImagePropertyOrientation? {
+        switch imageOrientation {
+        case .up: .up
+        case .down: .down
+        case .left: .left
+        case .right: .right
+        case .upMirrored, .downMirrored, .leftMirrored, .rightMirrored: nil
+        @unknown default: nil
+        }
     }
 
     private func region(for expectation: MinecraftPixelExpectation) -> (ClosedRange<CGFloat>, ClosedRange<CGFloat>) {
@@ -148,6 +179,8 @@ struct MinecraftPixelInspector {
         case .redstonePickaxeOutput:
             return (0.67...0.73, 0.65...0.76)
         case .redCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
+        case .redAbsent(let xRange, let yRange, _):
             return (xRange, yRange)
         }
     }
@@ -158,6 +191,19 @@ struct MinecraftPixelInspector {
             return 20
         case .redCluster(_, _, let minimumCount):
             return minimumCount
+        case .redAbsent:
+            return 0
+        }
+    }
+
+    func maximumCount(for expectation: MinecraftPixelExpectation) -> Int {
+        switch expectation {
+        case .redstonePickaxeOutput:
+            return Int.max
+        case .redCluster:
+            return Int.max
+        case .redAbsent(_, _, let maximumCount):
+            return maximumCount
         }
     }
 

@@ -757,6 +757,14 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(redCluster: false)))
     }
 
+    func testRedAbsentExpectationInvertsSyntheticImages() throws {
+        let inspector = MinecraftPixelInspector()
+        let expectation = MinecraftPixelExpectation.redAbsent(xRange: 0.2...0.3, yRange: 0.2...0.3, maximumCount: 2)
+
+        XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(redCluster: true)))
+        XCTAssertTrue(inspector.matches(expectation, in: try syntheticImage(redCluster: false)))
+    }
+
     func testRedstonePickaxePixelExpectationMatchesOutputCluster() throws {
         let inspector = MinecraftPixelInspector()
         let image = try syntheticImage(

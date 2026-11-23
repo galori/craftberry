@@ -202,8 +202,11 @@ final class MinecraftStepExecutor {
             }
             return .success(step)
         case .assertPixels(let expectation):
+            let count = pixels.count(expectation) ?? -1
+            print("[MinecraftE2E] \(step.name): pixel assert saw red=\(count) for \(expectation)")
             guard pixels.matches(expectation) else {
-                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name).")
+                onIntermediateScreenshot("\(step.name) - pixel assert failed state")
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(count)).")
             }
             return .success(step)
         case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation):
@@ -217,8 +220,8 @@ final class MinecraftStepExecutor {
             ]
             for (index, offset) in candidates.enumerated() {
                 let count = pixels.count(expectation) ?? -1
-                print("[MinecraftE2E] \(step.name): pixel check \(index + 1) saw red=\(count), need \(pixels.minimumCount(for: expectation))")
-                if count >= pixels.minimumCount(for: expectation) {
+                print("[MinecraftE2E] \(step.name): pixel check \(index + 1) saw red=\(count) for \(expectation)")
+                if pixels.matches(expectation) {
                     return .success(step)
                 }
                 tap(minecraft, offset)
@@ -228,9 +231,9 @@ final class MinecraftStepExecutor {
                 }
             }
             let finalCount = pixels.count(expectation) ?? -1
-            print("[MinecraftE2E] \(step.name): final pixel check saw red=\(finalCount)")
-            guard finalCount >= pixels.minimumCount(for: expectation) else {
-                onIntermediateScreenshot("\(step.name) — pixel check failed state")
+            print("[MinecraftE2E] \(step.name): final pixel check saw red=\(finalCount) for \(expectation)")
+            guard pixels.matches(expectation) else {
+                onIntermediateScreenshot("\(step.name) - pixel check failed state")
                 return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(finalCount)).")
             }
             return .success(step)

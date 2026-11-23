@@ -179,4 +179,5 @@ enum MinecraftCraftingSlot: CaseIterable {
 enum MinecraftPixelExpectation: Equatable {
     case redstonePickaxeOutput
     case redCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
+    case redAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
 }
