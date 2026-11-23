@@ -268,9 +268,12 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
                     beforePickupVerification: nil,
-                    // "Boots", not the full name: same "Fiedstone" OCR
-                    // misread as the ingot recipe above.
-                    afterPickupVerification: .text("Boots"),
+                    // Pixels, not a tooltip: tapping newly-selected slot 6
+                    // raises only a ~500ms transient tooltip that OCR's
+                    // multi-second polls always miss (confirmed live across
+                    // repeated runs). The boots icon in slot 6 measures 667
+                    // red pixels against 0 empty (threshold 300).
+                    afterPickupVerification: .pixels(.redCluster(xRange: 0.548...0.575, yRange: 0.848...0.914, minimumCount: 300)),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
