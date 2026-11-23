@@ -71,7 +71,13 @@ final class MinecraftStepExecutor {
         onIntermediateScreenshot: @escaping (String) -> Void = { _ in },
         wait: @escaping (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
         tap: @escaping (XCUIApplication, CGVector) -> Void = { app, offset in
-            app.coordinate(withNormalizedOffset: offset).tap()
+            // Press-and-hold, not an instant tap: on a loaded device the
+            // engine samples input per frame and silently drops instant
+            // taps that land inside a single long frame (confirmed live:
+            // identical taps work early in a session and stop registering
+            // hours in). 0.3s spans multiple frames without reaching
+            // long-press split-stack semantics.
+            app.coordinate(withNormalizedOffset: offset).press(forDuration: 0.3)
         },
         recognizedText: ((String, TimeInterval) -> Bool)? = nil,
         recognizedTextCenter: ((String, TimeInterval) -> CGPoint?)? = nil,
