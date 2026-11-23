@@ -65,15 +65,16 @@ struct MinecraftCraftingPlanCompiler {
         }
         // Takes auto-move into first-free hotbar slots and repeat takes
         // are safe (extras land in later slots that later steps ignore),
-        // so take six times: the repetition both lands the output in a
-        // known later slot for scenarios that need an unselected pickup
-        // slot and shrinks take flakes to nothing.
-        for attempt in 0..<6 {
+        // so take nine times with generous settles: the repetition lands
+        // the output through later slots for scenarios that need an
+        // unselected pickup slot, and outlasts output-refill lulls that
+        // silently void single takes (confirmed live).
+        for attempt in 0..<9 {
             let name = attempt == 0
                 ? "Take \(recipe.outputName) output"
                 : "Take \(recipe.outputName) output (retry \(attempt))"
             steps.append(.tap(name, layout.craftingOutput))
-            steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 1)))
+            steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 2)))
         }
         switch recipe.afterPickupVerification {
         case .pixels(let expectation):
