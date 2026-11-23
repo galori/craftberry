@@ -206,6 +206,29 @@ final class MinecraftStepExecutor {
                 return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name).")
             }
             return .success(step)
+        case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation):
+            // The pixels are checked before each tap: when the item is
+            // already in place no tap fires (a redundant tap would pick it
+            // back up onto the cursor). Retries recover taps the engine
+            // silently ignores; persistent absence still fails loudly.
+            let candidates = [
+                CGVector(dx: x, dy: y),
+                CGVector(dx: fallbackX, dy: fallbackY)
+            ]
+            for (index, offset) in candidates.enumerated() {
+                if pixels.matches(expectation) {
+                    return .success(step)
+                }
+                tap(minecraft, offset)
+                wait(1)
+                if index < candidates.count - 1 {
+                    wait(1)
+                }
+            }
+            guard pixels.matches(expectation) else {
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name).")
+            }
+            return .success(step)
         case .calibrationRequired(let reason):
             return .failure(step, reason: reason)
         }

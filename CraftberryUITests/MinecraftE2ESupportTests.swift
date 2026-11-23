@@ -288,6 +288,27 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(steps.last?.name, "Wait for the creative HUD")
     }
 
+    func testArmorPlanVerifiesBootsPickupWithTapUntilPixels() {
+        let steps = MinecraftCraftingPlanCompiler().compile(MinecraftE2EScenario.redstoneArmorSet.craftingPlan)
+        let names = steps.map(\.name)
+
+        let takeIndex = names.firstIndex(of: "Take Redstone Boots output")!
+        XCTAssertEqual(names[takeIndex + 1], "Place Redstone Boots and confirm")
+        guard case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation) = steps[takeIndex + 1].action else {
+            XCTFail("Expected tapUntilPixels step after the boots take")
+            return
+        }
+        XCTAssertEqual(x, 0.2775, accuracy: 0.001)
+        XCTAssertEqual(y, 0.8701, accuracy: 0.001)
+        XCTAssertEqual(fallbackX, 0.2775, accuracy: 0.001)
+        XCTAssertEqual(fallbackY, 0.8701, accuracy: 0.001)
+        guard case .redCluster = expectation else {
+            XCTFail("Expected redCluster pixel expectation for the boots")
+            return
+        }
+        XCTAssertFalse(names.contains(where: { $0.contains("Confirm crafted Redstone Boots") }))
+    }
+
     func testCommandKeyboardPlanningCoversLettersNumbersSymbolsSpacesAndDeadKeys() {
         let events = MinecraftCommandKeyboard().events(for: "/tp @s 100 80 95_~^")
 

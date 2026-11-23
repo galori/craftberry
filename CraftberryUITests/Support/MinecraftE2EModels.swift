@@ -21,6 +21,7 @@ struct MinecraftStep: Equatable {
         case chatCommand(String)
         case assertText(String)
         case assertPixels(MinecraftPixelExpectation)
+        case tapUntilPixels(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, expectation: MinecraftPixelExpectation)
         case calibrationRequired(String)
     }
 
