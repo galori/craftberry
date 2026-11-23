@@ -72,6 +72,8 @@ struct ItemDocument: Encodable {
         let fuel: Fuel?
         let enchantable: Enchantable?
         let entityPlacer: EntityPlacer?
+        let useAnimation: UseAnimation?
+        let useModifiers: UseModifiers?
 
         enum CodingKeys: String, CodingKey {
             case displayName = "minecraft:display_name"
@@ -85,6 +87,8 @@ struct ItemDocument: Encodable {
             case fuel = "minecraft:fuel"
             case enchantable = "minecraft:enchantable"
             case entityPlacer = "minecraft:entity_placer"
+            case useAnimation = "minecraft:use_animation"
+            case useModifiers = "minecraft:use_modifiers"
         }
     }
 
@@ -100,7 +104,7 @@ struct ItemDocument: Encodable {
 
     struct Food: Encodable {
         let nutrition: Int
-        let saturationModifier: String
+        let saturationModifier: Double
         let canAlwaysEat: Bool?
 
         enum CodingKeys: String, CodingKey {
@@ -113,6 +117,18 @@ struct ItemDocument: Encodable {
     struct Enchantable: Encodable { let slot: String; let value: Int }
 
     struct EntityPlacer: Encodable { let entity: String }
+
+    struct UseAnimation: Encodable { let value: String }
+
+    struct UseModifiers: Encodable {
+        let useDuration: Double
+        let movementModifier: Double
+
+        enum CodingKeys: String, CodingKey {
+            case useDuration = "use_duration"
+            case movementModifier = "movement_modifier"
+        }
+    }
 
     struct Fuel: Encodable {
         let duration: Double
