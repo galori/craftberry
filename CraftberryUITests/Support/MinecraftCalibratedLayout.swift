@@ -29,6 +29,19 @@ struct MinecraftCalibratedLayout {
         return MinecraftCoordinate(x: 0.2775 + (CGFloat(slot - 1) * 0.0555), y: 0.8701)
     }
 
+    /// A hotbar slot in the in-world HUD (outside any container UI), numbered 1...9.
+    ///
+    /// A hotbar slot in the in-world HUD (outside any container UI), numbered 1...9.
+    ///
+    /// The HUD hotbar has its own pitch, bracketed live by two misses: aiming at slot 6
+    /// with the crafting pitch selected slot 7, and with a tighter pitch selected slot 5.
+    /// Slot 6 sits between them at 0.53. Callers must confirm the selection with the
+    /// item-name tooltip right after tapping.
+    func hudHotbarSlot(_ slot: Int) -> MinecraftCoordinate {
+        precondition((1...9).contains(slot), "Minecraft's hotbar has nine slots.")
+        return MinecraftCoordinate(x: 0.2775 + (CGFloat(slot - 1) * 0.0505), y: 0.8701)
+    }
+
     func creativeResult(column: Int) -> MinecraftCoordinate {
         precondition((1...4).contains(column), "Only calibrated first-row Creative result columns may be used.")
         return MinecraftCoordinate(x: 0.143 + (CGFloat(column - 1) * 0.055), y: 0.25)
