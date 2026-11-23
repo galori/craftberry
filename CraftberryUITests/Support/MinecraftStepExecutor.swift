@@ -151,9 +151,11 @@ final class MinecraftStepExecutor {
             // A fast synthesized flick (a plain press-then-drag) reads to Minecraft's custom UI
             // engine as a swipe-to-go-back gesture on some screens (confirmed live: it silently
             // bounced the Edit World pack-settings screen back to the world list instead of
-            // scrolling). Slow velocity plus a brief hold at the end makes it land as a deliberate
-            // scroll instead.
-            start.press(forDuration: 0.2, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+            // scrolling). Slow velocity plus holds at both ends makes it land as a deliberate
+            // scroll instead. The half-second initial press also matters for inventory item
+            // drags: a 0.2s press reads as a tap (which never lifts from some slots), so the
+            // drag moves air; 0.5s is meant to grab the stack first.
+            start.press(forDuration: 0.5, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
             return .success(step)
         case .swipeUp:
             minecraft.swipeUp()
