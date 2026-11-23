@@ -22,31 +22,18 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(commands.contains("/kill @e[family=monster]"))
         XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Chat commands must stay on the calibrated lowercase keyboard plane.")
-        // The spawned creature kills the player within seconds, so the spawn check runs
-        // under resistance and the damage check only after clearing it (confirmed live:
-        // the player died before /testfor completed without protection).
-        XCTAssertTrue(commands.contains("/effect @s resistance 1000000 255"))
-        XCTAssertTrue(commands.contains("/effect @s clear"))
+        // The spawn check runs in Creative, where the new mob stays peaceful: checking
+        // beside an actively mauling creature breaks chat input (confirmed live: the
+        // testfor chat never got its keyboard while knockback threw the player
+        // around). Survival starts only after the spawn is confirmed.
         let names = scenario.postCraftingSteps.map(\.name)
-        let protect = try XCTUnwrap(names.firstIndex { $0.contains("resistance") })
         let useEgg = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
         let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm a hostile creature spawned") })
-        let clearEffects = try XCTUnwrap(names.firstIndex { $0.contains("Clear protection") })
+        let enterSurvival = try XCTUnwrap(names.firstIndex { $0.contains("Enter Survival for the damage check") })
         let verifyDamage = try XCTUnwrap(names.firstIndex { $0.contains("zero health") })
-        XCTAssertLessThan(protect, useEgg)
         XCTAssertLessThan(useEgg, confirmSpawn)
-        XCTAssertLessThan(confirmSpawn, clearEffects)
-        XCTAssertLessThan(clearEffects, verifyDamage)
-        // The spawn check runs from high above the platform: the freshly spawned
-        // creature mauls the adjacent player and its knockback breaks chat input
-        // (confirmed live: the testfor chat never got its keyboard next to the mob).
-        // The damage check returns to the calibrated position first.
-        let moveAway = try XCTUnwrap(names.firstIndex { $0.contains("Move away for a calm spawn check") })
-        let returnForDamage = try XCTUnwrap(names.firstIndex { $0.contains("Return for the damage check") })
-        XCTAssertLessThan(useEgg, moveAway)
-        XCTAssertLessThan(moveAway, confirmSpawn)
-        XCTAssertLessThan(clearEffects, returnForDamage)
-        XCTAssertLessThan(returnForDamage, verifyDamage)
+        XCTAssertLessThan(confirmSpawn, enterSurvival)
+        XCTAssertLessThan(enterSurvival, verifyDamage)
     }
 
     func testPostCraftingStepsUseTheirOwnStablePhase() {
