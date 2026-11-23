@@ -116,28 +116,45 @@ struct MinecraftPixelInspector {
     private let orientations: [CGImagePropertyOrientation] = [.left, .right, .up, .down]
 
     func matches(_ expectation: MinecraftPixelExpectation) -> Bool {
-        guard let image = XCUIScreen.main.screenshot().image.cgImage else { return false }
-        return matches(expectation, in: image)
+        guard let count = count(expectation) else { return false }
+        return count >= minimumCount(for: expectation)
+    }
+
+    /// The highest red-pixel count across orientations, for logging what a
+    /// pixel step actually saw. Nil when no screenshot could be captured.
+    func count(_ expectation: MinecraftPixelExpectation) -> Int? {
+        guard let image = XCUIScreen.main.screenshot().image.cgImage else { return nil }
+        return count(expectation, in: image)
+    }
+
+    func count(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Int {
+        let (xRange, yRange) = region(for: expectation)
+        return orientations.compactMap { orientation in
+            orientedImage(image, orientation: orientation).map {
+                redPixelCount(in: $0, xRange: xRange, yRange: yRange)
+            }
+        }.max() ?? 0
     }
 
     func matches(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Bool {
+        count(expectation, in: image) >= minimumCount(for: expectation)
+    }
+
+    private func region(for expectation: MinecraftPixelExpectation) -> (ClosedRange<CGFloat>, ClosedRange<CGFloat>) {
         switch expectation {
         case .redstonePickaxeOutput:
-            return orientations.contains { orientation in
-                guard let orientedImage = orientedImage(image, orientation: orientation) else { return false }
-                return redPixelCount(
-                    in: orientedImage,
-                    xRange: 0.67...0.73,
-                    yRange: 0.65...0.76
-                ) >= 20
-            }
-        case .redCluster(let xRange, let yRange, let minimumCount):
-            // Ranges are calibrated interface (landscape) fractions: normalize
-            // the portrait buffer first, exactly as the OCR inspector does.
-            return orientations.contains { orientation in
-                guard let orientedImage = orientedImage(image, orientation: orientation) else { return false }
-                return redPixelCount(in: orientedImage, xRange: xRange, yRange: yRange) >= minimumCount
-            }
+            return (0.67...0.73, 0.65...0.76)
+        case .redCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
+        }
+    }
+
+    func minimumCount(for expectation: MinecraftPixelExpectation) -> Int {
+        switch expectation {
+        case .redstonePickaxeOutput:
+            return 20
+        case .redCluster(_, _, let minimumCount):
+            return minimumCount
         }
     }
 

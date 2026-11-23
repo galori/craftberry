@@ -216,7 +216,9 @@ final class MinecraftStepExecutor {
                 CGVector(dx: fallbackX, dy: fallbackY)
             ]
             for (index, offset) in candidates.enumerated() {
-                if pixels.matches(expectation) {
+                let count = pixels.count(expectation) ?? -1
+                print("[MinecraftE2E] \(step.name): pixel check \(index + 1) saw red=\(count), need \(pixels.minimumCount(for: expectation))")
+                if count >= pixels.minimumCount(for: expectation) {
                     return .success(step)
                 }
                 tap(minecraft, offset)
@@ -225,8 +227,11 @@ final class MinecraftStepExecutor {
                     wait(1)
                 }
             }
-            guard pixels.matches(expectation) else {
-                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name).")
+            let finalCount = pixels.count(expectation) ?? -1
+            print("[MinecraftE2E] \(step.name): final pixel check saw red=\(finalCount)")
+            guard finalCount >= pixels.minimumCount(for: expectation) else {
+                onIntermediateScreenshot("\(step.name) — pixel check failed state")
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(finalCount)).")
             }
             return .success(step)
         case .calibrationRequired(let reason):
