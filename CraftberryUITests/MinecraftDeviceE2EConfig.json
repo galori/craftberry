@@ -204,8 +204,8 @@
     {
       "name": "Open the craftberry test world edit screen",
       "action": "tap",
-      "x": 0.2315,
-      "y": 0.6829
+      "x": 0.3125,
+      "y": 0.724
     },
     {
       "name": "Wait for craftberry test world settings",
@@ -279,9 +279,9 @@
       "text": "Using Add-Ons|Update world?"
     },
     {
-      "name": "Confirm the add-on stacking notice",
+      "name": "Confirm the Available list drained after activation",
       "action": "ocr",
-      "text": "Stacking multiple Add-Ons"
+      "text": "activated all packs"
     },
     {
       "name": "Wait for behavior and dependent resource activation",
@@ -292,7 +292,7 @@
       "name": "Open Active Behavior Packs",
       "action": "tapUntilText",
       "x": 0.505,
-      "y": 0.376,
+      "y": 0.19,
       "fallbackX": 0.505,
       "fallbackY": 0.31,
       "text": "$EXPECTED_BEHAVIOR_PACK"
@@ -322,7 +322,7 @@
       "name": "Open Active Resource Packs",
       "action": "tapUntilText",
       "x": 0.505,
-      "y": 0.376,
+      "y": 0.19,
       "fallbackX": 0.505,
       "fallbackY": 0.31,
       "text": "$EXPECTED_RESOURCE_PACK"
