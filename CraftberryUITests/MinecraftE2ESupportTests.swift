@@ -299,9 +299,9 @@ final class MinecraftE2ESupportTests: XCTestCase {
             XCTFail("Expected tapUntilPixels step after the boots take")
             return
         }
-        XCTAssertEqual(x, 0.2775, accuracy: 0.001)
+        XCTAssertEqual(x, 0.555, accuracy: 0.001)
         XCTAssertEqual(y, 0.8701, accuracy: 0.001)
-        XCTAssertEqual(fallbackX, 0.2775, accuracy: 0.001)
+        XCTAssertEqual(fallbackX, 0.555, accuracy: 0.001)
         XCTAssertEqual(fallbackY, 0.8701, accuracy: 0.001)
         guard case .redCluster = expectation else {
             XCTFail("Expected redCluster pixel expectation for the boots")

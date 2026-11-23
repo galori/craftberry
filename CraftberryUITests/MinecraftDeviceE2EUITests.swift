@@ -278,12 +278,13 @@ extension MinecraftE2EScenario {
                     beforePickupVerification: .pixels(.redCluster(xRange: 0.66...0.73, yRange: 0.63...0.75, minimumCount: 800)),
                     // Pixels, not a tooltip: a fresh selection raises only
                     // a ~500ms transient tooltip that OCR's multi-second
-                    // polls always miss (confirmed live). Takes auto-move
-                    // straight to first-free slot 1; its boots icon
-                    // measures ~800 red pixels against 0 empty in the
-                    // tagged orientation (threshold 400).
-                    afterPickupVerification: .pixels(.redCluster(xRange: 0.255...0.300, yRange: 0.810...0.950, minimumCount: 400)),
-                    outputDestination: firstCraftSlot,
+                    // polls always miss (confirmed live). Six takes land
+                    // boots through slot 6, which stays unselected (and
+                    // therefore liftable) while selection sits on slot 1;
+                    // its icon measures 667 red pixels against 0 empty
+                    // (threshold 300).
+                    afterPickupVerification: .pixels(.redCluster(xRange: 0.548...0.575, yRange: 0.848...0.914, minimumCount: 300)),
+                    outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],
@@ -295,25 +296,14 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
             MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
-            // Select full HUD ingot slot 5 so boots slot 1 is unselected
-            // when the inventory opens: taps only lift from unselected
-            // slots, and only full-slot HUD taps reliably move selection
-            // (empty-slot taps anywhere do not move it at all; confirmed
-            // live). Slot 5 is used because the HUD hotbar's edge slots
-            // deviate from the calibrated pitch (live: slot-2 taps miss
-            // twice while center slots land), and slot 5 provably selects.
-            // Leftover grid ingots deterministically refill slots 2-5, so
-            // slot 5 always holds ingots; the Ingot tooltip gates the move
-            // (tooltip-only on screen, Fiedstone-proof).
-            MinecraftStep(name: "Select full HUD ingot slot 5 to deselect slot 1", action: .tapUntilText(x: layout.hudHotbarSlot(5).x, y: layout.hudHotbarSlot(5).y, fallbackX: layout.hudHotbarSlot(5).x, fallbackY: layout.hudHotbarSlot(5).y, text: "Ingot")),
+            // No deselect needed: the boots land in slot 6 while selection
+            // stays on slot 1, so slot 6 is already unselected (and
+            // therefore liftable) when the inventory opens.
             MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
-            // Drag, not tap: taps never lift from hotbar slot 1 in this
-            // screen (confirmed live across repeated runs), while the slow
-            // press-drag-release moves the item regardless of selection.
-            MinecraftStep(name: "Drag the crafted Redstone Boots to the feet slot", action: .drag(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y, endX: 0.552, endY: 0.616)),
+            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tapUntilPixels(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y, fallbackX: layout.hotbarSlot(6).x, fallbackY: layout.hotbarSlot(6).y, expectation: .redAbsent(xRange: 0.548...0.575, yRange: 0.848...0.914, maximumCount: 50))),
             MinecraftStep(name: "Place the boots into the feet armor slot and confirm", action: .tapUntilPixels(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, expectation: .redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]

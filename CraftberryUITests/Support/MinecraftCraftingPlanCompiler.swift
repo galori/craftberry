@@ -63,15 +63,18 @@ struct MinecraftCraftingPlanCompiler {
         if let verification = recipe.beforePickupVerification {
             steps.append(step(for: verification, name: "Confirm \(recipe.outputName) output is visible"))
         }
-        // The output take is retried: the engine silently ignores taps
-        // often enough that a single take flakes, while extra takes are
-        // safe (a full cursor no-ops on unstackables; stackables just add
-        // harmless extra pairs that later steps ignore).
-        steps.append(.tap("Take \(recipe.outputName) output", layout.craftingOutput))
-        steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 1)))
-        steps.append(.tap("Take \(recipe.outputName) output (retry 1)", layout.craftingOutput))
-        steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 1)))
-        steps.append(.tap("Take \(recipe.outputName) output (retry 2)", layout.craftingOutput))
+        // Takes auto-move into first-free hotbar slots and repeat takes
+        // are safe (extras land in later slots that later steps ignore),
+        // so take six times: the repetition both lands the output in a
+        // known later slot for scenarios that need an unselected pickup
+        // slot and shrinks take flakes to nothing.
+        for attempt in 0..<6 {
+            let name = attempt == 0
+                ? "Take \(recipe.outputName) output"
+                : "Take \(recipe.outputName) output (retry \(attempt))"
+            steps.append(.tap(name, layout.craftingOutput))
+            steps.append(MinecraftStep(name: "Wait after taking \(recipe.outputName)", action: .wait(seconds: 1)))
+        }
         switch recipe.afterPickupVerification {
         case .pixels(let expectation):
             // Pixel verifications tap-until-placed: the engine silently
