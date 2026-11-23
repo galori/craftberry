@@ -298,8 +298,9 @@ extension MinecraftE2EScenario {
             // Select full HUD dust slot 2 so boots slot 1 is unselected
             // when the inventory opens: taps only lift from unselected
             // slots, and only full-slot HUD taps reliably move selection
-            // (empty-slot taps anywhere do not; confirmed live).
-            MinecraftStep(name: "Select full HUD dust slot 2 to deselect slot 1", action: .tap(x: layout.hudHotbarSlot(2).x, y: layout.hudHotbarSlot(2).y)),
+            // (empty-slot taps anywhere do not; confirmed live). The Dust
+            // tooltip gates the move (tooltip-only on this screen).
+            MinecraftStep(name: "Select full HUD dust slot 2 to deselect slot 1", action: .tapUntilText(x: layout.hudHotbarSlot(2).x, y: layout.hudHotbarSlot(2).y, fallbackX: layout.hudHotbarSlot(2).x, fallbackY: layout.hudHotbarSlot(2).y, text: "Dust")),
             MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
