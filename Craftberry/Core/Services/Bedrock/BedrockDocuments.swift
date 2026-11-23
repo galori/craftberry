@@ -63,7 +63,7 @@ struct ItemDocument: Encodable {
     struct Components: Encodable {
         let displayName: DisplayName
         let icon: Icon
-        let maximumStackSize: Int?
+        let maximumStackSize: Int
         let handEquipped: HandEquipped
         let damage: Damage?
         let durability: Durability?
@@ -74,6 +74,7 @@ struct ItemDocument: Encodable {
         let entityPlacer: EntityPlacer?
         let useAnimation: UseAnimation?
         let useModifiers: UseModifiers?
+        let tags: Tags?
 
         enum CodingKeys: String, CodingKey {
             case displayName = "minecraft:display_name"
@@ -89,6 +90,7 @@ struct ItemDocument: Encodable {
             case entityPlacer = "minecraft:entity_placer"
             case useAnimation = "minecraft:use_animation"
             case useModifiers = "minecraft:use_modifiers"
+            case tags = "minecraft:tags"
         }
     }
 
@@ -117,6 +119,8 @@ struct ItemDocument: Encodable {
     struct Enchantable: Encodable { let slot: String; let value: Int }
 
     struct EntityPlacer: Encodable { let entity: String }
+
+    struct Tags: Encodable { let tags: [String] }
 
     struct UseAnimation: Encodable { let value: String }
 

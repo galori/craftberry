@@ -193,12 +193,14 @@ final class BedrockCompilerTests: XCTestCase {
         let wearable = try XCTUnwrap(helmetComponents["minecraft:wearable"] as? [String: Any])
         XCTAssertEqual(wearable["slot"] as? String, "slot.armor.head")
         XCTAssertEqual(wearable["protection"] as? Int, 2)
-        // Armor-slot items must not declare max_stack_size: on item format
-        // versions below 1.26.30 an explicit value alongside wearable
-        // produces inconsistent behavior (confirmed live: boots that declare
-        // it refuse to enter the armor slot despite a clean Content Log).
-        // The engine auto-sets stack size 1 for armor slots.
-        XCTAssertNil(helmetComponents["minecraft:max_stack_size"])
+        // Armor pin item format 1.26.30 (the wearable fix version): older
+        // items silently refuse to equip despite a clean Content Log.
+        XCTAssertEqual(helmetItem["format_version"] as? String, "1.26.30")
+        // Explicit stack size 1 alongside wearable, exactly as the
+        // working Bedrock Wiki custom-armor reference emits it.
+        XCTAssertEqual(helmetComponents["minecraft:max_stack_size"] as? Int, 1)
+        let tags = try XCTUnwrap(helmetComponents["minecraft:tags"] as? [String: Any])
+        XCTAssertEqual(tags["tags"] as? [String], ["minecraft:is_armor"])
 
         let bootsRecipe = try json(named: "recipes/azure_a1b2c3_boots_recipe.json", in: behavior)
         let shapedRecipe = try XCTUnwrap(bootsRecipe["minecraft:recipe_shaped"] as? [String: Any])

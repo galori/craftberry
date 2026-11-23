@@ -349,7 +349,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         for item in project.items.sorted(by: contentOrder) {
             let identifier = identifier(for: item.id, namespace: project.namespace)
             let document = ItemDocument(
-                formatVersion: profile.itemFormatVersion,
+                formatVersion: item.traits.armor == nil ? profile.itemFormatVersion : profile.armorItemFormatVersion,
                 item: ItemDocument.Item(
                     description: ItemDocument.Description(
                         identifier: identifier,
@@ -361,11 +361,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     components: ItemDocument.Components(
                         displayName: ItemDocument.DisplayName(value: "item.\(identifier).name"),
                         icon: ItemDocument.Icon(textures: ["default": item.id.rawValue]),
-                        // Armor-slot items omit max_stack_size: below item format
-                        // 1.26.30 an explicit value alongside wearable
-                        // produces inconsistent behavior (live: un-equippable
-                        // boots with a clean log). The engine auto-sets 1.
-                        maximumStackSize: item.traits.armor == nil ? item.traits.maximumStackSize : nil,
+                        maximumStackSize: item.traits.maximumStackSize,
                         handEquipped: ItemDocument.HandEquipped(value: item.traits.handEquipped),
                         damage: item.traits.combat.map { ItemDocument.Damage(value: $0.attackBonus) },
                         durability: item.traits.durability.map {
@@ -407,7 +403,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         useModifiers: item.traits.food == nil ? nil : ItemDocument.UseModifiers(
                             useDuration: 1.6,
                             movementModifier: 0.35
-                        )
+                        ),
+                        tags: item.traits.armor == nil ? nil : ItemDocument.Tags(tags: ["minecraft:is_armor"])
                     )
                 )
             )
