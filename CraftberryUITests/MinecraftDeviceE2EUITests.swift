@@ -325,7 +325,14 @@ extension MinecraftE2EScenario {
             // can never pass.
             MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
             MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
-            MinecraftStep(name: "Confirm the feet slot holds the equipped boots", action: .assertPixels(.redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
+            // Lift-back proof, NOT a pixel count: run 37 proved the
+            // equipped boots render pixel-identical (874 red) to the
+            // empty-slot ghost, so no red threshold can ever pass here.
+            // Tapping the occupied feet slot lifts the boots and raises
+            // their "Boots" tooltip; tapping the ghost yields nothing, so
+            // the tooltip discriminates perfectly. "Boots", not "Redstone":
+            // Vision reads the pixel font's "Redstone" as "Fiedstone".
+            MinecraftStep(name: "Lift the boots back out to prove they equipped", action: .tapUntilText(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, text: "Boots")),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]
     )
