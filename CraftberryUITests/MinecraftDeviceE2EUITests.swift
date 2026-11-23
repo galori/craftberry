@@ -303,6 +303,19 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
+            // TEMP-DIAMOND-CONTROL (revert after diagnosis): runs FIRST on
+            // the empty feet slot, because the main red assert below fails
+            // before any later control could run. If diamond equips (cyan
+            // passes) while ours then fails to swap in, our item JSON is
+            // rejected; if diamond also fails, inventory taps themselves
+            // are broken in this state.
+            MinecraftStep(name: "TEMP close inventory for diamond control", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
+            MinecraftStep(name: "TEMP give diamond boots to hotbar slot 9", action: .chatCommand("/replaceitem entity @s slot.hotbar 8 diamond_boots 1 0")),
+            MinecraftStep(name: "TEMP reopen the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
+            MinecraftStep(name: "TEMP reopen the Armor tab", action: .tap(x: 0.945, y: 0.745)),
+            MinecraftStep(name: "TEMP select diamond boots in hotbar slot 9", action: .tapUntilText(x: layout.hotbarSlot(9).x, y: layout.hotbarSlot(9).y, fallbackX: layout.hotbarSlot(9).x, fallbackY: layout.hotbarSlot(9).y, text: "Boots")),
+            MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tap(x: 0.552, y: 0.616)),
+            MinecraftStep(name: "TEMP confirm diamond boots equipped", action: .assertPixels(.cyanCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 800))),
             // Tap-to-select, gated by the boots tooltip (which persists
             // while selected, unlike fresh-selection flashes): the
             // following feet tap moves the selected stack. Taps never
@@ -312,17 +325,6 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
             MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
             MinecraftStep(name: "Confirm the feet slot holds the equipped boots", action: .assertPixels(.redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
-            // TEMP-DIAMOND-CONTROL (revert after diagnosis): vanilla boots
-            // through the identical tap flow. If diamond equips while ours
-            // does not, our item JSON is rejected; if diamond also fails,
-            // inventory taps themselves are broken in this state.
-            MinecraftStep(name: "TEMP close inventory for diamond control", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
-            MinecraftStep(name: "TEMP give diamond boots to hotbar slot 9", action: .chatCommand("/replaceitem entity @s slot.hotbar 8 diamond_boots 1 0")),
-            MinecraftStep(name: "TEMP reopen the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
-            MinecraftStep(name: "TEMP reopen the Armor tab", action: .tap(x: 0.945, y: 0.745)),
-            MinecraftStep(name: "TEMP select diamond boots in hotbar slot 9", action: .tapUntilText(x: layout.hotbarSlot(9).x, y: layout.hotbarSlot(9).y, fallbackX: layout.hotbarSlot(9).x, fallbackY: layout.hotbarSlot(9).y, text: "Boots")),
-            MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tap(x: 0.552, y: 0.616)),
-            MinecraftStep(name: "TEMP confirm diamond boots equipped", action: .assertPixels(.cyanCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 800))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]
     )
