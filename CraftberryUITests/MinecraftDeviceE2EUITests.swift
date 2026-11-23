@@ -295,15 +295,17 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
             MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
-            // Select full HUD dust slot 5 so boots slot 1 is unselected
+            // Select full HUD ingot slot 5 so boots slot 1 is unselected
             // when the inventory opens: taps only lift from unselected
             // slots, and only full-slot HUD taps reliably move selection
             // (empty-slot taps anywhere do not move it at all; confirmed
             // live). Slot 5 is used because the HUD hotbar's edge slots
             // deviate from the calibrated pitch (live: slot-2 taps miss
             // twice while center slots land), and slot 5 provably selects.
-            // The Dust tooltip gates the move (tooltip-only on screen).
-            MinecraftStep(name: "Select full HUD dust slot 5 to deselect slot 1", action: .tapUntilText(x: layout.hudHotbarSlot(5).x, y: layout.hudHotbarSlot(5).y, fallbackX: layout.hudHotbarSlot(5).x, fallbackY: layout.hudHotbarSlot(5).y, text: "Dust")),
+            // Leftover grid ingots deterministically refill slots 2-5, so
+            // slot 5 always holds ingots; the Ingot tooltip gates the move
+            // (tooltip-only on screen, Fiedstone-proof).
+            MinecraftStep(name: "Select full HUD ingot slot 5 to deselect slot 1", action: .tapUntilText(x: layout.hudHotbarSlot(5).x, y: layout.hudHotbarSlot(5).y, fallbackX: layout.hudHotbarSlot(5).x, fallbackY: layout.hudHotbarSlot(5).y, text: "Ingot")),
             MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
