@@ -296,6 +296,11 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
             MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
+            // TEMP-DIAMOND-CONTROL (revert after diagnosis): the /give runs
+            // here, before the inventory opens, so no close/reopen cycle is
+            // needed — the close tap never worked on the survival inventory
+            // and the reopen toggle left the UI in a no-"Crafting" state.
+            MinecraftStep(name: "TEMP give diamond boots to hotbar slot 9", action: .chatCommand("/replaceitem entity @s slot.hotbar 8 diamond_boots 1 0")),
             // No deselect needed: the boots land in slot 6 while selection
             // stays on slot 1, so slot 6 is already unselected (and
             // therefore liftable) when the inventory opens.
@@ -309,10 +314,6 @@ extension MinecraftE2EScenario {
             // passes) while ours then fails to swap in, our item JSON is
             // rejected; if diamond also fails, inventory taps themselves
             // are broken in this state.
-            MinecraftStep(name: "TEMP close inventory for diamond control", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
-            MinecraftStep(name: "TEMP give diamond boots to hotbar slot 9", action: .chatCommand("/replaceitem entity @s slot.hotbar 8 diamond_boots 1 0")),
-            MinecraftStep(name: "TEMP reopen the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
-            MinecraftStep(name: "TEMP reopen the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "TEMP select diamond boots in hotbar slot 9", action: .tapUntilText(x: layout.hotbarSlot(9).x, y: layout.hotbarSlot(9).y, fallbackX: layout.hotbarSlot(9).x, fallbackY: layout.hotbarSlot(9).y, text: "Boots")),
             MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tap(x: 0.552, y: 0.616)),
             MinecraftStep(name: "TEMP confirm diamond boots equipped", action: .assertPixels(.cyanCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 800))),
