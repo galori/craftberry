@@ -278,9 +278,10 @@ extension MinecraftE2EScenario {
                     beforePickupVerification: .pixels(.redCluster(xRange: 0.66...0.73, yRange: 0.63...0.75, minimumCount: 800)),
                     // Pixels, not a tooltip: a fresh selection raises only
                     // a ~500ms transient tooltip that OCR's multi-second
-                    // polls always miss (confirmed live). The slot-1 boots
-                    // icon measures ~667 red pixels against at most 203 in
-                    // any orientation empty (threshold 400).
+                    // polls always miss (confirmed live). Takes auto-move
+                    // straight to first-free slot 1; its boots icon
+                    // measures ~800 red pixels against 0 empty in the
+                    // tagged orientation (threshold 400).
                     afterPickupVerification: .pixels(.redCluster(xRange: 0.255...0.300, yRange: 0.810...0.950, minimumCount: 400)),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: false
@@ -294,12 +295,11 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
             MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
-            // Select empty HUD slot 9 so boots slot 1 is unselected when
-            // the inventory opens: taps only lift from unselected slots
-            // (tapping the selected slot merely raises its tooltip), picks
-            // never move selection, and empty-slot taps inside container
-            // screens do not move it either (all confirmed live).
-            MinecraftStep(name: "Select empty HUD slot 9 to deselect slot 1", action: .tap(x: layout.hudHotbarSlot(9).x, y: layout.hudHotbarSlot(9).y)),
+            // Select full HUD dust slot 2 so boots slot 1 is unselected
+            // when the inventory opens: taps only lift from unselected
+            // slots, and only full-slot HUD taps reliably move selection
+            // (empty-slot taps anywhere do not; confirmed live).
+            MinecraftStep(name: "Select full HUD dust slot 2 to deselect slot 1", action: .tap(x: layout.hudHotbarSlot(2).x, y: layout.hudHotbarSlot(2).y)),
             MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
