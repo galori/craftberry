@@ -397,7 +397,13 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                                 message: "Item references missing entity \(placer.entityID.rawValue) for its entity placer."
                             )
                             return ItemDocument.EntityPlacer(entity: self.identifier(for: entity.id, namespace: project.namespace))
-                        }
+                        },
+                        // Food items require a non-zero use_duration; values pinned to vanilla apple.
+                        useAnimation: item.traits.food == nil ? nil : ItemDocument.UseAnimation(value: "eat"),
+                        useModifiers: item.traits.food == nil ? nil : ItemDocument.UseModifiers(
+                            useDuration: 1.6,
+                            movementModifier: 0.35
+                        )
                     )
                 )
             )

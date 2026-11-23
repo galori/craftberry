@@ -617,6 +617,13 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(foodComponent["nutrition"] as? Int, 6)
         XCTAssertEqual(foodComponent["saturation_modifier"] as? Double, 0.6)
         XCTAssertNil(foodComponent["can_always_eat"])
+        // The engine warns when minecraft:food has no use_duration (pinned to
+        // vanilla apple values from bedrock-samples).
+        let animation = try XCTUnwrap(components["minecraft:use_animation"] as? [String: Any])
+        XCTAssertEqual(animation["value"] as? String, "eat")
+        let modifiers = try XCTUnwrap(components["minecraft:use_modifiers"] as? [String: Any])
+        XCTAssertEqual(modifiers["use_duration"] as? Double, 1.6)
+        XCTAssertEqual(modifiers["movement_modifier"] as? Double, 0.35)
     }
 
     func testCompilerEmitsMaterialOreSetWithLootAndBlock() throws {
