@@ -294,18 +294,16 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
             MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
+            // Select empty HUD slot 9 so boots slot 1 is unselected when
+            // the inventory opens: taps only lift from unselected slots
+            // (tapping the selected slot merely raises its tooltip), picks
+            // never move selection, and empty-slot taps inside container
+            // screens do not move it either (all confirmed live).
+            MinecraftStep(name: "Select empty HUD slot 9 to deselect slot 1", action: .tap(x: layout.hudHotbarSlot(9).x, y: layout.hudHotbarSlot(9).y)),
             MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
-            // Move selection off slot 1 by tapping full dust slot 2 twice
-            // (pick up, put back): tapping the selected slot does not lift
-            // its item, and empty-slot taps may not move selection at all.
-            // Either dust tap landing moves selection; a split leaves dust
-            // on the cursor, in which case the slot-1 tap swaps it for the
-            // boots and the feet tap still equips them.
-            MinecraftStep(name: "Touch full dust slot 2 to move selection", action: .tap(x: layout.hotbarSlot(2).x, y: layout.hotbarSlot(2).y)),
-            MinecraftStep(name: "Touch full dust slot 2 again", action: .tap(x: layout.hotbarSlot(2).x, y: layout.hotbarSlot(2).y)),
             MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 1", action: .tapUntilPixels(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y, fallbackX: layout.hotbarSlot(1).x, fallbackY: layout.hotbarSlot(1).y, expectation: .redAbsent(xRange: 0.255...0.300, yRange: 0.810...0.950, maximumCount: 50))),
             MinecraftStep(name: "Place the boots into the feet armor slot and confirm", action: .tapUntilPixels(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, expectation: .redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
