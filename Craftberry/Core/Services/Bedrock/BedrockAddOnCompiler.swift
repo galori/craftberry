@@ -361,7 +361,11 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     components: ItemDocument.Components(
                         displayName: ItemDocument.DisplayName(value: "item.\(identifier).name"),
                         icon: ItemDocument.Icon(textures: ["default": item.id.rawValue]),
-                        maximumStackSize: item.traits.maximumStackSize,
+                        // Armor-slot items omit max_stack_size: below item format
+                        // 1.26.30 an explicit value alongside wearable
+                        // produces inconsistent behavior (live: un-equippable
+                        // boots with a clean log). The engine auto-sets 1.
+                        maximumStackSize: item.traits.armor == nil ? item.traits.maximumStackSize : nil,
                         handEquipped: ItemDocument.HandEquipped(value: item.traits.handEquipped),
                         damage: item.traits.combat.map { ItemDocument.Damage(value: $0.attackBonus) },
                         durability: item.traits.durability.map {

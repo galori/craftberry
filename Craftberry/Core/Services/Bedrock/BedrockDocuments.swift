@@ -63,7 +63,7 @@ struct ItemDocument: Encodable {
     struct Components: Encodable {
         let displayName: DisplayName
         let icon: Icon
-        let maximumStackSize: Int
+        let maximumStackSize: Int?
         let handEquipped: HandEquipped
         let damage: Damage?
         let durability: Durability?

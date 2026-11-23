@@ -284,7 +284,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         armor)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneArmorSetCanCraftBootsInImportedCreativeWorld"
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneArmorSetCanCraftAndEquipBootsInSurvival"
             result_name="MinecraftRedstoneArmorSetE2EUITests"
             prepared_world_name="Redstone (Creative)"
             ;;

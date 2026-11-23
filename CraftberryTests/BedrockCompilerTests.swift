@@ -111,6 +111,13 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_spear.json" })
         XCTAssertTrue(behavior.contains { $0.path == "items/azure_a1b2c3_hammer.json" })
 
+        let spearItem = try json(named: "items/azure_a1b2c3_spear.json", in: behavior)
+        let spearBody = try XCTUnwrap(spearItem["minecraft:item"] as? [String: Any])
+        let spearComponents = try XCTUnwrap(spearBody["components"] as? [String: Any])
+        // Non-armor items keep their explicit stack size (only armor-slot
+        // items omit it for the pre-1.26.30 wearable interaction).
+        XCTAssertEqual(spearComponents["minecraft:max_stack_size"] as? Int, 1)
+
         let spearRecipe = try json(named: "recipes/azure_a1b2c3_spear_recipe.json", in: behavior)
         let shapedRecipe = try XCTUnwrap(spearRecipe["minecraft:recipe_shaped"] as? [String: Any])
         XCTAssertEqual(shapedRecipe["pattern"] as? [String], ["  I", " S ", "S  "])
@@ -186,6 +193,12 @@ final class BedrockCompilerTests: XCTestCase {
         let wearable = try XCTUnwrap(helmetComponents["minecraft:wearable"] as? [String: Any])
         XCTAssertEqual(wearable["slot"] as? String, "slot.armor.head")
         XCTAssertEqual(wearable["protection"] as? Int, 2)
+        // Armor-slot items must not declare max_stack_size: on item format
+        // versions below 1.26.30 an explicit value alongside wearable
+        // produces inconsistent behavior (confirmed live: boots that declare
+        // it refuse to enter the armor slot despite a clean Content Log).
+        // The engine auto-sets stack size 1 for armor slots.
+        XCTAssertNil(helmetComponents["minecraft:max_stack_size"])
 
         let bootsRecipe = try json(named: "recipes/azure_a1b2c3_boots_recipe.json", in: behavior)
         let shapedRecipe = try XCTUnwrap(bootsRecipe["minecraft:recipe_shaped"] as? [String: Any])

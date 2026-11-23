@@ -43,7 +43,7 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneArmorSetCanCraftBootsInImportedCreativeWorld() throws {
+    func testCraftberryRedstoneArmorSetCanCraftAndEquipBootsInSurvival() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
@@ -255,7 +255,7 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
+                    afterPickupVerification: .text("Redstone Ingot"),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
@@ -265,13 +265,28 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
+                    afterPickupVerification: .text("Redstone Boots"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],
             finalHotbarTap: nil
-        )
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime before the Survival equip test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Set peaceful difficulty before the Survival equip test", action: .chatCommand("/difficulty peaceful")),
+            MinecraftStep(name: "Disable mob spawning before the Survival equip test", action: .chatCommand("/gamerule domobspawning false")),
+            MinecraftStep(name: "Enter Survival to equip the crafted boots", action: .chatCommand("/gamemode survival @s")),
+            MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
+            MinecraftStep(name: "Open the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
+            MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
+            MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
+            MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
+            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
+            MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
+            MinecraftStep(name: "Confirm the feet slot holds the equipped boots", action: .assertPixels(.redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
+            MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
+        ]
     )
 
     static let redstoneConsumableSet = MinecraftE2EScenario(

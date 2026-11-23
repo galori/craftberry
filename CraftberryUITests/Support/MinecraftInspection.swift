@@ -132,7 +132,12 @@ struct MinecraftPixelInspector {
                 ) >= 20
             }
         case .redCluster(let xRange, let yRange, let minimumCount):
-            return redPixelCount(in: image, xRange: xRange, yRange: yRange) >= minimumCount
+            // Ranges are calibrated interface (landscape) fractions: normalize
+            // the portrait buffer first, exactly as the OCR inspector does.
+            return orientations.contains { orientation in
+                guard let orientedImage = orientedImage(image, orientation: orientation) else { return false }
+                return redPixelCount(in: orientedImage, xRange: xRange, yRange: yRange) >= minimumCount
+            }
         }
     }
 
