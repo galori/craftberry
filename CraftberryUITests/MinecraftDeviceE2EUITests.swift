@@ -123,7 +123,7 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneMaterialSwordReachesEnchantingCalibrationBoundary() throws {
+    func testCraftberryRedstoneSwordCanBeEnchanted() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else

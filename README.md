@@ -67,6 +67,12 @@ For every future content-family or material enhancement:
 - Bedrock's chat header shows either the classic "Chat and Commands" title or a
   "My Position" coordinates/sharing variant; chat-open detection must accept
   both, since the input bar below behaves identically.
+- Enchanting-table inventory cells ignore synthesized taps, double-taps, holds,
+  and drags while the dialog's own buttons respond, so table-slot automation is
+  not currently possible; verify enchantability through `/enchant` on the held
+  item instead and assert the engine's success output.
+- The in-world HUD hotbar uses a tighter slot pitch than the crafting UI's
+  hotbar row; HUD slot taps need their own calibration plus a tooltip confirm.
 
 ## Physical iPhone workflow
 
@@ -114,7 +120,7 @@ scripts/ios-device.sh minecraft-e2e emerald
 scripts/ios-device.sh minecraft-e2e-all
 ```
 
-Run one focused scenario while developing. Run the full thirteen-scenario suite for a roadmap milestone, a broad compiler or packaging change, a Minecraft update, or a release. GitHub Actions runs the full suite nightly. A manual workflow run can select one focused scenario or the full suite. The workflow does not run the phone suite on every pull request; pull requests still run the Swift unit tests and linter.
+Run one focused scenario while developing. Run the full fourteen-scenario suite for a roadmap milestone, a broad compiler or packaging change, a Minecraft update, or a release. GitHub Actions runs the full suite nightly. A manual workflow run can select one focused scenario or the full suite. The workflow does not run the phone suite on every pull request; pull requests still run the Swift unit tests and linter.
 
 Each prepared-world scenario removes its exact named test world before and after the run. The regular `.mcaddon` scenario reuses `craftberry test` and removes only generated packs after the run. In both paths XCTest terminates Minecraft before the Mac-side AFC cleanup. The cleanup script matches prepared test worlds by exact name, so a partial-name match cannot select another world.
 
