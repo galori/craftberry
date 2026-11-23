@@ -310,7 +310,10 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
-            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 1", action: .tapUntilPixels(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y, fallbackX: layout.hotbarSlot(1).x, fallbackY: layout.hotbarSlot(1).y, expectation: .redAbsent(xRange: 0.255...0.300, yRange: 0.810...0.950, maximumCount: 50))),
+            // Drag, not tap: taps never lift from hotbar slot 1 in this
+            // screen (confirmed live across repeated runs), while the slow
+            // press-drag-release moves the item regardless of selection.
+            MinecraftStep(name: "Drag the crafted Redstone Boots to the feet slot", action: .drag(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y, endX: 0.552, endY: 0.616)),
             MinecraftStep(name: "Place the boots into the feet armor slot and confirm", action: .tapUntilPixels(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, expectation: .redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]
