@@ -173,7 +173,7 @@ test_on_device() {
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
-        -collect-test-diagnostics never \
+        -collect-test-diagnostics on-failure \
         -only-testing:CraftberryUITests/CraftberryUITests/testDeterministicSwordExportBuildsAndOpensShareSheetInOneStep \
         test
 
@@ -386,7 +386,7 @@ minecraft_e2e_on_device() {
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$result_path" \
         -allowProvisioningUpdates \
-        -collect-test-diagnostics never \
+        -collect-test-diagnostics on-failure \
         -only-testing:"$test_selector" \
         test
     local test_status=$?

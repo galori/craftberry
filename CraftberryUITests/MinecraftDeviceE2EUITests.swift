@@ -255,7 +255,10 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Ingot"),
+                    // "Ingot", not the full name: Vision OCR intermittently
+                    // reads the pixel-font "Redstone" as "Fiedstone", while
+                    // "Ingot" appears nowhere else on this screen.
+                    afterPickupVerification: .text("Ingot"),
                     outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: true
                 ),
@@ -265,7 +268,9 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone Boots"),
+                    // "Boots", not the full name: same "Fiedstone" OCR
+                    // misread as the ingot recipe above.
+                    afterPickupVerification: .text("Boots"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
