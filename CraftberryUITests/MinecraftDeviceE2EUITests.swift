@@ -303,7 +303,13 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
-            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tapUntilPixels(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y, fallbackX: layout.hotbarSlot(6).x, fallbackY: layout.hotbarSlot(6).y, expectation: .redAbsent(xRange: 0.548...0.575, yRange: 0.848...0.914, maximumCount: 50))),
+            // Tap-to-select, gated by the boots tooltip (which persists
+            // while selected, unlike fresh-selection flashes): the
+            // following feet tap moves the selected stack. Taps never
+            // lift straight out of the slot (confirmed live: the icon
+            // stays put through repeated taps), so a redAbsent gate here
+            // can never pass.
+            MinecraftStep(name: "Select the crafted Redstone Boots in hotbar slot 6", action: .tapUntilText(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y, fallbackX: layout.hotbarSlot(6).x, fallbackY: layout.hotbarSlot(6).y, text: "Boots")),
             MinecraftStep(name: "Place the boots into the feet armor slot and confirm", action: .tapUntilPixels(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, expectation: .redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]
