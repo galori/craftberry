@@ -248,33 +248,25 @@ extension MinecraftE2EScenario {
         behaviorPackName: "Redstone Behavior",
         resourcePackName: "Redstone Resources",
         craftingPlan: MinecraftCraftingPlan(
+            // Single recipe: the boots pick their ingots straight from
+            // Creative search, so no ingot-crafting prelude is needed (the
+            // identical shapeless ingot shape is covered across all other
+            // scenarios). Skipping the prelude also skips the mid-flow
+            // table close/reopen, whose post-reopen takes proved flaky.
             recipes: [
-                .init(
-                    outputName: "Redstone Ingot",
-                    ingredients: [
-                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
-                    ],
-                    beforePickupVerification: nil,
-                    // "Ingot", not the full name: Vision OCR intermittently
-                    // reads the pixel-font "Redstone" as "Fiedstone", while
-                    // "Ingot" appears nowhere else on this screen.
-                    afterPickupVerification: .text("Ingot"),
-                    outputDestination: firstCraftSlot,
-                    shouldResetTableAfterPickup: true
-                ),
                 .init(
                     outputName: "Redstone Boots",
                     ingredients: [
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
                     beforePickupVerification: nil,
-                    // Pixels, not a tooltip: tapping newly-selected slot 6
-                    // raises only a ~500ms transient tooltip that OCR's
-                    // multi-second polls always miss (confirmed live across
-                    // repeated runs). The boots icon in slot 6 measures 667
-                    // red pixels against 0 empty (threshold 300).
-                    afterPickupVerification: .pixels(.redCluster(xRange: 0.548...0.575, yRange: 0.848...0.914, minimumCount: 300)),
-                    outputDestination: slotAfterIngredientsReturn,
+                    // Pixels, not a tooltip: a fresh selection raises only
+                    // a ~500ms transient tooltip that OCR's multi-second
+                    // polls always miss (confirmed live). The slot-1 boots
+                    // icon measures ~667 red pixels against at most 203 in
+                    // any orientation empty (threshold 400).
+                    afterPickupVerification: .pixels(.redCluster(xRange: 0.255...0.300, yRange: 0.810...0.950, minimumCount: 400)),
+                    outputDestination: firstCraftSlot,
                     shouldResetTableAfterPickup: false
                 )
             ],
@@ -290,7 +282,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Confirm the Survival inventory is open", action: .assertText("Crafting")),
             MinecraftStep(name: "Open the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "Confirm the Armor tab is open", action: .assertText("Armor")),
-            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 6", action: .tap(x: layout.hotbarSlot(6).x, y: layout.hotbarSlot(6).y)),
+            MinecraftStep(name: "Pick up the crafted Redstone Boots from hotbar slot 1", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
             MinecraftStep(name: "Place the boots into the feet armor slot", action: .tap(x: 0.552, y: 0.616)),
             MinecraftStep(name: "Confirm the feet slot holds the equipped boots", action: .assertPixels(.redCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 1150))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
