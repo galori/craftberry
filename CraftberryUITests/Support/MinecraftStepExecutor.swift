@@ -60,6 +60,7 @@ final class MinecraftStepExecutor {
     private let onIntermediateScreenshot: (String) -> Void
     private let wait: (TimeInterval) -> Void
     private let tap: (XCUIApplication, CGVector) -> Void
+    private let pressHold: (XCUIApplication, CGVector) -> Void
     private let recognizedText: (String, TimeInterval) -> Bool
     private let recognizedTextCenter: (String, TimeInterval) -> CGPoint?
     private let chatScreenDetector: (TimeInterval) -> Bool
@@ -71,12 +72,9 @@ final class MinecraftStepExecutor {
         onIntermediateScreenshot: @escaping (String) -> Void = { _ in },
         wait: @escaping (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
         tap: @escaping (XCUIApplication, CGVector) -> Void = { app, offset in
-            // Press-and-hold, not an instant tap: on a loaded device the
-            // engine samples input per frame and silently drops instant
-            // taps that land inside a single long frame (confirmed live:
-            // identical taps work early in a session and stop registering
-            // hours in). 0.3s spans multiple frames without reaching
-            // long-press split-stack semantics.
+            app.coordinate(withNormalizedOffset: offset).tap()
+        },
+        pressHold: @escaping (XCUIApplication, CGVector) -> Void = { app, offset in
             app.coordinate(withNormalizedOffset: offset).press(forDuration: 0.3)
         },
         recognizedText: ((String, TimeInterval) -> Bool)? = nil,
@@ -89,6 +87,7 @@ final class MinecraftStepExecutor {
         self.onIntermediateScreenshot = onIntermediateScreenshot
         self.wait = wait
         self.tap = tap
+        self.pressHold = pressHold
         let resolvedTextDetector = recognizedText ?? { expected, timeout in
             ocr.waitForRecognizedText(expected, timeout: timeout)
         }
@@ -232,7 +231,15 @@ final class MinecraftStepExecutor {
                 if pixels.matches(expectation) {
                     return .success(step)
                 }
-                tap(minecraft, offset)
+                // Press-and-hold, not an instant tap: on a loaded device
+                // the engine samples input per frame and silently drops
+                // instant taps that land inside a single long frame
+                // (confirmed live: identical slot taps work early in a
+                // session and stop registering hours in). 0.3s spans
+                // multiple frames without reaching long-press
+                // split-stack semantics. Buttons and chat keep instant
+                // taps (a hold on the chat button never opens chat).
+                pressHold(minecraft, offset)
                 wait(1)
                 if index < candidates.count - 1 {
                     wait(1)
