@@ -100,7 +100,7 @@ struct ItemDocument: Encodable {
 
     struct Food: Encodable {
         let nutrition: Int
-        let saturationModifier: String
+        let saturationModifier: Double
         let canAlwaysEat: Bool?
 
         enum CodingKeys: String, CodingKey {

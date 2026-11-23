@@ -373,10 +373,16 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         wearable: item.traits.armor.map {
                             ItemDocument.Wearable(slot: $0.slot.bedrockSlot, protection: $0.protection)
                         },
-                        food: item.traits.food.map {
+                        food: try item.traits.food.map {
                             ItemDocument.Food(
                                 nutrition: $0.nutrition,
-                                saturationModifier: $0.saturationModifier,
+                                saturationModifier: try require(
+                                    Double($0.saturationModifier),
+                                    profile: profile,
+                                    code: "invalid_food_saturation",
+                                    path: "content.items.\(item.id.rawValue).traits.food.saturationModifier",
+                                    message: "Food saturation modifier \($0.saturationModifier) is not numeric."
+                                ),
                                 canAlwaysEat: $0.canAlwaysEat ? true : nil
                             )
                         },

@@ -601,6 +601,24 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(languagesJSON, ["en_US"])
     }
 
+    func testCompilerEmitsFoodSaturationAsANumber() throws {
+        let project = try AddOnProject.materialConsumableSet(originalPrompt: "food", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let food = try json(named: "items/azure_a1b2c3_food.json", in: behavior)
+        let body = try XCTUnwrap(food["minecraft:item"] as? [String: Any])
+        let components = try XCTUnwrap(body["components"] as? [String: Any])
+        // saturation_modifier must be a JSON number, not a string (confirmed live:
+        // a string fails the whole item file and cascades into missing-icon errors).
+        let foodComponent = try XCTUnwrap(components["minecraft:food"] as? [String: Any])
+        XCTAssertEqual(foodComponent["nutrition"] as? Int, 6)
+        XCTAssertEqual(foodComponent["saturation_modifier"] as? Double, 0.6)
+        XCTAssertNil(foodComponent["can_always_eat"])
+    }
+
     func testCompilerEmitsMaterialOreSetWithLootAndBlock() throws {
         let project = try AddOnProject.materialOreSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "ore", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
