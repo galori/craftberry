@@ -34,8 +34,15 @@ struct MinecraftCraftingPlanCompiler {
 
             let source = layout.creativeResult(column: ingredient.resultColumn)
             for (destinationIndex, slot) in ingredient.destinations.enumerated() {
+                // Settle after every pick and place: back-to-back inventory
+                // taps overrun a loaded game, which silently drops some
+                // (confirmed live: a stuck mid-screen cursor stack with the
+                // place never landing). One second each is inaudible in a
+                // four-minute run.
                 steps.append(.tap("Pick \(ordinal(destinationIndex + 1)) \(ingredient.searchText) stack", source))
+                steps.append(MinecraftStep(name: "Wait after picking \(ingredient.searchText)", action: .wait(seconds: 1)))
                 steps.append(.tap("Place \(ingredient.searchText) in \(slot.displayName) recipe slot", layout.craftingSlot(slot)))
+                steps.append(MinecraftStep(name: "Wait after placing \(ingredient.searchText)", action: .wait(seconds: 1)))
             }
         }
 

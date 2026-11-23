@@ -259,7 +259,10 @@ extension MinecraftE2EScenario {
                     ingredients: [
                         .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topRight, .middleLeft, .middleRight])
                     ],
-                    beforePickupVerification: nil,
+                    // Fails loudly when any place tap was dropped (no
+                    // output can appear): boots measure ~1442 red pixels
+                    // against 0 empty (threshold 800).
+                    beforePickupVerification: .pixels(.redCluster(xRange: 0.66...0.73, yRange: 0.63...0.75, minimumCount: 800)),
                     // Pixels, not a tooltip: a fresh selection raises only
                     // a ~500ms transient tooltip that OCR's multi-second
                     // polls always miss (confirmed live). The slot-1 boots
