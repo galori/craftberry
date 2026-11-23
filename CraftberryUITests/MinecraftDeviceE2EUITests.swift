@@ -321,7 +321,8 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "TEMP reopen the Survival inventory", action: .tapUntilText(x: 0.69, y: 0.90, fallbackX: 0.71, fallbackY: 0.91, text: "Crafting")),
             MinecraftStep(name: "TEMP reopen the Armor tab", action: .tap(x: 0.945, y: 0.745)),
             MinecraftStep(name: "TEMP select diamond boots in hotbar slot 9", action: .tapUntilText(x: layout.hotbarSlot(9).x, y: layout.hotbarSlot(9).y, fallbackX: layout.hotbarSlot(9).x, fallbackY: layout.hotbarSlot(9).y, text: "Boots")),
-            MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tapUntilText(x: 0.552, y: 0.616, fallbackX: 0.552, fallbackY: 0.616, text: "Boots")),
+            MinecraftStep(name: "TEMP place diamond boots into the feet slot", action: .tap(x: 0.552, y: 0.616)),
+            MinecraftStep(name: "TEMP confirm diamond boots equipped", action: .assertPixels(.cyanCluster(xRange: 0.52...0.585, yRange: 0.55...0.68, minimumCount: 800))),
             MinecraftStep(name: "Close the inventory for world cleanup", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
         ]
     )

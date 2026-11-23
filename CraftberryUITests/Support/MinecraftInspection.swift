@@ -136,18 +136,24 @@ struct MinecraftPixelInspector {
         if let orientation = pixelOrientation(for: screenshot.imageOrientation) {
             guard let oriented = orientedImage(image, orientation: orientation) else { return nil }
             let (xRange, yRange) = region(for: expectation)
-            return redPixelCount(in: oriented, xRange: xRange, yRange: yRange)
+            return pixelCount(in: oriented, xRange: xRange, yRange: yRange, cyan: isCyan(expectation))
         }
         return count(expectation, in: image)
     }
 
     func count(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Int {
         let (xRange, yRange) = region(for: expectation)
+        let cyan = isCyan(expectation)
         return orientations.compactMap { orientation in
             orientedImage(image, orientation: orientation).map {
-                redPixelCount(in: $0, xRange: xRange, yRange: yRange)
+                pixelCount(in: $0, xRange: xRange, yRange: yRange, cyan: cyan)
             }
         }.max() ?? 0
+    }
+
+    private func isCyan(_ expectation: MinecraftPixelExpectation) -> Bool {
+        if case .cyanCluster = expectation { return true }
+        return false
     }
 
     func matches(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Bool {
@@ -156,7 +162,7 @@ struct MinecraftPixelInspector {
 
     private func decide(count: Int, for expectation: MinecraftPixelExpectation) -> Bool {
         switch expectation {
-        case .redstonePickaxeOutput, .redCluster:
+        case .redstonePickaxeOutput, .redCluster, .cyanCluster:
             return count >= minimumCount(for: expectation)
         case .redAbsent:
             return count <= maximumCount(for: expectation)
@@ -182,6 +188,8 @@ struct MinecraftPixelInspector {
             return (xRange, yRange)
         case .redAbsent(let xRange, let yRange, _):
             return (xRange, yRange)
+        case .cyanCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
         }
     }
 
@@ -190,6 +198,8 @@ struct MinecraftPixelInspector {
         case .redstonePickaxeOutput:
             return 20
         case .redCluster(_, _, let minimumCount):
+            return minimumCount
+        case .cyanCluster(_, _, let minimumCount):
             return minimumCount
         case .redAbsent:
             return 0
@@ -202,6 +212,8 @@ struct MinecraftPixelInspector {
             return Int.max
         case .redCluster:
             return Int.max
+        case .cyanCluster:
+            return Int.max
         case .redAbsent(_, _, let maximumCount):
             return maximumCount
         }
@@ -213,6 +225,10 @@ struct MinecraftPixelInspector {
     }
 
     private func redPixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>) -> Int {
+        pixelCount(in: image, xRange: xRange, yRange: yRange, cyan: false)
+    }
+
+    private func pixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, cyan: Bool) -> Int {
         let width = image.width
         let height = image.height
         guard let context = CGContext(
@@ -229,16 +245,20 @@ struct MinecraftPixelInspector {
 
         let pixelXRange = Int(CGFloat(width) * xRange.lowerBound)..<Int(CGFloat(width) * xRange.upperBound)
         let pixelYRange = Int(CGFloat(height) * yRange.lowerBound)..<Int(CGFloat(height) * yRange.upperBound)
-        var redPixels = 0
+        var matchedPixels = 0
         for y in pixelYRange {
             for x in pixelXRange {
                 let offset = ((y * width) + x) * 4
                 let red = Int(pixels[offset])
                 let green = Int(pixels[offset + 1])
                 let blue = Int(pixels[offset + 2])
-                if red > 140, red > green * 2, red > blue * 2 { redPixels += 1 }
+                if cyan {
+                    if blue > 140, blue > red * 2, green > red * 2 { matchedPixels += 1 }
+                } else if red > 140, red > green * 2, red > blue * 2 {
+                    matchedPixels += 1
+                }
             }
         }
-        return redPixels
+        return matchedPixels
     }
 }
