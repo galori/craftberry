@@ -160,6 +160,7 @@ public enum PixelArtTextureRenderer {
         case .orePixelArt: renderOre(color: resource.color, pixelScale: pixelScale)
         case .oreTerrain: renderOreTerrain(color: resource.color, pixelScale: pixelScale)
         case .entityPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
+        case .entityTexture: renderEntityTexture(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -451,6 +452,27 @@ public enum PixelArtTextureRenderer {
         fill(0, 0, 64, 32, palette.main)
         fill(0, 0, 64, 3, palette.highlight)
         fill(0, 29, 64, 3, palette.shadow)
+        return PNGEncoder.encode(width: width, height: height, pixels: pixels)
+    }
+
+    /// Placeholder body texture for pig-geometry custom entities: 64x32 in material
+    /// colors. Pig-UV-accurate artwork is future work; a present texture keeps the
+    /// creature renderable instead of missing.
+    private static func renderEntityTexture(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale)
+        let width = 64 * scale, height = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: width * height)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(height, (y + h) * scale) {
+                for column in max(0, x * scale)..<min(width, (x + w) * scale) {
+                    pixels[row * width + column] = color
+                }
+            }
+        }
+        fill(0, 0, 64, 32, palette.main)
+        fill(0, 0, 64, 4, palette.highlight)
+        fill(0, 28, 64, 4, palette.shadow)
         return PNGEncoder.encode(width: width, height: height, pixels: pixels)
     }
 

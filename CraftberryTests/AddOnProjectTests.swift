@@ -208,6 +208,76 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(project.entities[0].archetype, .hostile)
         XCTAssertEqual(project.entities[0].health, 24)
         XCTAssertEqual(project.entities[0].displayName, "Azure Creature")
+        let spawnEgg = try XCTUnwrap(project.items.first { $0.id.rawValue.hasSuffix("_spawn_egg") })
+        XCTAssertEqual(spawnEgg.traits.entityPlacer?.entityID, project.entities[0].id)
+    }
+
+    func testMaterialEntitySetLinksBodyTextureResource() throws {
+        let project = try AddOnProject.materialEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 10,
+            originalPrompt: "entity",
+            identity: testIdentity()
+        )
+
+        let entity = try XCTUnwrap(project.entities.first)
+        let texture = try XCTUnwrap(project.visualResources.first { $0.id == entity.textureResourceID })
+        XCTAssertEqual(texture.kind, .entityTexture)
+    }
+
+    func testProjectValidationRejectsMissingEntityTextureResource() throws {
+        let project = try AddOnProject.materialEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 10,
+            originalPrompt: "entity",
+            identity: testIdentity()
+        )
+        let textureID = try XCTUnwrap(project.entities.first?.textureResourceID)
+        let invalidProject = AddOnProject(schemaVersion: project.schemaVersion, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content.filter {
+            if case .visualResource(let resource) = $0 { return resource.id != textureID }
+            return true
+        })
+        XCTAssertEqual(AddOnProjectValidator.validate(invalidProject, profile: .current).errors.map(\.code), ["missing_entity_texture_resource"])
+    }
+
+    func testProjectValidationRejectsWrongKindEntityTextureResource() throws {
+        let project = try AddOnProject.materialEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 10,
+            originalPrompt: "entity",
+            identity: testIdentity()
+        )
+        let textureID = try XCTUnwrap(project.entities.first?.textureResourceID)
+        let invalidProject = AddOnProject(schemaVersion: project.schemaVersion, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content.map {
+            if case .visualResource(let resource) = $0, resource.id == textureID {
+                return .visualResource(VisualResource(id: resource.id, kind: .ingotPixelArt, color: resource.color))
+            }
+            return $0
+        })
+        XCTAssertEqual(AddOnProjectValidator.validate(invalidProject, profile: .current).errors.map(\.code), ["invalid_entity_texture_resource"])
+    }
+
+    func testEntityDefinitionDecodesLegacySidecarWithoutTextureResource() throws {
+        let project = try AddOnProject.materialEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 10,
+            originalPrompt: "entity",
+            identity: testIdentity()
+        )
+        let entity = try XCTUnwrap(project.entities.first)
+        var payload = try JSONSerialization.jsonObject(with: JSONEncoder().encode(entity)) as? [String: Any]
+        payload?.removeValue(forKey: "textureResourceID")
+        let legacyData = try JSONSerialization.data(withJSONObject: payload ?? [:])
+        let decoded = try JSONDecoder().decode(EntityDefinition.self, from: legacyData)
+        XCTAssertEqual(decoded.textureResourceID, entity.id)
     }
 
     func testRecipeBookRowsCoverMaterialSwordSet() throws {

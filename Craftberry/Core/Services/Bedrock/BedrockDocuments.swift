@@ -71,6 +71,7 @@ struct ItemDocument: Encodable {
         let food: Food?
         let fuel: Fuel?
         let enchantable: Enchantable?
+        let entityPlacer: EntityPlacer?
 
         enum CodingKeys: String, CodingKey {
             case displayName = "minecraft:display_name"
@@ -83,6 +84,7 @@ struct ItemDocument: Encodable {
             case food = "minecraft:food"
             case fuel = "minecraft:fuel"
             case enchantable = "minecraft:enchantable"
+            case entityPlacer = "minecraft:entity_placer"
         }
     }
 
@@ -109,6 +111,8 @@ struct ItemDocument: Encodable {
     }
 
     struct Enchantable: Encodable { let slot: String; let value: Int }
+
+    struct EntityPlacer: Encodable { let entity: String }
 
     struct Fuel: Encodable {
         let duration: Double
@@ -361,6 +365,26 @@ struct ItemTextureDocument: Encodable {
     }
 }
 
+struct RenderControllerDocument: Encodable {
+    let formatVersion: String
+    let renderControllers: [String: RenderController]
+
+    struct RenderController: Encodable {
+        let geometry: String
+        let materials: [[String: String]]
+        let textures: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case geometry, materials, textures
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case renderControllers = "render_controllers"
+    }
+}
+
 struct AttachableDocument: Encodable {
     let formatVersion: String
     let attachable: Attachable
@@ -504,7 +528,8 @@ struct EntityDocument: Encodable {
         let health: Health
         let movement: Movement
         let physics: EmptyComponent
-        let pushable: Pushable
+        let pushableByEntity: EmptyComponent
+        let pushableByBlock: EmptyComponent
         let scale: Scale
         let attack: Attack?
         let behaviorMeleeBoxAttack: BehaviorMeleeBoxAttack?
@@ -520,7 +545,8 @@ struct EntityDocument: Encodable {
             case health = "minecraft:health"
             case movement = "minecraft:movement"
             case physics = "minecraft:physics"
-            case pushable = "minecraft:pushable"
+            case pushableByEntity = "minecraft:pushable_by_entity"
+            case pushableByBlock = "minecraft:pushable_by_block"
             case scale = "minecraft:scale"
             case attack = "minecraft:attack"
             case behaviorMeleeBoxAttack = "minecraft:behavior.melee_box_attack"
@@ -535,7 +561,6 @@ struct EntityDocument: Encodable {
     struct CollisionBox: Encodable { let width: Double; let height: Double }
     struct Health: Encodable { let value: Int; let max: Int }
     struct Movement: Encodable { let value: Double }
-    struct Pushable: Encodable { let isPushable: Bool; let isPushableByPiston: Bool; enum CodingKeys: String, CodingKey { case isPushable = "is_pushable"; case isPushableByPiston = "is_pushable_by_piston" } }
     struct Attack: Encodable { let damage: Int }
     struct BehaviorMeleeBoxAttack: Encodable { let trackTarget: Bool; let priority: Int; enum CodingKeys: String, CodingKey { case trackTarget = "track_target"; case priority } }
     struct BehaviorNearestAttackableTarget: Encodable {

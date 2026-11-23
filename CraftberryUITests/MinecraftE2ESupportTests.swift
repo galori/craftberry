@@ -2,7 +2,7 @@ import ImageIO
 import XCTest
 
 final class MinecraftE2ESupportTests: XCTestCase {
-    func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() {
+    func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() throws {
         let scenario = MinecraftE2EScenario.redstoneHostileEntitySet
 
         XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-hostile-entity-set")
@@ -18,8 +18,22 @@ final class MinecraftE2ESupportTests: XCTestCase {
             return command
         }
         XCTAssertTrue(commands.contains("/time set day"))
+        XCTAssertTrue(commands.contains("/gamerule domobspawning false"))
         XCTAssertTrue(commands.contains("/kill @e[family=monster]"))
+        XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Chat commands must stay on the calibrated lowercase keyboard plane.")
+        // The spawn check runs in Creative, where the new mob stays peaceful: checking
+        // beside an actively mauling creature breaks chat input (confirmed live: the
+        // testfor chat never got its keyboard while knockback threw the player
+        // around). Survival starts only after the spawn is confirmed.
+        let names = scenario.postCraftingSteps.map(\.name)
+        let useEgg = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
+        let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm a hostile creature spawned") })
+        let enterSurvival = try XCTUnwrap(names.firstIndex { $0.contains("Enter Survival for the damage check") })
+        let verifyDamage = try XCTUnwrap(names.firstIndex { $0.contains("zero health") })
+        XCTAssertLessThan(useEgg, confirmSpawn)
+        XCTAssertLessThan(confirmSpawn, enterSurvival)
+        XCTAssertLessThan(enterSurvival, verifyDamage)
     }
 
     func testPostCraftingStepsUseTheirOwnStablePhase() {
@@ -266,6 +280,18 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let tableEvents = MinecraftCommandKeyboard().events(for: "crafting_table")
         let underscoreIndex = tableEvents.firstIndex(of: .coordinate(0.1435, 0.7165))!
         XCTAssertEqual(tableEvents[underscoreIndex + 2], .key("letters"))
+    }
+
+    func testCommandKeyboardPlanningCoversBracketsAndEqualsOnSecondSymbolsPlane() {
+        let events = MinecraftCommandKeyboard().events(for: "/kill @e[family=monster]")
+
+        XCTAssertTrue(events.contains(.coordinate(0.1435, 0.630)), "Expected '[' on the #+= top row.")
+        XCTAssertTrue(events.contains(.coordinate(0.2233, 0.630)), "Expected ']' on the #+= top row.")
+        XCTAssertTrue(events.contains(.coordinate(0.8620, 0.630)), "Expected '=' on the #+= top row.")
+
+        // Brackets must route through the symbols plane, not the numbers-plane key lookup.
+        let bracketIndex = events.firstIndex(of: .coordinate(0.1435, 0.630))!
+        XCTAssertTrue(events[..<bracketIndex].contains(.coordinate(0.1435, 0.8117)), "Reaching '[' must tap the #+= plane switch.")
     }
 
     func testPhasedStepsGetStableRunLocalIDsStartingAtOnePerPhase() {

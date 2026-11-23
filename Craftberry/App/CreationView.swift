@@ -379,6 +379,9 @@ struct CreationView: View {
                     .foregroundStyle(Color.craftberryMuted)
 
                 TextEditor(text: $revisionPrompt)
+                    // Same as the main prompt: no autocorrect for game terms, and keep the
+                    // prediction bar from displacing the keyboard toolbar's Done button.
+                    .autocorrectionDisabled()
                     .scrollContentBackground(.hidden)
                     .foregroundStyle(.white)
                     .frame(minHeight: 110)
@@ -514,6 +517,9 @@ struct CreationView: View {
                             .allowsHitTesting(false)
                     }
                     TextEditor(text: $viewModel.prompt)
+                        // Game terms ("redstone", "netherite") must not be autocorrected, and the
+                        // prediction bar displaces the keyboard toolbar's Done button on device.
+                        .autocorrectionDisabled()
                         .scrollContentBackground(.hidden)
                         .foregroundStyle(.white)
                         .frame(minHeight: 48, maxHeight: 92)

@@ -183,6 +183,14 @@ public struct EnchantmentTrait: Codable, Equatable, Sendable {
     public init(value: Int) { self.value = value }
 }
 
+public struct EntityPlacerTrait: Codable, Equatable, Sendable {
+    public let entityID: ContentID
+
+    public init(entityID: ContentID) {
+        self.entityID = entityID
+    }
+}
+
 public struct ItemTraits: Codable, Equatable, Sendable {
     public let combat: CombatTrait?
     public let durability: DurabilityTrait?
@@ -192,6 +200,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
     public let food: FoodTrait?
     public let fuel: FuelTrait?
     public let enchantment: EnchantmentTrait?
+    public let entityPlacer: EntityPlacerTrait?
 
     public init(
         combat: CombatTrait? = nil,
@@ -201,7 +210,8 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         armor: ArmorTrait? = nil,
         food: FoodTrait? = nil,
         fuel: FuelTrait? = nil,
-        enchantment: EnchantmentTrait? = nil
+        enchantment: EnchantmentTrait? = nil,
+        entityPlacer: EntityPlacerTrait? = nil
     ) {
         self.combat = combat
         self.durability = durability
@@ -211,6 +221,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         self.food = food
         self.fuel = fuel
         self.enchantment = enchantment
+        self.entityPlacer = entityPlacer
     }
 }
 
@@ -405,6 +416,7 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case orePixelArt
     case oreTerrain
     case entityPixelArt
+    case entityTexture
 }
 
 public struct BlockDefinition: Codable, Equatable, Sendable {
@@ -452,29 +464,33 @@ public struct EntityDefinition: Codable, Equatable, Sendable {
     public let movement: Double
     public let scale: Double
     public let spawnEggResourceID: ContentID
+    public let textureResourceID: ContentID
     public let archetype: EntityArchetype
 
-    public init(id: ContentID, displayName: String, health: Int, movement: Double, scale: Double, spawnEggResourceID: ContentID, archetype: EntityArchetype = .passive) {
+    public init(id: ContentID, displayName: String, health: Int, movement: Double, scale: Double, spawnEggResourceID: ContentID, textureResourceID: ContentID, archetype: EntityArchetype = .passive) {
         self.id = id
         self.displayName = displayName
         self.health = health
         self.movement = movement
         self.scale = scale
         self.spawnEggResourceID = spawnEggResourceID
+        self.textureResourceID = textureResourceID
         self.archetype = archetype
     }
 
-    private enum CodingKeys: String, CodingKey { case id, displayName, health, movement, scale, spawnEggResourceID, archetype }
+    private enum CodingKeys: String, CodingKey { case id, displayName, health, movement, scale, spawnEggResourceID, textureResourceID, archetype }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try values.decode(ContentID.self, forKey: .id)
         self.init(
-            id: try values.decode(ContentID.self, forKey: .id),
+            id: id,
             displayName: try values.decode(String.self, forKey: .displayName),
             health: try values.decode(Int.self, forKey: .health),
             movement: try values.decode(Double.self, forKey: .movement),
             scale: try values.decode(Double.self, forKey: .scale),
             spawnEggResourceID: try values.decode(ContentID.self, forKey: .spawnEggResourceID),
+            textureResourceID: try values.decodeIfPresent(ContentID.self, forKey: .textureResourceID) ?? id,
             archetype: try values.decodeIfPresent(EntityArchetype.self, forKey: .archetype) ?? .passive
         )
     }
@@ -1523,15 +1539,16 @@ extension AddOnProject {
         let entityID = ContentID("\(stem)_creature")
         let spawnEggID = ContentID("\(stem)_spawn_egg")
         let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
-        let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 16), visualResourceID: spawnEggID)
-        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: health, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID, archetype: archetype)
+        let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 16, entityPlacer: EntityPlacerTrait(entityID: entityID)), visualResourceID: spawnEggID)
+        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: health, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID, textureResourceID: entityID, archetype: archetype)
         let spawnRule = SpawnDefinition(id: ContentID("\(stem)_spawn_rule"), entityID: entityID)
         let loot = LootDefinition(id: ContentID("\(stem)_loot"), entityID: entityID, item: .vanilla("minecraft:feather"), minCount: 0, maxCount: 2)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
         let spawnEggRecipe = ShapedRecipeDefinition(id: ContentID("\(stem)_spawn_egg_recipe"), tags: ["crafting_table"], pattern: [" I ", "IEI", " I "], ingredients: ["I": .generated(ingotID), "E": .vanilla("minecraft:egg")], result: RecipeResult(item: .generated(spawnEggID), count: 1), unlock: [.generated(ingotID)])
         let visuals = [
             VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
-            VisualResource(id: spawnEggID, kind: .entityPixelArt, color: color)
+            VisualResource(id: spawnEggID, kind: .entityPixelArt, color: color),
+            VisualResource(id: entityID, kind: .entityTexture, color: color)
         ]
         return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(spawnEgg), .entity(entity), .spawnRule(spawnRule), .entityLoot(loot), .shapelessRecipe(ingotRecipe), .shapedRecipe(spawnEggRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }

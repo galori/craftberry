@@ -246,7 +246,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         health: EntityDocument.Health(value: entity.health, max: entity.health),
                         movement: EntityDocument.Movement(value: 0.25),
                         physics: EntityDocument.EmptyComponent(),
-                        pushable: EntityDocument.Pushable(isPushable: true, isPushableByPiston: true),
+                        pushableByEntity: EntityDocument.EmptyComponent(),
+                        pushableByBlock: EntityDocument.EmptyComponent(),
                         scale: EntityDocument.Scale(value: entity.scale),
                         attack: entity.archetype == .hostile ? EntityDocument.Attack(damage: 3) : nil,
                         behaviorMeleeBoxAttack: entity.archetype == .hostile
@@ -380,7 +381,17 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                             )
                         },
                         fuel: item.traits.fuel.map { ItemDocument.Fuel(duration: $0.duration) },
-                        enchantable: item.traits.enchantment.map { ItemDocument.Enchantable(slot: "sword", value: $0.value) }
+                        enchantable: item.traits.enchantment.map { ItemDocument.Enchantable(slot: "sword", value: $0.value) },
+                        entityPlacer: try item.traits.entityPlacer.map { placer in
+                            let entity = try require(
+                                project.entities.first(where: { $0.id == placer.entityID }),
+                                profile: profile,
+                                code: "missing_placer_entity",
+                                path: "content.items.\(item.id.rawValue).traits.entityPlacer.entityID",
+                                message: "Item references missing entity \(placer.entityID.rawValue) for its entity placer."
+                            )
+                            return ItemDocument.EntityPlacer(entity: self.identifier(for: entity.id, namespace: project.namespace))
+                        }
                     )
                 )
             )
@@ -688,6 +699,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: entity.id, namespace: project.namespace)
             let spawnEggTextureName = entity.spawnEggResourceID.rawValue
+            let controllerID = "controller.render.\(entity.id.rawValue)"
             let clientEntity = ClientEntityDocument(
                 formatVersion: profile.clientEntityFormatVersion,
                 clientEntity: ClientEntityDocument.ClientEntity(
@@ -696,7 +708,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         materials: ["default": "entity_alphatest"],
                         textures: ["default": "textures/entity/\(entity.id.rawValue)"],
                         geometry: ["default": "geometry.pig"],
-                        renderControllers: ["controller.render.pig"],
+                        renderControllers: [controllerID],
                         spawnEgg: ClientEntityDocument.SpawnEgg(texture: spawnEggTextureName)
                     )
                 )
@@ -705,6 +717,33 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 ZipArchiveEntry(
                     path: "entity/\(entity.id.rawValue).entity.json",
                     data: try BedrockDocumentEncoder.encode(clientEntity)
+                )
+            )
+            let renderController = RenderControllerDocument(
+                formatVersion: "1.8.0",
+                renderControllers: [controllerID: RenderControllerDocument.RenderController(
+                    geometry: "Geometry.default",
+                    materials: [["*": "Material.default"]],
+                    textures: ["Texture.default"]
+                )]
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "render_controllers/\(entity.id.rawValue).render_controllers.json",
+                    data: try BedrockDocumentEncoder.encode(renderController)
+                )
+            )
+            let bodyTexture = try require(
+                project.visualResources.first { $0.id == entity.textureResourceID },
+                profile: profile,
+                code: "missing_entity_texture_resource",
+                path: "content.entities.\(entity.id.rawValue).textureResourceID",
+                message: "Entity references missing body texture visual resource \(entity.textureResourceID.rawValue)."
+            )
+            entries.append(
+                ZipArchiveEntry(
+                    path: "textures/entity/\(entity.id.rawValue).png",
+                    data: PixelArtTextureRenderer.render(bodyTexture)
                 )
             )
             localizationLines.append("entity.\(identifier).name=\(entity.displayName)")
