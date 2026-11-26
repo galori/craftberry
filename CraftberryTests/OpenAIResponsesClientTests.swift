@@ -7,6 +7,93 @@ import XCTest
 #endif
 
 final class OpenAIResponsesClientTests: XCTestCase {
+    func testBackendClientPostsVersionedIntentAndAssemblesReadyProjectLocally() async throws {
+        let fixture = try generationFixture()
+        let (status, body) = try fixtureScenario("ready", in: fixture)
+        let fixtureRequest = try XCTUnwrap(fixture["request"] as? [String: Any])
+        let prompt = try XCTUnwrap(fixtureRequest["prompt"] as? String)
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            let response = try XCTUnwrap(
+                HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: status, httpVersion: nil, headerFields: nil)
+            )
+            return (response, body)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+
+        let identity = identity()
+        let client = backendClient(identity: identity)
+        let generation = try await client.generateProject(from: prompt)
+
+        XCTAssertEqual(generation.outcome, .ready)
+        XCTAssertEqual(generation.project?.displayName, "Harbor")
+        XCTAssertEqual(generation.project?.id, identity.projectID)
+        XCTAssertEqual(generation.project?.packUUIDs, identity.packUUIDs)
+        let request = try XCTUnwrap(recorder.request(at: 0))
+        XCTAssertEqual(request.url?.path, fixture["path"] as? String)
+        XCTAssertEqual(request.httpMethod, fixture["method"] as? String)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer runtime-test-token")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
+        let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let decodedRequest = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        XCTAssertEqual(decodedRequest["intentVersion"] as? Int, fixtureRequest["intentVersion"] as? Int)
+        XCTAssertEqual(decodedRequest["profileID"] as? String, fixtureRequest["profileID"] as? String)
+        XCTAssertEqual(decodedRequest["prompt"] as? String, fixtureRequest["prompt"] as? String)
+    }
+
+    func testBackendClientReturnsUnsupportedFixtureWithoutProject() async throws {
+        let (status, body) = try fixtureScenario("unsupported", in: generationFixture())
+        URLProtocolStub.store.setHandler { request in
+            let response = try XCTUnwrap(
+                HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: status, httpVersion: nil, headerFields: nil)
+            )
+            return (response, body)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+
+        let generation = try await backendClient().generateProject(from: "Build something outside the profile")
+
+        XCTAssertEqual(generation.outcome, .unsupported)
+        XCTAssertNil(generation.project)
+        XCTAssertEqual(generation.message, "This add-on needs a feature outside the active profile.")
+    }
+
+    func testBackendClientMapsUnauthorizedFixture() async throws {
+        try await assertBackendFailure(scenario: "unauthorized", expected: .unauthorized)
+    }
+
+    func testBackendClientMapsQuotaFixture() async throws {
+        try await assertBackendFailure(scenario: "quota", expected: .quotaExceeded)
+    }
+
+    func testBackendClientMapsServiceFailureFixture() async throws {
+        try await assertBackendFailure(scenario: "serviceFailure", expected: .serviceUnavailable)
+    }
+
+    func testBackendClientRejectsUnconfiguredOrNonHTTPSEndpointBeforeFetchingCredential() async throws {
+        let provider = CredentialProviderSpy(token: "runtime-test-token")
+        let unconfigured = BackendGenerationClient(baseURL: nil, credentialProvider: provider)
+        do {
+            _ = try await unconfigured.generateProject(from: "prompt")
+            XCTFail("Expected an unconfigured endpoint to fail")
+        } catch let error as BackendGenerationClientError {
+            XCTAssertEqual(error, .endpointNotConfigured)
+        }
+        let requestsAfterMissingURL = await provider.requestCount()
+        XCTAssertEqual(requestsAfterMissingURL, 0)
+
+        let insecure = BackendGenerationClient(baseURL: URL(string: "http://generation.test"), credentialProvider: provider)
+        do {
+            _ = try await insecure.generateProject(from: "prompt")
+            XCTFail("Expected a non-HTTPS endpoint to fail")
+        } catch let error as BackendGenerationClientError {
+            XCTAssertEqual(error, .invalidEndpoint)
+        }
+        let requestsAfterInsecureURL = await provider.requestCount()
+        XCTAssertEqual(requestsAfterInsecureURL, 0)
+    }
+
     func testClientAssemblesHostileEntitySetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A hostile creature pack.","materialHostileEntitySet":{"materialName":"Azure","color":"red","sourceItem":"diamond","sourceCount":4,"health":24}}
@@ -213,6 +300,76 @@ final class OpenAIResponsesClientTests: XCTestCase {
         ])
     }
 
+    private func backendClient(identity: AddOnProjectIdentity = .generate()) -> BackendGenerationClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        return BackendGenerationClient(
+            baseURL: URL(string: "https://generation.test"),
+            credentialProvider: CredentialProviderSpy(token: "runtime-test-token"),
+            session: URLSession(configuration: configuration),
+            identityGenerator: { identity }
+        )
+    }
+
+    private func assertBackendFailure(
+        scenario: String,
+        expected: BackendGenerationClientError,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let (status, body) = try fixtureScenario(scenario, in: generationFixture())
+        URLProtocolStub.store.setHandler { request in
+            let response = try XCTUnwrap(
+                HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: status, httpVersion: nil, headerFields: nil)
+            )
+            return (response, body)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+
+        do {
+            _ = try await backendClient().generateProject(from: "Craft a cyan diamond sword named Harbor.")
+            XCTFail("Expected backend error \(expected)", file: file, line: line)
+        } catch let error as BackendGenerationClientError {
+            XCTAssertEqual(error, expected, file: file, line: line)
+        } catch {
+            XCTFail("Unexpected error: \(error)", file: file, line: line)
+        }
+    }
+
+    private func generationFixture() throws -> [String: Any] {
+        #if SWIFT_PACKAGE
+        let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "GenerationV1", withExtension: "json"))
+        let data = try Data(contentsOf: fixtureURL)
+        #else
+        let data = Data(Self.generationFixtureFallback.utf8)
+        #endif
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    private func fixtureScenario(_ name: String, in fixture: [String: Any]) throws -> (Int, Data) {
+        let responses = try XCTUnwrap(fixture["responses"] as? [String: [String: Any]])
+        let scenario = try XCTUnwrap(responses[name])
+        let status = try XCTUnwrap(scenario["status"] as? Int)
+        let body = try XCTUnwrap(scenario["body"])
+        return (status, try JSONSerialization.data(withJSONObject: body))
+    }
+
+    #if !SWIFT_PACKAGE
+    private static let generationFixtureFallback = #"""
+    {
+      "method":"POST","path":"/v1/generate",
+      "request":{"intentVersion":1,"profileID":"bedrock-stable-1.26.30","prompt":"Craft a cyan diamond sword named Harbor."},
+      "responses":{
+        "ready":{"status":200,"body":{"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A cyan sword crafted from diamonds.","sword":{"displayName":"Harbor","color":"cyan","attackBonus":12,"durability":600,"craftingIngredient":"diamond"}}},
+        "unsupported":{"status":200,"body":{"schemaVersion":1,"outcome":"unsupported","message":"This add-on needs a feature outside the active profile."}},
+        "unauthorized":{"status":401,"body":{"error":"unauthorized"}},
+        "quota":{"status":429,"body":{"error":"quota_exceeded"}},
+        "serviceFailure":{"status":503,"body":{"error":"service_unavailable"}}
+      }
+    }
+    """#
+    #endif
+
     private func identity() -> AddOnProjectIdentity {
         AddOnProjectIdentity(projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!, namespace: "craftberry", contentSuffix: "a1b2c3", packUUIDs: PackUUIDs(behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!, behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!, resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!, resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!))
     }
@@ -236,6 +393,24 @@ private final class URLProtocolStub: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+}
+
+private actor CredentialProviderSpy: RuntimeGenerationCredentialProvider {
+    private let token: String
+    private var requests = 0
+
+    init(token: String) {
+        self.token = token
+    }
+
+    func requestCount() -> Int {
+        requests
+    }
+
+    func bearerToken() async throws -> String {
+        requests += 1
+        return token
+    }
 }
 
 private final class URLProtocolStubStore: @unchecked Sendable {
@@ -283,6 +458,13 @@ private final class RequestRecorder: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return bodies[index]
+    }
+
+    func request(at index: Int) -> URLRequest? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard requests.indices.contains(index) else { return nil }
+        return requests[index]
     }
 
     private static func readBodyStream(_ stream: InputStream?) -> Data? {

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Security)
+import Security
+#endif
 
 public struct OpenAIResponsesClient: LLMClient {
     private let apiKey: String
@@ -22,7 +25,7 @@ public struct OpenAIResponsesClient: LLMClient {
         for attempt in 0...1 {
             let text = try await requestStructuredIntent(prompt: prompt, repairIssues: repairIssues)
             do {
-                return try assembleProject(from: text, prompt: prompt)
+                return try Self.assembleProject(from: text, prompt: prompt, identityGenerator: identityGenerator)
             } catch {
                 guard attempt == 0 else { throw LLMClientError.invalidResponse }
                 repairIssues = [error.localizedDescription]
@@ -56,7 +59,11 @@ public struct OpenAIResponsesClient: LLMClient {
         return text
     }
 
-    private func assembleProject(from text: String, prompt: String) throws -> ProjectGeneration {
+    static func assembleProject(
+        from text: String,
+        prompt: String,
+        identityGenerator: @Sendable () -> AddOnProjectIdentity
+    ) throws -> ProjectGeneration {
         let intent = try JSONDecoder().decode(ProjectIntentGeneration.self, from: Data(text.utf8))
         guard intent.schemaVersion == 1, !intent.message.isEmpty else { throw LLMClientError.invalidResponse }
 
@@ -107,6 +114,176 @@ public struct OpenAIResponsesClient: LLMClient {
             return ProjectGeneration(outcome: .ready, message: intent.message, project: project)
         }
     }
+}
+
+/// Supplies a short-lived generation session credential at request time.
+/// Production authentication can replace the Keychain-backed implementation with
+/// an App Attest/session exchange without changing the generation client.
+public protocol RuntimeGenerationCredentialProvider: Sendable {
+    func bearerToken() async throws -> String
+}
+
+/// Reads a server-issued bearer session from Keychain. The app never embeds a
+/// provider API key or a backend bearer token in its bundle.
+public struct KeychainGenerationCredentialProvider: RuntimeGenerationCredentialProvider {
+    public static let defaultService = "com.craftberry.app.generation-session"
+    public static let defaultAccount = "bearer"
+
+    private let service: String
+    private let account: String
+
+    public init(service: String = defaultService, account: String = defaultAccount) {
+        self.service = service
+        self.account = account
+    }
+
+    public func bearerToken() async throws -> String {
+        #if canImport(Security)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let token = String(data: data, encoding: .utf8),
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw BackendGenerationClientError.missingCredential
+        }
+        return token
+        #else
+        throw BackendGenerationClientError.missingCredential
+        #endif
+    }
+}
+
+public enum BackendGenerationClientError: LocalizedError, Equatable {
+    case endpointNotConfigured
+    case invalidEndpoint
+    case missingCredential
+    case unauthorized
+    case quotaExceeded
+    case serviceUnavailable
+    case transportUnavailable
+    case requestFailed(statusCode: Int)
+    case invalidResponse
+
+    public var errorDescription: String? {
+        switch self {
+        case .endpointNotConfigured:
+            "Generation service is not configured for this build."
+        case .invalidEndpoint:
+            "Generation service endpoint must be a valid HTTPS URL."
+        case .missingCredential:
+            "A generation session is not available. Reconnect and try again."
+        case .unauthorized:
+            "Your generation session has expired. Reconnect and try again."
+        case .quotaExceeded:
+            "The generation limit has been reached. Try again later."
+        case .serviceUnavailable:
+            "The generation service is temporarily unavailable. Try again later."
+        case .transportUnavailable:
+            "Couldn't connect to the generation service. Check your connection and try again."
+        case .requestFailed(let statusCode):
+            "Generation failed (HTTP \(statusCode)). Please try again."
+        case .invalidResponse:
+            "The generation service returned an unusable result. Please try again."
+        }
+    }
+}
+
+/// URLSession client for the versioned first-party generation API. Intent parsing,
+/// project identifiers, and profile validation stay in the local Swift assembler.
+public struct BackendGenerationClient: LLMClient {
+    private let baseURL: URL?
+    private let credentialProvider: any RuntimeGenerationCredentialProvider
+    private let session: URLSession
+    private let identityGenerator: @Sendable () -> AddOnProjectIdentity
+
+    public init(
+        baseURL: URL?,
+        credentialProvider: any RuntimeGenerationCredentialProvider,
+        session: URLSession = .shared,
+        identityGenerator: @escaping @Sendable () -> AddOnProjectIdentity = { .generate() }
+    ) {
+        self.baseURL = baseURL
+        self.credentialProvider = credentialProvider
+        self.session = session
+        self.identityGenerator = identityGenerator
+    }
+
+    public func generateProject(from prompt: String) async throws -> ProjectGeneration {
+        guard let baseURL else { throw BackendGenerationClientError.endpointNotConfigured }
+        guard baseURL.scheme?.lowercased() == "https",
+              baseURL.host != nil,
+              baseURL.query == nil,
+              baseURL.fragment == nil else {
+            throw BackendGenerationClientError.invalidEndpoint
+        }
+
+        let token = try await credentialProvider.bearerToken()
+        guard !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw BackendGenerationClientError.missingCredential
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "v1/generate"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(GenerationRequest(prompt: prompt))
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw error
+        } catch {
+            throw BackendGenerationClientError.transportUnavailable
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw BackendGenerationClientError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            switch httpResponse.statusCode {
+            case 401:
+                throw BackendGenerationClientError.unauthorized
+            case 429:
+                throw BackendGenerationClientError.quotaExceeded
+            case 500...599:
+                throw BackendGenerationClientError.serviceUnavailable
+            default:
+                throw BackendGenerationClientError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
+
+        guard let intent = String(data: data, encoding: .utf8) else {
+            throw BackendGenerationClientError.invalidResponse
+        }
+        do {
+            return try OpenAIResponsesClient.assembleProject(
+                from: intent,
+                prompt: prompt,
+                identityGenerator: identityGenerator
+            )
+        } catch {
+            throw BackendGenerationClientError.invalidResponse
+        }
+    }
+}
+
+private struct GenerationRequest: Encodable {
+    let intentVersion = 1
+    let profileID = BedrockContentProfile.current.id
+    let prompt: String
 }
 
 private struct ProjectIntentValidationError: LocalizedError {

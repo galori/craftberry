@@ -22,9 +22,25 @@ struct CraftberryApp: App {
         }
         #endif
 
+        #if DEBUG
         return CreationViewModel(
             apiKey: Bundle.main.object(forInfoDictionaryKey: "OpenAIAPIKey") as? String ?? ""
         )
+        #else
+        let configuredURL = Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String
+        let backendURL = configuredURL.flatMap { value -> URL? in
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !trimmed.contains("$(") else { return nil }
+            return URL(string: trimmed)
+        }
+        let client = CachingLLMClient(
+            wrapping: BackendGenerationClient(
+                baseURL: backendURL,
+                credentialProvider: KeychainGenerationCredentialProvider()
+            )
+        )
+        return CreationViewModel(apiKey: "", client: client)
+        #endif
     }
 }
 
