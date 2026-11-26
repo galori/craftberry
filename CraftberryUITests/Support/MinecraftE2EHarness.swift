@@ -25,7 +25,7 @@ final class MinecraftE2EHarness {
             "--ui-testing",
             scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
-        ]
+        ] + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 
@@ -177,7 +177,7 @@ final class MinecraftE2EHarness {
             "--ui-testing",
             scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
-        ]
+        ] + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 
@@ -221,7 +221,7 @@ final class MinecraftE2EHarness {
             "--ui-testing",
             scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
-        ]
+        ] + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 

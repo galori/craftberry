@@ -85,8 +85,17 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
+        let usesStableFuelIdentifier = ProcessInfo.processInfo.arguments.contains("--ui-testing-stable-fuel-identifier")
         let usesRevisionFlow = ProcessInfo.processInfo.arguments.contains("--ui-testing-revision-flow")
-        let identity = usesFreshPackIdentity ? AddOnProjectIdentity.generate() : fixedUITestingIdentity
+        let identity: AddOnProjectIdentity
+        if usesStableFuelIdentifier {
+            let generated = AddOnProjectIdentity.generate(suffixGenerator: { "fueltest" })
+            identity = generated
+        } else if usesFreshPackIdentity {
+            identity = AddOnProjectIdentity.generate()
+        } else {
+            identity = fixedUITestingIdentity
+        }
         let project: AddOnProject
         if usesRedstoneHostileEntitySet {
             project = try AddOnProject.materialHostileEntitySet(

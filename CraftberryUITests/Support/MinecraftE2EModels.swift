@@ -109,6 +109,7 @@ extension KeyedDecodingContainer {
 
 struct MinecraftE2EScenario {
     let launchArgument: String
+    var additionalLaunchArguments: [String] = []
     let prompt: String
     let projectName: String
     let expectedCraftedItemName: String
