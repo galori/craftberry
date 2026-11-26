@@ -156,6 +156,88 @@ final class AddOnRevisionTests: XCTestCase {
         XCTAssertEqual(summary.modified.first?.id, ContentID("azure_sword_a1b2c3"))
     }
 
+    func testRevisionPreservesImportedPixelsForTheSameVisualKind() async throws {
+        let base = try AddOnProject.materialSwordSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure sword",
+            identity: testIdentity()
+        )
+        let importedPixels = Data(repeating: 127, count: 32 * 32 * 4)
+        let baseWithTexture = AddOnProject(
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            packUUIDs: base.packUUIDs,
+            buildVersion: base.buildVersion,
+            targetProfileID: base.targetProfileID,
+            originalPrompt: base.originalPrompt,
+            content: base.content.map { node in
+                guard case .visualResource(let visual) = node, visual.kind == .swordPixelArt else { return node }
+                return .visualResource(VisualResource(
+                    id: visual.id,
+                    kind: visual.kind,
+                    color: visual.color,
+                    customPixels: importedPixels
+                ))
+            }
+        )
+        let draft = try AddOnProject.materialSwordSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure sword with a new name",
+            identity: testIdentity(suffix: "d4e5f6")
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await AddOnRevisionService().reviseWithDraft(
+            baseProject: baseWithTexture,
+            draft: draft,
+            newPrompt: "Azure sword with a new name",
+            outputDirectory: directory
+        )
+
+        XCTAssertEqual(result.project.visualResources.first(where: { $0.kind == .swordPixelArt })?.customPixels, importedPixels)
+        let reopenedProject = try AddOnProjectStore.load(from: result.compilationResult.artifact.projectSidecarURL)
+        XCTAssertEqual(reopenedProject.visualResources.first(where: { $0.kind == .swordPixelArt })?.customPixels, importedPixels)
+        let outer = try ZipArchiveReader.readEntries(at: result.compilationResult.artifact.url)
+        let resourcePackEntry = try XCTUnwrap(outer.first { $0.path.hasSuffix("_resources.mcpack") })
+        let resources = try ZipArchiveReader.readEntries(data: resourcePackEntry.data)
+        let texture = try XCTUnwrap(resources.first { $0.path.hasSuffix("_sword.png") })
+        let visual = try XCTUnwrap(result.project.visualResources.first { $0.kind == .swordPixelArt })
+        XCTAssertEqual(texture.data, PixelArtTextureRenderer.render(visual))
+    }
+
+    func testValidatorRejectsMalformedImportedPixelData() throws {
+        let base = try makeMaterialProject()
+        let invalid = AddOnProject(
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            shortDescription: base.shortDescription,
+            packUUIDs: base.packUUIDs,
+            buildVersion: base.buildVersion,
+            targetProfileID: base.targetProfileID,
+            originalPrompt: base.originalPrompt,
+            content: base.content.map { node in
+                guard case .visualResource(let visual) = node, visual.kind == .swordPixelArt else { return node }
+                return .visualResource(VisualResource(
+                    id: visual.id,
+                    kind: visual.kind,
+                    color: visual.color,
+                    customPixels: Data([1, 2, 3])
+                ))
+            }
+        )
+
+        let report = AddOnProjectValidator.validate(invalid, profile: .current)
+
+        XCTAssertTrue(report.errors.contains { $0.code == "invalid_imported_visual_pixels" })
+    }
+
     func testChangeSummaryForMaterialRenameShowsAddedRemoved() throws {
         let base = try makeMaterialProject(material: "Azure")
         let draft = try makeMaterialProject(material: "Ember")

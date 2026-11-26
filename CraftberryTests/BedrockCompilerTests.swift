@@ -7,6 +7,54 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsImportedInventoryPixelsForSelectedItem() throws {
+        let base = try AddOnProject.materialSwordSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure sword",
+            identity: makeIdentity()
+        )
+        var importedPixels = Data(capacity: 32 * 32 * 4)
+        for index in 0..<(32 * 32) {
+            importedPixels.append(contentsOf: [
+                UInt8(index % 256),
+                UInt8((index * 2) % 256),
+                UInt8((index * 5) % 256),
+                255
+            ])
+        }
+        let project = AddOnProject(
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            shortDescription: base.shortDescription,
+            packUUIDs: base.packUUIDs,
+            buildVersion: base.buildVersion,
+            targetProfileID: base.targetProfileID,
+            originalPrompt: base.originalPrompt,
+            content: base.content.map { node in
+                guard case .visualResource(let visual) = node, visual.kind == .swordPixelArt else { return node }
+                return .visualResource(VisualResource(
+                    id: visual.id,
+                    kind: visual.kind,
+                    color: visual.color,
+                    customPixels: importedPixels
+                ))
+            }
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let resourcePack = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+        let texture = try XCTUnwrap(resourcePack.first { $0.path == "textures/items/azure_a1b2c3_sword.png" })
+        let visual = try XCTUnwrap(project.visualResources.first { $0.kind == .swordPixelArt })
+
+        XCTAssertEqual(texture.data, PixelArtTextureRenderer.render(visual))
+    }
+
     func testCompilerEmitsMaterialBrewingSetRecipesAndTextures() throws {
         let project = try AddOnProject.materialBrewingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "brewing", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

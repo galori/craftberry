@@ -390,7 +390,7 @@ public struct BrewingContainerRecipeDefinition: Codable, Equatable, Sendable {
     }
 }
 
-public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
+public enum VisualResourceKind: String, Codable, Sendable, CaseIterable, Hashable {
     case swordPixelArt
     case ingotPixelArt
     case pickaxePixelArt
@@ -417,6 +417,15 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable {
     case oreTerrain
     case entityPixelArt
     case entityTexture
+
+    public var supportsImportedPixels: Bool {
+        switch self {
+        case .armorLayerOne, .armorLayerTwo, .blockTerrain, .cropTerrain, .oreTerrain, .entityTexture:
+            false
+        default:
+            true
+        }
+    }
 }
 
 public struct BlockDefinition: Codable, Equatable, Sendable {
@@ -528,11 +537,13 @@ public struct VisualResource: Codable, Equatable, Sendable {
     public let id: ContentID
     public let kind: VisualResourceKind
     public let color: PixelArtColor
+    public let customPixels: Data?
 
-    public init(id: ContentID, kind: VisualResourceKind, color: PixelArtColor) {
+    public init(id: ContentID, kind: VisualResourceKind, color: PixelArtColor, customPixels: Data? = nil) {
         self.id = id
         self.kind = kind
         self.color = color
+        self.customPixels = customPixels
     }
 }
 

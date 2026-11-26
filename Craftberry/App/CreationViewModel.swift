@@ -200,6 +200,62 @@ final class CreationViewModel: ObservableObject {
         SidecarRetentionService().removeShareSnapshot(at: snapshotURL, in: outputDirectory)
     }
 
+    func importTexture(fromPNG data: Data, visualResourceID: ContentID) async {
+        guard let project = currentProjectForTextureImport() else {
+            projectFileError = "Generate an add-on before importing item art."
+            return
+        }
+        do {
+            let pixels = try PixelArtTextureImporter.canonicalPixels(fromPNG: data)
+            guard let visual = project.visualResources.first(where: { $0.id == visualResourceID }),
+                  visual.kind.supportsImportedPixels else {
+                throw PixelArtTextureImportError.incorrectDimensions
+            }
+            let content = project.content.map { node in
+                guard case .visualResource(let resource) = node, resource.id == visualResourceID else { return node }
+                return .visualResource(VisualResource(
+                    id: resource.id,
+                    kind: resource.kind,
+                    color: resource.color,
+                    customPixels: pixels
+                ))
+            }
+            let importedProject = AddOnProject(
+                schemaVersion: project.schemaVersion,
+                id: project.id,
+                namespace: project.namespace,
+                displayName: project.displayName,
+                shortDescription: project.shortDescription,
+                packUUIDs: project.packUUIDs,
+                buildVersion: project.buildVersion.nextPatch(),
+                targetProfileID: project.targetProfileID,
+                originalPrompt: project.originalPrompt,
+                content: content
+            )
+            let report = AddOnProjectValidator.validate(importedProject, profile: .current)
+            guard report.isSuccessful else { throw BedrockCompilationError.invalidProject(report) }
+            projectFileError = nil
+            _ = await buildArtifact(importedProject)
+        } catch {
+            projectFileError = error.localizedDescription
+        }
+    }
+
+    func reportTextureImportError(_ error: Error) {
+        projectFileError = error.localizedDescription
+    }
+
+    func clearTextureImportError() {
+        projectFileError = nil
+    }
+
+    private func currentProjectForTextureImport() -> AddOnProject? {
+        switch state {
+        case .ready(let project), .built(let project, _): project
+        default: nil
+        }
+    }
+
     func clearProjectFileError() {
         projectFileError = nil
     }

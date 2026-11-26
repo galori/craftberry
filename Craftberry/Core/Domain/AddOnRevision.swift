@@ -197,6 +197,7 @@ public final class AddOnRevisionService: @unchecked Sendable {
         outputDirectory: URL
     ) async throws -> RevisionResult {
         let bumped = baseProject.buildVersion.nextPatch()
+        let preservedContent = preservingImportedPixels(from: baseProject, in: draft)
         let revised = AddOnProject(
             id: baseProject.id,
             namespace: baseProject.namespace,
@@ -206,7 +207,7 @@ public final class AddOnRevisionService: @unchecked Sendable {
             buildVersion: bumped,
             targetProfileID: draft.targetProfileID,
             originalPrompt: newPrompt,
-            content: draft.content
+            content: preservedContent
         )
 
         let report = AddOnProjectValidator.validate(revised, profile: profile)
@@ -238,6 +239,23 @@ public final class AddOnRevisionService: @unchecked Sendable {
                 try? fileManager.removeItem(at: bumpedBuildDir)
             }
             throw error
+        }
+    }
+
+    private func preservingImportedPixels(from base: AddOnProject, in draft: AddOnProject) -> [AddOnContentNode] {
+        let importedByKind = Dictionary(grouping: base.visualResources.filter { $0.customPixels != nil }, by: \.kind)
+        let draftByKind = Dictionary(grouping: draft.visualResources, by: \.kind)
+        return draft.content.map { node in
+            guard case .visualResource(let visual) = node,
+                  let imported = importedByKind[visual.kind], imported.count == 1,
+                  draftByKind[visual.kind]?.count == 1,
+                  let customPixels = imported.first?.customPixels else { return node }
+            return .visualResource(VisualResource(
+                id: visual.id,
+                kind: visual.kind,
+                color: visual.color,
+                customPixels: customPixels
+            ))
         }
     }
 }

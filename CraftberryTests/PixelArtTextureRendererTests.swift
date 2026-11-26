@@ -41,4 +41,59 @@ final class PixelArtTextureRendererTests: XCTestCase {
             XCTAssertEqual(PNGInspector.dimensions(of: data), expected, "unexpected dimensions for \(kind)")
         }
     }
+
+    func testImportedPixelDataReplacesGeneratedItemArtAndScalesForPackIcon() throws {
+        var sourcePixels = Data(capacity: 32 * 32 * 4)
+        for index in 0..<(32 * 32) {
+            sourcePixels.append(contentsOf: [
+                UInt8(index % 256),
+                UInt8((index * 3) % 256),
+                UInt8((index * 7) % 256),
+                255
+            ])
+        }
+        let visual = VisualResource(
+            id: ContentID("custom_sword"),
+            kind: .swordPixelArt,
+            color: .blue,
+            customPixels: sourcePixels
+        )
+
+        let icon = PixelArtTextureRenderer.render(visual)
+        let packIcon = PixelArtTextureRenderer.render(visual, pixelScale: 4)
+
+        XCTAssertEqual(PNGInspector.dimensions(of: icon), PNGDimensions(width: 32, height: 32))
+        XCTAssertEqual(PNGInspector.dimensions(of: packIcon), PNGDimensions(width: 128, height: 128))
+        let canonicalPixels = try PixelArtTextureImporter.canonicalPixels(fromPNG: icon)
+        var firstDifference: Int?
+        for index in 0..<sourcePixels.count where canonicalPixels[index] != sourcePixels[index] {
+            firstDifference = index
+            break
+        }
+        XCTAssertNil(
+            firstDifference,
+            "First differing byte is \(String(describing: firstDifference)). Expected \(Array(sourcePixels.prefix(4))), got \(Array(canonicalPixels.prefix(4)))."
+        )
+    }
+
+    func testPNGTextureImporterRejectsNonSquareOrInvalidPNG() throws {
+        let validPixels = Array(repeating: RGBA(red: 255, green: 0, blue: 0, alpha: 255), count: 16 * 16)
+        let undersized = PNGEncoder.encode(width: 16, height: 16, pixels: validPixels)
+
+        XCTAssertThrowsError(try PixelArtTextureImporter.canonicalPixels(fromPNG: undersized)) {
+            XCTAssertEqual($0 as? PixelArtTextureImportError, .incorrectDimensions)
+        }
+        XCTAssertThrowsError(try PixelArtTextureImporter.canonicalPixels(fromPNG: Data("not a PNG".utf8))) {
+            XCTAssertEqual($0 as? PixelArtTextureImportError, .invalidPNG)
+        }
+        XCTAssertThrowsError(try PixelArtTextureImporter.canonicalPixels(fromPNG: Data(repeating: 0, count: 300_000))) {
+            XCTAssertEqual($0 as? PixelArtTextureImportError, .fileTooLarge)
+        }
+    }
+
+    func testVisualResourceFromOlderSidecarDecodesWithoutImportedPixels() throws {
+        let data = Data(#"{"id":"sword","kind":"swordPixelArt","color":"blue"}"#.utf8)
+        let visual = try JSONDecoder().decode(VisualResource.self, from: data)
+        XCTAssertNil(visual.customPixels)
+    }
 }

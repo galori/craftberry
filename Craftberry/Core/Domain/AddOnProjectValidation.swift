@@ -90,6 +90,25 @@ public enum AddOnProjectValidator {
             noun: "visual resource",
             to: &issues
         )
+        for visual in project.visualResources {
+            guard let pixels = visual.customPixels else { continue }
+            if !visual.kind.supportsImportedPixels {
+                issues.append(CompilationIssue(
+                    severity: .error,
+                    code: "unsupported_imported_visual_kind",
+                    path: "content.visualResources.\(visual.id.rawValue).customPixels",
+                    message: "Imported pixel art is supported only for inventory icons."
+                ))
+            }
+            if pixels.count != 32 * 32 * 4 {
+                issues.append(CompilationIssue(
+                    severity: .error,
+                    code: "invalid_imported_visual_pixels",
+                    path: "content.visualResources.\(visual.id.rawValue).customPixels",
+                    message: "Imported inventory icons must contain exactly 32 by 32 RGBA pixels."
+                ))
+            }
+        }
         appendDuplicateIssues(
             values: project.blocks.map(\.id),
             code: "duplicate_block_id",
