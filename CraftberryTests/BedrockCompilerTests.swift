@@ -914,7 +914,10 @@ final class BedrockCompilerTests: XCTestCase {
         let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
         let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
         let states = try XCTUnwrap(desc["states"] as? [String: Any])
-        let growth = try XCTUnwrap(states["craftberry:growth"] as? [String: Any])
+        let growthStateKey = "craftberry:growth_azure_a1b2c3_crop"
+        let componentID = "craftberry:crop_grow_azure_a1b2c3_crop"
+        let geometryID = "geometry.craftberry.crop_azure_a1b2c3_crop"
+        let growth = try XCTUnwrap(states[growthStateKey] as? [String: Any])
         let values = try XCTUnwrap(growth["values"] as? [String: Any])
         XCTAssertEqual(values["min"] as? Int, 0)
         XCTAssertEqual(values["max"] as? Int, 7)
@@ -925,12 +928,12 @@ final class BedrockCompilerTests: XCTestCase {
         let conditions = try XCTUnwrap(placement["conditions"] as? [[String: Any]])
         XCTAssertEqual(conditions.first?["allowed_faces"] as? [String], ["up"])
         XCTAssertEqual(conditions.first?["block_filter"] as? [String], ["minecraft:farmland"])
-        XCTAssertEqual(components["minecraft:geometry"] as? String, "geometry.craftberry_crop")
+        XCTAssertEqual(components["minecraft:geometry"] as? String, geometryID)
         XCTAssertEqual(components["minecraft:collision_box"] as? Bool, false)
         XCTAssertEqual(components["minecraft:loot"] as? String, "loot_tables/blocks/azure_a1b2c3_crop_seeds.json")
-        XCTAssertEqual(components["craftberry:crop_grow"] as? [String: Int], ["stage_count": 8])
+        XCTAssertEqual(components[componentID] as? [String: Int], ["stage_count": 8])
         for (stage, permutation) in perms.enumerated() {
-            XCTAssertEqual(permutation["condition"] as? String, "query.block_state('craftberry:growth') == \(stage)")
+            XCTAssertEqual(permutation["condition"] as? String, "query.block_state('\(growthStateKey)') == \(stage)")
             let permutationComponents = try XCTUnwrap(permutation["components"] as? [String: Any])
             let materialInstances = try XCTUnwrap(permutationComponents["minecraft:material_instances"] as? [String: Any])
             let allFaces = try XCTUnwrap(materialInstances["*"] as? [String: Any])
@@ -961,6 +964,8 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(script.contains("onRandomTick"))
         XCTAssertTrue(script.contains("stage + 1"))
         XCTAssertTrue(script.contains("stage >= stageCount - 1"))
+        XCTAssertTrue(script.contains(componentID))
+        XCTAssertTrue(script.contains(growthStateKey))
 
         let stageTextures = (0..<8).compactMap { stage in
             resources.first { $0.path == "textures/blocks/azure_a1b2c3_crop_stage_\(stage).png" }?.data
@@ -972,10 +977,88 @@ final class BedrockCompilerTests: XCTestCase {
         for stage in 0..<8 {
             XCTAssertNotNil(terrainData["azure_a1b2c3_crop_stage_\(stage)"])
         }
-        let geometry = try json(named: "models/blocks/craftberry_crop.geo.json", in: resources)
+        let geometry = try json(named: "models/blocks/azure_a1b2c3_crop.geo.json", in: resources)
         let geometries = try XCTUnwrap(geometry["minecraft:geometry"] as? [[String: Any]])
+        let geometryDescription = try XCTUnwrap(geometries.first?["description"] as? [String: Any])
+        XCTAssertEqual(geometryDescription["identifier"] as? String, geometryID)
+        XCTAssertEqual(geometryDescription["texture_width"] as? Int, 16)
+        XCTAssertEqual(geometryDescription["texture_height"] as? Int, 16)
         let bones = try XCTUnwrap(geometries.first?["bones"] as? [[String: Any]])
         XCTAssertEqual((bones.first?["cubes"] as? [[String: Any]])?.count, 2)
+    }
+
+    func testCropRuntimeIdentifiersAreIsolatedAcrossGeneratedPacks() throws {
+        let first = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            originalPrompt: "first crop",
+            identity: makeIdentity()
+        )
+        let second = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            originalPrompt: "second crop",
+            identity: AddOnProjectIdentity(
+                projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000002")!,
+                namespace: "craftberry",
+                contentSuffix: "d4e5f6",
+                packUUIDs: PackUUIDs(
+                    behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000011")!,
+                    behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000012")!,
+                    resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000013")!,
+                    resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000014")!,
+                    behaviorScriptModule: UUID(uuidString: "20000000-0000-4000-8000-000000000015")!
+                )
+            )
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: UUID().uuidString,
+            directoryHint: .isDirectory
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let compiler = BedrockAddOnCompiler()
+        let firstResult = try compiler.compile(project: first, profile: .current, outputDirectory: directory)
+        let secondResult = try compiler.compile(project: second, profile: .current, outputDirectory: directory)
+
+        let runtimeIdentifiers = try [first, second].map { project -> (String, String, String) in
+            let block = try XCTUnwrap(project.blocks.first)
+            let stateKey = "\(project.namespace):growth_\(block.id.rawValue)"
+            let componentID = "\(project.namespace):crop_grow_\(block.id.rawValue)"
+            let geometryID = "geometry.craftberry.crop_\(block.id.rawValue)"
+            return (stateKey, componentID, geometryID)
+        }
+        XCTAssertEqual(Set(runtimeIdentifiers.map(\.0)).count, 2)
+        XCTAssertEqual(Set(runtimeIdentifiers.map(\.1)).count, 2)
+        XCTAssertEqual(Set(runtimeIdentifiers.map(\.2)).count, 2)
+
+        let compiledProjects = [
+            (first, firstResult, runtimeIdentifiers[0]),
+            (second, secondResult, runtimeIdentifiers[1])
+        ]
+        for (project, result, identifiers) in compiledProjects {
+            let blockID = try XCTUnwrap(project.blocks.first?.id.rawValue)
+            let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+            let behavior = try pack(named: "\(project.items[0].id.rawValue)_behavior.mcpack", in: outer)
+            let resources = try pack(named: "\(project.items[0].id.rawValue)_resources.mcpack", in: outer)
+            let block = try json(named: "blocks/\(blockID).json", in: behavior)
+            let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
+            let description = try XCTUnwrap(blockBody["description"] as? [String: Any])
+            let states = try XCTUnwrap(description["states"] as? [String: Any])
+            XCTAssertNotNil(states[identifiers.0])
+            let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
+            XCTAssertEqual(components[identifiers.1] as? [String: Int], ["stage_count": 8])
+            XCTAssertEqual(components["minecraft:geometry"] as? String, identifiers.2)
+            let permutations = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
+            XCTAssertTrue(permutations.allSatisfy { ($0["condition"] as? String)?.contains(identifiers.0) == true })
+
+            let scriptEntry = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/craftberry.js" }))
+            let script = try XCTUnwrap(String(data: scriptEntry.data, encoding: .utf8))
+            XCTAssertTrue(script.contains(identifiers.1))
+            XCTAssertTrue(script.contains(identifiers.0))
+
+            let geometry = try json(named: "models/blocks/\(blockID).geo.json", in: resources)
+            let geometryList = try XCTUnwrap(geometry["minecraft:geometry"] as? [[String: Any]])
+            let geometryDescription = try XCTUnwrap(geometryList.first?["description"] as? [String: Any])
+            XCTAssertEqual(geometryDescription["identifier"] as? String, identifiers.2)
+        }
     }
 
     func testCompilerEmitsMaterialEntitySetWithSpawnAndLoot() throws {
@@ -1263,7 +1346,18 @@ final class BedrockCompilerTests: XCTestCase {
     }
 
     private func makeIdentity() -> AddOnProjectIdentity {
-        AddOnProjectIdentity(projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!, namespace: "craftberry", contentSuffix: "a1b2c3", packUUIDs: PackUUIDs(behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!, behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!, resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!, resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!))
+        AddOnProjectIdentity(
+            projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!,
+            namespace: "craftberry",
+            contentSuffix: "a1b2c3",
+            packUUIDs: PackUUIDs(
+                behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!,
+                behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!,
+                resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!,
+                resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!,
+                behaviorScriptModule: UUID(uuidString: "20000000-0000-4000-8000-000000000005")!
+            )
+        )
     }
 
     private func pack(named name: String, in archive: [ZipArchiveEntry]) throws -> [ZipArchiveEntry] {

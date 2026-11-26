@@ -832,7 +832,7 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
         var seedToCrop: [ContentID: ContentID] = [:]
 
         for block in originalBlocks where block.growthStages != nil {
-            guard let stageCount = block.growthStages else { continue }
+            guard let stageCount = block.growthStages, (2...16).contains(stageCount) else { continue }
             let inferredSeedID = block.seedItemID ?? {
                 guard block.id.rawValue.hasSuffix("_crop") else { return nil }
                 return ContentID(String(block.id.rawValue.dropLast("_crop".count)) + "_seed")

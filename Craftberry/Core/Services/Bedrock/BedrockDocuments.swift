@@ -609,6 +609,7 @@ struct BlockDocument: Encodable {
         let placementFilter: PlacementFilter?
         let tags: Tags?
         let cropGrow: CropGrow?
+        let cropGrowComponentID: String?
 
         struct DestructibleByMining: Encodable {
             let secondsToDestroy: Double
@@ -618,17 +619,20 @@ struct BlockDocument: Encodable {
             }
         }
 
-        enum CodingKeys: String, CodingKey {
-            case destructibleByMining = "minecraft:destructible_by_mining"
-            case mapColor = "minecraft:map_color"
-            case lightDampening = "minecraft:light_dampening"
-            case loot = "minecraft:loot"
-            case geometry = "minecraft:geometry"
-            case materialInstances = "minecraft:material_instances"
-            case collisionBox = "minecraft:collision_box"
-            case placementFilter = "minecraft:placement_filter"
-            case tags = "minecraft:tags"
-            case cropGrow = "craftberry:crop_grow"
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: DynamicCodingKey.self)
+            try container.encode(destructibleByMining, forKey: DynamicCodingKey("minecraft:destructible_by_mining"))
+            try container.encode(mapColor, forKey: DynamicCodingKey("minecraft:map_color"))
+            try container.encode(lightDampening, forKey: DynamicCodingKey("minecraft:light_dampening"))
+            try container.encode(loot, forKey: DynamicCodingKey("minecraft:loot"))
+            try container.encodeIfPresent(geometry, forKey: DynamicCodingKey("minecraft:geometry"))
+            try container.encodeIfPresent(materialInstances, forKey: DynamicCodingKey("minecraft:material_instances"))
+            try container.encodeIfPresent(collisionBox, forKey: DynamicCodingKey("minecraft:collision_box"))
+            try container.encodeIfPresent(placementFilter, forKey: DynamicCodingKey("minecraft:placement_filter"))
+            try container.encodeIfPresent(tags, forKey: DynamicCodingKey("minecraft:tags"))
+            if let cropGrow, let cropGrowComponentID {
+                try container.encode(cropGrow, forKey: DynamicCodingKey(cropGrowComponentID))
+            }
         }
 
         struct PlacementFilter: Encodable {
@@ -652,6 +656,17 @@ struct BlockDocument: Encodable {
 
             enum CodingKeys: String, CodingKey { case stageCount = "stage_count" }
         }
+    }
+
+    private struct DynamicCodingKey: CodingKey {
+        let stringValue: String
+        let intValue: Int? = nil
+
+        init(_ stringValue: String) { self.stringValue = stringValue }
+
+        init?(stringValue: String) { self.init(stringValue) }
+
+        init?(intValue: Int) { return nil }
     }
 
     struct MapColor: Encodable {
@@ -717,26 +732,40 @@ struct CropGeometryDocument: Encodable {
         case geometries = "minecraft:geometry"
     }
 
-    static let crop = CropGeometryDocument(geometries: [
-        Geometry(
-            description: Description(
-                identifier: "geometry.craftberry_crop",
-                textureWidth: 16,
-                textureHeight: 16,
-                visibleBoundsWidth: 2,
-                visibleBoundsHeight: 2,
-                visibleBoundsOffset: [0, 0, 0]
-            ),
-            bones: [Bone(
-                name: "world",
-                pivot: [0, 0, 0],
-                cubes: [
-                    Cube(origin: [-8, -1, 0], size: [16, 16, 0], pivot: [0, -1, 0], rotation: [0, 45, 0], uv: [0, 0]),
-                    Cube(origin: [-8, -1, 0], size: [16, 16, 0], pivot: [0, -1, 0], rotation: [0, -45, 0], uv: [0, 0])
-                ]
-            )]
-        )
-    ])
+    static func crop(identifier: String) -> CropGeometryDocument {
+        CropGeometryDocument(geometries: [
+            Geometry(
+                description: Description(
+                    identifier: identifier,
+                    textureWidth: 16,
+                    textureHeight: 16,
+                    visibleBoundsWidth: 2,
+                    visibleBoundsHeight: 2,
+                    visibleBoundsOffset: [0, 0, 0]
+                ),
+                bones: [Bone(
+                    name: "world",
+                    pivot: [0, 0, 0],
+                    cubes: [
+                        Cube(
+                            origin: [-8, -1, 0],
+                            size: [16, 16, 0],
+                            pivot: [0, -1, 0],
+                            rotation: [0, 45, 0],
+                            uv: [0, 0]
+                        ),
+                        Cube(
+                            origin: [-8, -1, 0],
+                            size: [16, 16, 0],
+                            pivot: [0, -1, 0],
+                            rotation: [0, -45, 0],
+                            uv: [0, 0]
+                        )
+                    ]
+                )]
+            )
+        ])
+    }
 }
 
 struct EntityDocument: Encodable {

@@ -491,6 +491,46 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertNotNil(migrated.packUUIDs.behaviorScriptModule)
     }
 
+    func testLegacyCropMigrationPreservesInvalidStageCountsForValidation() throws {
+        let project = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            originalPrompt: "Azure crop",
+            identity: testIdentity()
+        )
+        let originalSidecar = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(project)) as? [String: Any]
+        )
+
+        for stageCount in [0, -1] {
+            var sidecar = originalSidecar
+            sidecar["schemaVersion"] = 3
+            var content = try XCTUnwrap(sidecar["content"] as? [[String: Any]])
+            for index in content.indices where content[index]["type"] as? String == "block" {
+                var value = try XCTUnwrap(content[index]["value"] as? [String: Any])
+                value["growthStages"] = stageCount
+                value["seedItemID"] = nil
+                value["growthStageResourceIDs"] = nil
+                content[index]["value"] = value
+            }
+            sidecar["content"] = content
+            var packUUIDs = try XCTUnwrap(sidecar["packUUIDs"] as? [String: Any])
+            packUUIDs["behaviorScriptModule"] = nil
+            sidecar["packUUIDs"] = packUUIDs
+
+            let decoded = try JSONDecoder().decode(
+                AddOnProject.self,
+                from: JSONSerialization.data(withJSONObject: sidecar)
+            )
+            let migrated = try decoded.migratedToCurrentSchema()
+            let crop = try XCTUnwrap(migrated.blocks.first)
+            let report = AddOnProjectValidator.validate(migrated, profile: .current)
+
+            XCTAssertEqual(crop.growthStages, stageCount)
+            XCTAssertTrue(report.errors.contains { $0.code == "invalid_block_growth_stages" })
+        }
+    }
+
     func testOldItemTraitsDecodeWithoutBlockPlacer() throws {
         let legacyTraits = Data(#"{"handEquipped":false,"maximumStackSize":64}"#.utf8)
         XCTAssertNil(try JSONDecoder().decode(ItemTraits.self, from: legacyTraits).blockPlacer)

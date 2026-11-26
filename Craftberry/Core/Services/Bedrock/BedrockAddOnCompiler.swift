@@ -208,22 +208,24 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         ]
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
+            let cropIdentifiers = block.growthStages.map { _ in
+                CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
+            }
             // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
             // behavior_pack blocks use description.states with range {min,max} and permutations on query.block_state.
             // See resource_pack/blocks.json and metadata/json_schemas/server/block/1.21.110/States.json at 921fafb0.
-            let growthStateKey = "craftberry:growth"
             let states: [String: BlockDocument.Description.StateValue]? = {
-                guard let stages = block.growthStages else { return nil }
-                return [growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
+                guard let stages = block.growthStages, let cropIdentifiers else { return nil }
+                return [cropIdentifiers.growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
             }()
             let permutations: [BlockDocument.Block.Permutation]? = {
-                guard let stages = block.growthStages else { return nil }
+                guard let stages = block.growthStages, let cropIdentifiers else { return nil }
                 let resourceIDs = block.growthStageResourceIDs ?? Array(repeating: block.terrainResourceID, count: stages)
                 return (0..<stages).map { stage in
                     let materialInstances = ["*": BlockDocument.MaterialInstance(texture: resourceIDs[stage].rawValue, renderMethod: "alpha_test")]
                     let loot = stage == stages - 1 ? "loot_tables/blocks/\(block.id.rawValue)_harvest.json" : nil
                     return .init(
-                        condition: "query.block_state('\(growthStateKey)') == \(stage)",
+                        condition: "query.block_state('\(cropIdentifiers.growthStateKey)') == \(stage)",
                         components: .init(loot: loot, materialInstances: materialInstances)
                     )
                 }
@@ -243,12 +245,13 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         mapColor: BlockDocument.MapColor(color: block.mapColor),
                         lightDampening: isCrop ? 0 : 15,
                         loot: isCrop ? "loot_tables/blocks/\(block.id.rawValue)_seeds.json" : "loot_tables/blocks/\(block.id.rawValue).json",
-                        geometry: isCrop ? "geometry.craftberry_crop" : nil,
+                        geometry: cropIdentifiers?.geometryIdentifier,
                         materialInstances: isCrop ? ["*": BlockDocument.MaterialInstance(texture: stageResourceIDs[0].rawValue, renderMethod: "alpha_test")] : nil,
                         collisionBox: isCrop ? false : nil,
                         placementFilter: isCrop ? .init(conditions: [.init(allowedFaces: ["up"], blockFilter: ["minecraft:farmland"])]) : nil,
                         tags: isCrop ? .init(tags: ["minecraft:crop"]) : nil,
-                        cropGrow: block.growthStages.map { .init(stageCount: $0) }
+                        cropGrow: block.growthStages.map { .init(stageCount: $0) },
+                        cropGrowComponentID: cropIdentifiers?.componentID
                     ),
                     permutations: permutations
                 )
@@ -276,7 +279,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             }
         }
         if project.blocks.contains(where: { $0.growthStages != nil }) {
-            entries.append(ZipArchiveEntry(path: "scripts/craftberry.js", data: Data(Self.cropGrowthScript.utf8)))
+            entries.append(
+                ZipArchiveEntry(
+                    path: "scripts/craftberry.js",
+                    data: Data(Self.cropGrowthScript(project: project).utf8)
+                )
+            )
         }
         for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: entity.id, namespace: project.namespace)
@@ -900,8 +908,16 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 )
             }
         }
-        if project.blocks.contains(where: { $0.growthStages != nil }) {
-            entries.append(ZipArchiveEntry(path: "models/blocks/craftberry_crop.geo.json", data: try BedrockDocumentEncoder.encode(CropGeometryDocument.crop)))
+        for block in project.blocks where block.growthStages != nil {
+            let identifiers = CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
+            entries.append(
+                ZipArchiveEntry(
+                    path: identifiers.geometryResourcePath,
+                    data: try BedrockDocumentEncoder.encode(
+                        CropGeometryDocument.crop(identifier: identifiers.geometryIdentifier)
+                    )
+                )
+            )
         }
         if !project.blocks.isEmpty {
             var terrainData: [String: TerrainTextureDocument.Texture] = [:]
@@ -1147,24 +1163,58 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         }
     }
 
-    private static let cropGrowthScript = """
-    import { system } from \"@minecraft/server\";
+    private struct CropRuntimeIdentifiers {
+        let growthStateKey: String
+        let componentID: String
+        let geometryIdentifier: String
+        let geometryResourcePath: String
 
-    const growthState = \"craftberry:growth\";
+        init(namespace: String, blockID: ContentID) {
+            let blockPath = blockID.rawValue
+            let safeGeometryNamespace = namespace
+                .replacingOccurrences(of: "-", with: "_")
+                .replacingOccurrences(of: ".", with: "_")
+            let safeGeometryBlockPath = blockPath
+                .replacingOccurrences(of: "-", with: "_")
+                .replacingOccurrences(of: ".", with: "_")
+            growthStateKey = "\(namespace):growth_\(blockPath)"
+            componentID = "\(namespace):crop_grow_\(blockPath)"
+            geometryIdentifier = "geometry.\(safeGeometryNamespace).crop_\(safeGeometryBlockPath)"
+            geometryResourcePath = "models/blocks/\(safeGeometryBlockPath).geo.json"
+        }
+    }
 
-    system.beforeEvents.startup.subscribe((initEvent) => {
-      initEvent.blockComponentRegistry.registerCustomComponent(\"craftberry:crop_grow\", {
-        onRandomTick(event, component) {
-          const stage = event.block.permutation.getState(growthState);
-          const stageCount = component.params?.stage_count;
-          if (typeof stage !== \"number\" || typeof stageCount !== \"number\" || stage >= stageCount - 1) {
-            return;
-          }
-          event.block.setPermutation(event.block.permutation.withState(growthState, stage + 1));
-        },
-      });
-    });
-    """
+    private static func cropGrowthScript(project: AddOnProject) -> String {
+        let registrations = project.blocks
+            .filter { $0.growthStages != nil }
+            .map { block -> String in
+                let identifiers = CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
+                return """
+                  initEvent.blockComponentRegistry.registerCustomComponent("\(identifiers.componentID)", {
+                    onRandomTick(event, component) {
+                      const stage = event.block.permutation.getState("\(identifiers.growthStateKey)");
+                      const stageCount = component.params?.stage_count;
+                      if (typeof stage !== "number" || typeof stageCount !== "number" || stage >= stageCount - 1) {
+                        return;
+                      }
+                      const nextPermutation = event.block.permutation.withState(
+                        "\(identifiers.growthStateKey)",
+                        stage + 1
+                      );
+                      event.block.setPermutation(nextPermutation);
+                    },
+                  });
+                """
+            }
+            .joined(separator: "\n")
+        return """
+        import { system } from "@minecraft/server";
+
+        system.beforeEvents.startup.subscribe((initEvent) => {
+        \(registrations)
+        });
+        """
+    }
 }
 
 public enum BedrockWorldGameMode: String, CaseIterable, Codable, Sendable {
