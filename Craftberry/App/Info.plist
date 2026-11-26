@@ -18,6 +18,8 @@
     <string>$(CURRENT_PROJECT_VERSION)</string>
     <key>OpenAIAPIKey</key>
     <string>$(OPENAI_API_KEY)</string>
+    <key>BackendBaseURL</key>
+    <string>$(CRAFTBERRY_BACKEND_BASE_URL)</string>
     <key>UILaunchScreen</key>
     <dict/>
     <key>UISupportedInterfaceOrientations</key>

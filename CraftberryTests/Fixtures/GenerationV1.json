@@ -1,0 +1,38 @@
+{
+  "method": "POST",
+  "path": "/v1/generate",
+  "request": {
+    "intentVersion": 1,
+    "profileID": "bedrock-stable-1.26.30",
+    "prompt": "Craft a cyan diamond sword named Harbor."
+  },
+  "responses": {
+    "ready": {
+      "status": 200,
+      "body": {
+        "schemaVersion": 1,
+        "outcome": "ready",
+        "message": "Ready to build.",
+        "shortDescription": "A cyan sword crafted from diamonds.",
+        "sword": {
+          "displayName": "Harbor",
+          "color": "cyan",
+          "attackBonus": 12,
+          "durability": 600,
+          "craftingIngredient": "diamond"
+        }
+      }
+    },
+    "unsupported": {
+      "status": 200,
+      "body": {
+        "schemaVersion": 1,
+        "outcome": "unsupported",
+        "message": "This add-on needs a feature outside the active profile."
+      }
+    },
+    "unauthorized": { "status": 401, "body": { "error": "unauthorized" } },
+    "quota": { "status": 429, "body": { "error": "quota_exceeded" } },
+    "serviceFailure": { "status": 503, "body": { "error": "service_unavailable" } }
+  }
+}

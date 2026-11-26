@@ -9,7 +9,12 @@ let package = Package(
     ],
     targets: [
         .target(name: "CraftberryCore", path: "Craftberry/Core"),
-        .testTarget(name: "CraftberryTests", dependencies: ["CraftberryCore"], path: "CraftberryTests"),
+        .testTarget(
+            name: "CraftberryTests",
+            dependencies: ["CraftberryCore"],
+            path: "CraftberryTests",
+            resources: [.copy("Fixtures/GenerationV1.json")]
+        ),
         .executableTarget(name: "MinecraftFixture", dependencies: ["CraftberryCore"], path: "Tools/MinecraftFixture"),
         .executableTarget(name: "SchemaFixture", dependencies: ["CraftberryCore"], path: "Tools/SchemaFixture"),
         .executableTarget(name: "IconPreview", dependencies: ["CraftberryCore"], path: "Tools/IconPreview")
