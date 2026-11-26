@@ -203,6 +203,52 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let adultGroupName = "\(entity.id.rawValue)_adult"
             let babyGroupName = "\(entity.id.rawValue)_baby"
             let lootTablePath = "loot_tables/entities/\(entity.id.rawValue).json"
+            let babyGroup = EntityDocument.ComponentGroup(
+                isBaby: EntityDocument.EmptyComponent(),
+                scale: EntityDocument.Scale(value: 0.5),
+                ageable: EntityDocument.Ageable(
+                    duration: 1200,
+                    feedItems: ["wheat"],
+                    growUp: EntityDocument.GrowUp(event: "minecraft:ageable_grow_up", target: "self")
+                ),
+                experienceReward: nil,
+                loot: nil,
+                breedable: nil
+            )
+            let adultGroup = EntityDocument.ComponentGroup(
+                isBaby: nil,
+                scale: nil,
+                ageable: nil,
+                experienceReward: EntityDocument.ExperienceReward(onDeath: "query.last_hit_by_player ? Math.Random(1,3) : 0"),
+                loot: EntityDocument.Loot(table: lootTablePath),
+                breedable: entity.archetype == .passive
+                    ? EntityDocument.Breedable(
+                        requireTame: false,
+                        breedsWith: [identifier: EntityDocument.EmptyComponent()],
+                        breedItems: ["wheat"]
+                    )
+                    : nil
+            )
+            var componentGroups = [adultGroupName: adultGroup]
+            // The pinned cow entity has an entity_spawned event that activates its adult group;
+            // ageable grow-up and birth events activate/swap the corresponding passive groups.
+            var events: [String: EntityDocument.Event] = [
+                "minecraft:entity_spawned": EntityDocument.Event(
+                    add: EntityDocument.ComponentGroupChange(componentGroups: [adultGroupName]),
+                    remove: nil
+                )
+            ]
+            if entity.archetype == .passive {
+                componentGroups[babyGroupName] = babyGroup
+                events["minecraft:entity_born"] = EntityDocument.Event(
+                    add: EntityDocument.ComponentGroupChange(componentGroups: [babyGroupName]),
+                    remove: nil
+                )
+                events["minecraft:ageable_grow_up"] = EntityDocument.Event(
+                    add: EntityDocument.ComponentGroupChange(componentGroups: [adultGroupName]),
+                    remove: EntityDocument.ComponentGroupChange(componentGroups: [babyGroupName])
+                )
+            }
             let entityDocument = EntityDocument(
                 formatVersion: profile.entityFormatVersion,
                 entity: EntityDocument.Entity(
@@ -212,32 +258,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         isSummonable: true,
                         spawnCategory: entity.archetype == .hostile ? "monster" : "creature"
                     ),
-                    componentGroups: [
-                        babyGroupName: EntityDocument.ComponentGroup(
-                            isBaby: EntityDocument.EmptyComponent(),
-                            scale: EntityDocument.Scale(value: 0.5),
-                            ageable: EntityDocument.Ageable(
-                                duration: 1200,
-                                feedItems: ["wheat"],
-                                growUp: EntityDocument.GrowUp(event: "minecraft:ageable_grow_up", target: "self")
-                            ),
-                            experienceReward: nil,
-                            loot: nil,
-                            breedable: nil
-                        ),
-                        adultGroupName: EntityDocument.ComponentGroup(
-                            isBaby: nil,
-                            scale: nil,
-                            ageable: nil,
-                            experienceReward: EntityDocument.ExperienceReward(onDeath: "query.last_hit_by_player ? Math.Random(1,3) : 0"),
-                            loot: EntityDocument.Loot(table: lootTablePath),
-                            breedable: EntityDocument.Breedable(
-                                requireTame: false,
-                                breedsWith: [identifier: EntityDocument.EmptyComponent()],
-                                breedItems: ["wheat"]
-                            )
-                        )
-                    ],
+                    componentGroups: componentGroups,
+                    events: events,
                     components: EntityDocument.Components(
                         typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, entity.archetype == .hostile ? "monster" : "animal", "mob"]),
                         breathable: EntityDocument.Breathable(totalSupply: 15, suffocateTime: 0),
@@ -509,12 +531,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         }
         for recipe in project.smithingTransformRecipes.sorted(by: smithingTransformRecipeOrder) {
             let resultIdentifier = try resultIdentifier(for: recipe.result.item, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).result")
+            // Mojang's pinned smithing_netherite_sword.json uses base/addition/result only.
             let document = SmithingTransformRecipeDocument(
                 formatVersion: profile.recipeFormatVersion,
                 recipe: SmithingTransformRecipeDocument.Recipe(
                     description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
                     tags: recipe.tags,
-                    template: smithingTransformIngredient(for: recipe.template, namespace: project.namespace),
                     base: smithingTransformIngredient(for: recipe.base, namespace: project.namespace),
                     addition: smithingTransformIngredient(for: recipe.addition, namespace: project.namespace),
                     result: resultIdentifier

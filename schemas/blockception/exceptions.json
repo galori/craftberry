@@ -1,0 +1,24 @@
+[
+  {
+    "id": "smithing-trim-form-not-in-pinned-blockception-schema",
+    "family": "recipes/",
+    "pathPattern": "recipes/.+_trim_recipe\\.json",
+    "jsonPathPattern": "^\\$$",
+    "validator": "additionalProperties",
+    "messageContains": "minecraft:recipe_smithing_trim",
+    "expectedOccurrences": 1,
+    "reason": "Blockception e04436c does not define minecraft:recipe_smithing_trim. The pinned Mojang sample ships this recipe form, so the sample-backed form remains covered by exact compiler assertions and is exempt from this older advisory schema.",
+    "samplePath": "behavior_pack/recipes/smithing_armor_trim.json"
+  },
+  {
+    "id": "smithing-transform-string-item-oneof-schema-defect",
+    "family": "recipes/",
+    "pathPattern": "recipes/.+_sword_smithing_recipe\\.json",
+    "jsonPathPattern": "^\\$\\['minecraft:recipe_smithing_transform'\\]\\.(base|addition|result)$",
+    "validator": "oneOf",
+    "messageContains": "is not valid under any of the given schemas",
+    "expectedOccurrences": 3,
+    "reason": "The pinned Blockception schema's item/tag oneOf accepts a string as both branches because the tag branch omits type=object. The pinned Mojang transform sample uses direct strings for base, addition, and result.",
+    "samplePath": "behavior_pack/recipes/smithing_netherite_sword.json"
+  }
+]

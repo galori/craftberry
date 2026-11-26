@@ -23,6 +23,9 @@ jobs:
         # device or simulator UI and are intentionally excluded from CI.
         run: swift test --parallel
 
+      - name: Verify the vanilla catalog against its pinned Mojang samples
+        run: scripts/refresh-vanilla-catalog.sh --check
+
       - name: Verify Xcode project builds
         run: xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 

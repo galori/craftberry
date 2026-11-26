@@ -1,0 +1,71 @@
+{
+  "profileID": "bedrock-stable-1.26.30",
+  "sampleVersion": "1.26.30.5",
+  "sourceCommit": "921fafb05c93abeae56c2f2868cd8f942bdbcc0f",
+  "materialSources": [
+    "minecraft:amethyst_shard",
+    "minecraft:blaze_rod",
+    "minecraft:diamond",
+    "minecraft:emerald",
+    "minecraft:gold_ingot",
+    "minecraft:iron_ingot",
+    "minecraft:lapis_lazuli",
+    "minecraft:netherite_ingot",
+    "minecraft:quartz",
+    "minecraft:redstone"
+  ],
+  "additionalIdentifiers": [
+    "minecraft:egg",
+    "minecraft:feather",
+    "minecraft:stick",
+    "minecraft:wheat",
+    "minecraft:wheat_seeds"
+  ],
+  "smithingTemplates": [
+    "minecraft:netherite_upgrade_smithing_template",
+    "minecraft:ward_armor_trim_smithing_template"
+  ],
+  "smithingBases": [
+    "minecraft:diamond_sword"
+  ],
+  "brewingInputs": [
+    "minecraft:potion",
+    "minecraft:potion_type:awkward",
+    "minecraft:potion_type:mundane",
+    "minecraft:potion_type:thick",
+    "minecraft:potion_type:water",
+    "minecraft:lingering_potion",
+    "minecraft:splash_potion"
+  ],
+  "brewingReagents": [
+    "minecraft:blaze_powder",
+    "minecraft:dragon_breath",
+    "minecraft:ghast_tear",
+    "minecraft:gunpowder",
+    "minecraft:nether_wart"
+  ],
+  "itemTags": [
+    "minecraft:trimmable_armors"
+  ],
+  "recipeForms": [
+    "minecraft:recipe_brewing_container",
+    "minecraft:recipe_brewing_mix",
+    "minecraft:recipe_furnace",
+    "minecraft:recipe_shaped",
+    "minecraft:recipe_shapeless",
+    "minecraft:recipe_smithing_transform",
+    "minecraft:recipe_smithing_trim"
+  ],
+  "recipeFormEvidence": [
+    { "form": "minecraft:recipe_brewing_container", "path": "behavior_pack/recipes/brew_potion_sulphur.json" },
+    { "form": "minecraft:recipe_brewing_mix", "path": "behavior_pack/recipes/brew_awkward_blaze_powder.json" },
+    { "form": "minecraft:recipe_furnace", "path": "behavior_pack/recipes/furnace_beef.json" },
+    { "form": "minecraft:recipe_shaped", "path": "behavior_pack/recipes/diamond_sword.json" },
+    { "form": "minecraft:recipe_shapeless", "path": "behavior_pack/recipes/mushroom_stew.json" },
+    { "form": "minecraft:recipe_smithing_transform", "path": "behavior_pack/recipes/smithing_netherite_sword.json" },
+    { "form": "minecraft:recipe_smithing_trim", "path": "behavior_pack/recipes/smithing_armor_trim.json" }
+  ],
+  "itemTagEvidence": [
+    { "tag": "minecraft:trimmable_armors", "path": "behavior_pack/recipes/smithing_armor_trim.json" }
+  ]
+}
