@@ -9,6 +9,11 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000057 /* AddOnRevisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000057 /* AddOnRevisionTests.swift */; };
 		A10000000000000000000056 /* AddOnRevision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000056 /* AddOnRevision.swift */; };
+		A10000000000000000000062 /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000062 /* BackendClient.swift */; };
+		A10000000000000000000063 /* PrivacyDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000063 /* PrivacyDisclosure.swift */; };
+		A10000000000000000000064 /* Telemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000064 /* Telemetry.swift */; };
+		A10000000000000000000065 /* SidecarRetentionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000065 /* SidecarRetentionPolicy.swift */; };
+		A10000000000000000000066 /* PrivacyTelemetryRetentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */; };
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
@@ -83,6 +88,11 @@
 /* Begin PBXFileReference section */
 		A20000000000000000000057 /* AddOnRevisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnRevisionTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000056 /* AddOnRevision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOnRevision.swift; sourceTree = "<group>"; };
+		A20000000000000000000062 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/Backend/BackendClient.swift; sourceTree = "<group>"; };
+		A20000000000000000000063 /* PrivacyDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Privacy/PrivacyDisclosure.swift; sourceTree = "<group>"; };
+		A20000000000000000000064 /* Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/Telemetry/Telemetry.swift; sourceTree = "<group>"; };
+		A20000000000000000000065 /* SidecarRetentionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/Retention/SidecarRetentionPolicy.swift; sourceTree = "<group>"; };
+		A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTelemetryRetentionTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
@@ -183,6 +193,10 @@
 			children = (
 				A20000000000000000000017 /* Assets.xcassets */,
 				A20000000000000000000061 /* BedrockWorldTemplate */,
+				A20000000000000000000062 /* BackendClient.swift */,
+				A20000000000000000000063 /* PrivacyDisclosure.swift */,
+				A20000000000000000000064 /* Telemetry.swift */,
+				A20000000000000000000065 /* SidecarRetentionPolicy.swift */,
 				A40000000000000000000003 /* App */,
 				A40000000000000000000004 /* Core/Domain */,
 				A40000000000000000000005 /* Core/Services */,
@@ -237,6 +251,7 @@
 				A20000000000000000000044 /* PixelArtTextureRendererTests.swift */,
 				A20000000000000000000055 /* CachingLLMClientTests.swift */,
 				A20000000000000000000057 /* AddOnRevisionTests.swift */,
+				A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */,
 			);
 			path = CraftberryTests;
 			sourceTree = "<group>";
@@ -472,6 +487,10 @@
 				A10000000000000000000036 /* RecipeBook.swift in Sources */,
 				A10000000000000000000037 /* ExamplePromptLibrary.swift in Sources */,
 				A10000000000000000000056 /* AddOnRevision.swift in Sources */,
+				A10000000000000000000062 /* BackendClient.swift in Sources */,
+				A10000000000000000000063 /* PrivacyDisclosure.swift in Sources */,
+				A10000000000000000000064 /* Telemetry.swift in Sources */,
+				A10000000000000000000065 /* SidecarRetentionPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,6 +507,7 @@
 				A10000000000000000000039 /* PixelArtTextureRendererTests.swift in Sources */,
 				A10000000000000000000055 /* CachingLLMClientTests.swift in Sources */,
 				A10000000000000000000057 /* AddOnRevisionTests.swift in Sources */,
+				A10000000000000000000066 /* PrivacyTelemetryRetentionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

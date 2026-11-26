@@ -32,6 +32,7 @@ final class CreationViewModel: ObservableObject {
     private let worldExporter: any AddOnWorldExporting
     private let artifactDirectoryProvider: @MainActor () throws -> URL
     private let revisionService: AddOnRevisionService
+    private let telemetryManager: TelemetryManager?
 
     @Published private(set) var lastRevisionSummary: ChangeSummary?
     @Published private(set) var revisionError: String?
@@ -43,6 +44,7 @@ final class CreationViewModel: ObservableObject {
         worldExporter: any AddOnWorldExporting = BedrockWorldExporter(),
         client: (any LLMClient)? = nil,
         revisionService: AddOnRevisionService? = nil,
+        telemetryManager: TelemetryManager? = nil,
         artifactDirectoryProvider: @escaping @MainActor () throws -> URL = CreationViewModel.defaultArtifactDirectory
     ) {
         if let client {
@@ -54,6 +56,7 @@ final class CreationViewModel: ObservableObject {
         self.worldExporter = worldExporter
         self.artifactDirectoryProvider = artifactDirectoryProvider
         self.revisionService = revisionService ?? AddOnRevisionService(compiler: compiler)
+        self.telemetryManager = telemetryManager
     }
 
     func generate() async {
@@ -63,6 +66,7 @@ final class CreationViewModel: ObservableObject {
             return
         }
         state = .generating
+        telemetryManager?.record(name: "generation.requested")
         do {
             let generation = try await client.generateProject(from: trimmedPrompt)
             switch generation.outcome {
@@ -72,11 +76,14 @@ final class CreationViewModel: ObservableObject {
                 guard report.isSuccessful else {
                     throw BedrockCompilationError.invalidProject(report)
                 }
+                telemetryManager?.record(name: "generation.succeeded", properties: ["outcome": "ready"])
                 state = .ready(project)
             case .unsupported:
+                telemetryManager?.record(name: "generation.unsupported", properties: ["outcome": "unsupported"])
                 state = .unsupported(generation.message)
             }
         } catch {
+            telemetryManager?.record(name: "generation.failed", properties: ["outcome": "failed"])
             state = .failed(error.localizedDescription)
         }
     }
@@ -95,9 +102,11 @@ final class CreationViewModel: ObservableObject {
                     outputDirectory: directory
                 )
             }.value
+            telemetryManager?.record(name: "build.succeeded")
             state = .built(project, result)
             return result
         } catch {
+            telemetryManager?.record(name: "build.failed", properties: ["outcome": "failed"])
             state = .failed(error.localizedDescription)
             return nil
         }
@@ -122,9 +131,11 @@ final class CreationViewModel: ObservableObject {
                     outputDirectory: directory
                 )
             }.value
+            telemetryManager?.record(name: "build.succeeded")
             state = .built(project, addOn)
             return result
         } catch {
+            telemetryManager?.record(name: "build.failed", properties: ["outcome": "failed"])
             state = .failed(error.localizedDescription)
             return nil
         }
@@ -177,6 +188,7 @@ final class CreationViewModel: ObservableObject {
         let previousState = state
         revisionError = nil
         state = .generating
+        telemetryManager?.record(name: "generation.requested")
         do {
             let directory = try artifactDirectoryProvider()
             let client = client
@@ -188,9 +200,13 @@ final class CreationViewModel: ObservableObject {
                 outputDirectory: directory
             )
             lastRevisionSummary = result.changeSummary
+            telemetryManager?.record(name: "generation.succeeded", properties: ["outcome": "ready"])
+            telemetryManager?.record(name: "build.succeeded")
             state = .built(result.project, result.compilationResult)
         } catch {
             state = previousState
+            telemetryManager?.record(name: "generation.failed", properties: ["outcome": "failed"])
+            telemetryManager?.record(name: "build.failed", properties: ["outcome": "failed"])
             revisionError = error.localizedDescription
         }
     }
@@ -202,6 +218,7 @@ final class CreationViewModel: ObservableObject {
             return
         }
         state = .generating
+        telemetryManager?.record(name: "generation.requested")
         do {
             let directory = try artifactDirectoryProvider()
             let baseProject = try revisionService.loadProject(for: projectID, in: directory)
@@ -214,8 +231,12 @@ final class CreationViewModel: ObservableObject {
                 outputDirectory: directory
             )
             lastRevisionSummary = result.changeSummary
+            telemetryManager?.record(name: "generation.succeeded", properties: ["outcome": "ready"])
+            telemetryManager?.record(name: "build.succeeded")
             state = .built(result.project, result.compilationResult)
         } catch {
+            telemetryManager?.record(name: "generation.failed", properties: ["outcome": "failed"])
+            telemetryManager?.record(name: "build.failed", properties: ["outcome": "failed"])
             state = .failed(error.localizedDescription)
         }
     }
@@ -225,6 +246,14 @@ final class CreationViewModel: ObservableObject {
         revisionError = nil
         projectFileError = nil
         state = .editing
+    }
+
+    func pruneStoredBuilds() async {
+        guard let directory = try? artifactDirectoryProvider() else { return }
+        let retentionService = SidecarRetentionService()
+        _ = try? await Task.detached(priority: .utility) {
+            try retentionService.prune(in: directory)
+        }.value
     }
 
     nonisolated private static func defaultArtifactDirectory() throws -> URL {

@@ -4,27 +4,37 @@ import SwiftUI
 @main
 struct CraftberryApp: App {
     @StateObject private var viewModel: CreationViewModel
+    private let telemetryManager: TelemetryManager
+    private let privacyDisclosure: PrivacyDisclosure
 
     init() {
-        _viewModel = StateObject(wrappedValue: Self.makeViewModel())
+        let telemetryManager = Self.makeTelemetryManager()
+        self.telemetryManager = telemetryManager
+        self.privacyDisclosure = Self.makePrivacyDisclosure()
+        _viewModel = StateObject(wrappedValue: Self.makeViewModel(telemetryManager: telemetryManager))
     }
 
     var body: some Scene {
         WindowGroup {
-            CreationView(viewModel: viewModel)
+            CreationView(
+                viewModel: viewModel,
+                telemetryManager: telemetryManager,
+                privacyDisclosure: privacyDisclosure
+            )
         }
     }
 
-    private static func makeViewModel() -> CreationViewModel {
+    private static func makeViewModel(telemetryManager: TelemetryManager) -> CreationViewModel {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
-            return CreationViewModel.uiTesting()
+            return CreationViewModel.uiTesting(telemetryManager: telemetryManager)
         }
         #endif
 
         #if DEBUG
         return CreationViewModel(
-            apiKey: Bundle.main.object(forInfoDictionaryKey: "OpenAIAPIKey") as? String ?? ""
+            apiKey: Bundle.main.object(forInfoDictionaryKey: "OpenAIAPIKey") as? String ?? "",
+            telemetryManager: telemetryManager
         )
         #else
         let configuredURL = Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String
@@ -39,18 +49,30 @@ struct CraftberryApp: App {
                 credentialProvider: KeychainGenerationCredentialProvider()
             )
         )
-        return CreationViewModel(apiKey: "", client: client)
+        return CreationViewModel(apiKey: "", client: client, telemetryManager: telemetryManager)
         #endif
+    }
+
+    private static func makeTelemetryManager() -> TelemetryManager {
+        TelemetryManager(
+            storage: UserDefaultsTelemetryStorage(),
+            sink: PersistentTelemetrySink(storage: UserDefaultsTelemetryEventStorage())
+        )
+    }
+
+    private static func makePrivacyDisclosure() -> PrivacyDisclosure {
+        .current
     }
 }
 
 #if DEBUG
 private extension CreationViewModel {
-    static func uiTesting() -> CreationViewModel {
+    static func uiTesting(telemetryManager: TelemetryManager) -> CreationViewModel {
         let viewModel = CreationViewModel(
             apiKey: "",
             compiler: UITestingCompiler(),
             client: UITestingLLMClient(),
+            telemetryManager: telemetryManager,
             artifactDirectoryProvider: {
                 FileManager.default.temporaryDirectory.appending(
                     path: "CraftberryUITesting",

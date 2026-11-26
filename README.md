@@ -16,6 +16,8 @@ The model produces semantic intent only. Swift owns identifiers, UUIDs, Bedrock 
 3. Select an iOS Simulator and run the `Craftberry` scheme; no development team or Minecraft installation is needed for the initial workflow.
 4. Generate the supported sword project and tap **Build .mcaddon**. Export the artifact through the share sheet or save it to Files. Transfer it to a physical iPhone later for Minecraft validation.
 
+Telemetry is off by default. If enabled in **Privacy & Data**, Craftberry stores fixed action/outcome events locally; it never records prompts, artwork, project names, or files and does not upload telemetry. Turning it off deletes stored events. Before a distributable build, configure `CRAFTBERRY_PRIVACY_CONTACT_URL` with a real HTTPS privacy contact page. Empty or example placeholder URLs fail distributable validation.
+
 ## Validate
 
 ```sh

@@ -54,6 +54,32 @@ final class CreationViewModelTests: XCTestCase {
         XCTAssertEqual(message, "The test network is unavailable.")
     }
 
+    func testGenerationServiceTrafficRecordsOnlySafeTelemetryEvents() async throws {
+        let project = try makeProject()
+        let telemetrySink = InMemoryTelemetrySink()
+        let telemetryManager = TelemetryManager(
+            storage: InMemoryTelemetryStorage(optedIn: true),
+            sink: telemetrySink
+        )
+        let viewModel = CreationViewModel(
+            apiKey: "",
+            client: FakeLLMClient(response: .generation(
+                ProjectGeneration(outcome: .ready, message: "Ready", project: project)
+            )),
+            telemetryManager: telemetryManager
+        )
+        let privatePrompt = "A private custom sword and texture"
+        viewModel.prompt = privatePrompt
+
+        await viewModel.generate()
+
+        XCTAssertEqual(telemetrySink.events.map(\.name), ["generation.requested", "generation.succeeded"])
+        let encodedEvents = try XCTUnwrap(String(data: JSONEncoder().encode(telemetrySink.events), encoding: .utf8))
+        XCTAssertFalse(encodedEvents.contains(privatePrompt))
+        XCTAssertFalse(encodedEvents.contains("texture"))
+        XCTAssertEqual(telemetrySink.events.last?.properties, ["outcome": "ready"])
+    }
+
     func testGenerateRejectsAProjectThatFailsLocalValidation() async throws {
         let project = try makeProject()
         let invalidProject = AddOnProject(

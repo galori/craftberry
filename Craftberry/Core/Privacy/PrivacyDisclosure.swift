@@ -25,21 +25,29 @@ public struct PrivacyDisclosure: Equatable, Sendable {
     }
 
     public static var current: PrivacyDisclosure {
+        configured(contactURLString: Bundle.main.object(forInfoDictionaryKey: "PrivacyContactURL") as? String)
+    }
+
+    public static func configured(contactURLString: String?) -> PrivacyDisclosure {
         PrivacyDisclosure(
             title: "Craftberry Privacy Disclosure",
-            summary: "Craftberry generates Bedrock add-ons locally from a prompt. Prompts are sent to the configured backend/LLM only when you tap Generate. No Minecraft world data is collected.",
+            summary: "Craftberry generates Bedrock add-ons from prompts you submit. Prompts are sent to the configured generation service only when you choose Generate or Apply revision. Project files stay on this device unless you export or share them.",
             dataCollected: [
-                "Prompt text you enter and the generated AddOnProject sidecar (stored locally).",
-                "Anonymous generation counts for quota/abuse controls (no prompt content).",
-                "Opt-in telemetry events only if you enable telemetry (anonymous, no PII)."
+                "The prompt text you submit, sent to the configured generation service when you generate or revise an add-on.",
+                "Generated project sidecars and add-on builds, stored locally on this device.",
+                "Optional anonymous generation and build events stored locally only if you enable telemetry."
             ],
             dataNotCollected: [
-                "Minecraft worlds, worlds folder contents, or device identifiers.",
-                "Precise location, contacts, or third-party advertising identifiers."
+                "Prompt text, artwork, or project content in telemetry events.",
+                "Craftberry never accesses Minecraft worlds, world-folder contents, contacts, or precise location."
             ],
-            retentionSummary: "Sidecars are kept locally; builds under <project-id>/builds/<version>/ are pruned by retention policy (default keeps 5 latest builds per project, max 30 days). Telemetry, when opted in, is retained 30 days.",
-            contactURL: URL(string: "https://craftberry.example.com/privacy")
+            retentionSummary: "Project sidecars stay on this device. Generated build folders keep the 5 newest versions per project and expire after 30 days. Optional local telemetry expires after 30 days and is deleted when you opt out.",
+            contactURL: Self.validContactURL(from: contactURLString)
         )
+    }
+
+    public static func configured(contactURL: URL?) -> PrivacyDisclosure {
+        configured(contactURLString: contactURL?.absoluteString)
     }
 
     public var asDictionary: [String: Any] {
@@ -57,21 +65,54 @@ public struct PrivacyDisclosure: Equatable, Sendable {
         guard !title.isEmpty, !summary.isEmpty else {
             throw DistributableBuildError.missingPrivacyDisclosure
         }
-        guard !dataCollected.isEmpty else {
+        guard !dataCollected.isEmpty, !dataNotCollected.isEmpty, !retentionSummary.isEmpty else {
             throw DistributableBuildError.missingPrivacyDisclosure
         }
+        guard let contactURL, Self.isUsableContactURL(contactURL) else {
+            throw DistributableBuildError.missingPrivacyContact
+        }
+    }
+
+    private static func validContactURL(from value: String?) -> URL? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains("$") else { return nil }
+        guard let url = URL(string: trimmed), isUsableContactURL(url) else { return nil }
+        return url
+    }
+
+    private static func isUsableContactURL(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              !host.isEmpty else { return false }
+        let placeholderHosts = ["example.com", "example.org", "example.net", "example.invalid"]
+        guard !placeholderHosts.contains(host),
+              host != "localhost",
+              host != "127.0.0.1",
+              host != "::1",
+              !host.hasSuffix(".example"),
+              !host.hasSuffix(".example.com"),
+              !host.hasSuffix(".example.org"),
+              !host.hasSuffix(".example.net"),
+              !host.hasSuffix(".invalid"),
+              !host.hasSuffix(".test") else { return false }
+        let loweredURL = url.absoluteString.lowercased()
+        let placeholderTerms = ["placeholder", "your-domain", "yourdomain", "replace-me", "change-me", "$", "<", ">"]
+        return !placeholderTerms.contains { loweredURL.contains($0) }
     }
 }
 
 public enum DistributableBuildError: LocalizedError, Equatable {
     case missingBackendConfiguration
     case missingPrivacyDisclosure
+    case missingPrivacyContact
     case missingProfileMigration
 
     public var errorDescription: String? {
         switch self {
         case .missingBackendConfiguration: "Distributable builds require a configured backend (https baseURL + token)."
         case .missingPrivacyDisclosure: "Distributable builds require a complete privacy disclosure."
+        case .missingPrivacyContact: "Distributable builds require a configured HTTPS privacy contact URL."
         case .missingProfileMigration: "Project profile is incompatible; migrate before distribution."
         }
     }
@@ -91,6 +132,8 @@ public struct DistributableBuildValidator: Sendable {
         }
         do {
             try privacy.validateForDistributableBuild()
+        } catch DistributableBuildError.missingPrivacyContact {
+            throw DistributableBuildError.missingPrivacyContact
         } catch {
             throw DistributableBuildError.missingPrivacyDisclosure
         }

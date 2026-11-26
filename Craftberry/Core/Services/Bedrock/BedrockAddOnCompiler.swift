@@ -36,7 +36,11 @@ public protocol AddOnCompiling: Sendable {
 }
 
 public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
-    public init() {}
+    private let retentionPruner: any SidecarRetentionPruning
+
+    public init(retentionPruner: any SidecarRetentionPruning = SidecarRetentionService()) {
+        self.retentionPruner = retentionPruner
+    }
 
     public func compile(
         project: AddOnProject,
@@ -76,6 +80,11 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
         try sidecarData.write(to: sidecarURL, options: .atomic)
         try archiveData.write(to: outputURL, options: .atomic)
+        let buildCreatedAt = Date()
+        let createdAtMarker = buildDirectory.appending(path: SidecarRetentionService.createdAtFilename)
+        // The artifact is complete. Cleanup metadata and pruning can retry on the next launch/build.
+        try? Data(String(buildCreatedAt.timeIntervalSince1970).utf8).write(to: createdAtMarker, options: .atomic)
+        _ = try? retentionPruner.prune(in: outputDirectory, now: buildCreatedAt)
 
         let report = CompilationReport(
             profileID: profile.id,

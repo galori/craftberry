@@ -119,7 +119,7 @@ final class HardeningTests: XCTestCase {
         let storage = InMemoryTelemetryStorage(optedIn: false)
         let sink = InMemoryTelemetrySink()
         let manager = TelemetryManager(storage: storage, sink: sink)
-        manager.record(name: "generate.tapped")
+        manager.record(name: "generation.requested")
         XCTAssertTrue(sink.events.isEmpty)
     }
 
@@ -127,9 +127,9 @@ final class HardeningTests: XCTestCase {
         let storage = InMemoryTelemetryStorage(optedIn: true)
         let sink = InMemoryTelemetrySink()
         let manager = TelemetryManager(storage: storage, sink: sink)
-        manager.record(name: "generate.succeeded", properties: ["outcome": "ready"])
+        manager.record(name: "generation.succeeded", properties: ["outcome": "ready"])
         XCTAssertEqual(sink.events.count, 1)
-        XCTAssertEqual(sink.events.first?.name, "generate.succeeded")
+        XCTAssertEqual(sink.events.first?.name, "generation.succeeded")
     }
 
     func testTelemetryOptInToggle() {
@@ -139,17 +139,19 @@ final class HardeningTests: XCTestCase {
         XCTAssertFalse(manager.isOptedIn)
         manager.setOptedIn(true)
         XCTAssertTrue(manager.isOptedIn)
-        manager.record(name: "x")
+        manager.record(name: "generation.requested")
         XCTAssertEqual(sink.events.count, 1)
         manager.setOptedIn(false)
-        manager.record(name: "y")
-        XCTAssertEqual(sink.events.count, 1)
+        manager.record(name: "generation.succeeded")
+        XCTAssertTrue(sink.events.isEmpty)
     }
 
     // MARK: - Privacy
 
-    func testPrivacyDisclosureCurrentIsValidForDistribution() {
-        XCTAssertNoThrow(try PrivacyDisclosure.current.validateForDistributableBuild())
+    func testPrivacyDisclosureCurrentWithoutContactFailsDistributionValidation() {
+        XCTAssertThrowsError(try PrivacyDisclosure.current.validateForDistributableBuild()) { error in
+            XCTAssertEqual(error as? DistributableBuildError, .missingPrivacyContact)
+        }
     }
 
     func testPrivacyDisclosureEmptyFailsValidation() {
@@ -160,9 +162,13 @@ final class HardeningTests: XCTestCase {
     func testDistributableValidatorRequiresBackendAndPrivacy() {
         let validator = DistributableBuildValidator()
         let goodBackend = BackendConfiguration(baseURL: URL(string: "https://api.craftberry.example.com")!, authToken: "1234567890123456")
-        XCTAssertNoThrow(try validator.validate(backend: goodBackend, privacy: .current))
-        XCTAssertThrowsError(try validator.validate(backend: .empty, privacy: .current)) { error in
+        let configuredPrivacy = PrivacyDisclosure.configured(contactURLString: "https://privacy-contact.craftberry.com/privacy")
+        XCTAssertNoThrow(try validator.validate(backend: goodBackend, privacy: configuredPrivacy))
+        XCTAssertThrowsError(try validator.validate(backend: .empty, privacy: configuredPrivacy)) { error in
             XCTAssertEqual(error as? DistributableBuildError, .missingBackendConfiguration)
+        }
+        XCTAssertThrowsError(try validator.validate(backend: goodBackend, privacy: .current)) { error in
+            XCTAssertEqual(error as? DistributableBuildError, .missingPrivacyContact)
         }
         let badPrivacy = PrivacyDisclosure(title: "", summary: "", dataCollected: [], dataNotCollected: [], retentionSummary: "", contactURL: nil)
         XCTAssertThrowsError(try validator.validate(backend: goodBackend, privacy: badPrivacy))

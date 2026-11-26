@@ -188,6 +188,27 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertFalse((app.textViews["craftberry.prompt"].value as? String ?? "").isEmpty)
     }
 
+    func testPrivacyDisclosureAndTelemetryOptInAreAvailable() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing"]
+        app.launch()
+
+        XCTAssertTrue(waitForElement("craftberry.state.editing", in: app, timeout: 8))
+        app.buttons["craftberry.privacySettings"].tap()
+
+        XCTAssertTrue(app.navigationBars["Privacy & Data"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "prompts, artwork, project names, or files")).firstMatch.exists)
+        let telemetrySwitch = app.switches["craftberry.telemetryOptIn"]
+        XCTAssertTrue(telemetrySwitch.waitForExistence(timeout: 3))
+        if (telemetrySwitch.value as? String) != "1" { telemetrySwitch.tap() }
+        XCTAssertEqual(telemetrySwitch.value as? String, "1")
+        app.buttons["craftberry.deleteTelemetry"].tap()
+        XCTAssertTrue(app.staticTexts["craftberry.privacyStatus"].waitForExistence(timeout: 3))
+        telemetrySwitch.tap()
+        XCTAssertEqual(telemetrySwitch.value as? String, "0")
+        XCTAssertTrue(app.buttons["Done"].exists)
+    }
+
     private func suggestionLabels(in app: XCUIApplication) -> [String] {
         (0..<3).compactMap { index in
             let button = app.buttons["craftberry.suggestion.\(index)"]
