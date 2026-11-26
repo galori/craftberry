@@ -67,6 +67,15 @@ final class ExamplePromptLibraryTests: XCTestCase {
         })
     }
 
+    func testCropPromptsSurfaceVisibleGrowthAndHarvesting() {
+        let cropPrompts = ExamplePromptLibrary.all
+            .map { $0.text.lowercased() }
+            .filter { $0.contains("crop set") }
+        XCTAssertGreaterThanOrEqual(cropPrompts.count, 4)
+        XCTAssertGreaterThanOrEqual(cropPrompts.filter { $0.contains("grow") || $0.contains("growth") }.count, 4)
+        XCTAssertGreaterThanOrEqual(cropPrompts.filter { $0.contains("harvest") || $0.contains("produce") }.count, 4)
+    }
+
     func testSelectionReturnsTheRequestedNumberOfDistinctPrompts() {
         var generator = SeededGenerator(seed: 7)
         let selection = ExamplePromptLibrary.selection(count: 3, using: &generator)

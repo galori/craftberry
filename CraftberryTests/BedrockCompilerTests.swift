@@ -895,13 +895,21 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertNotNil((terrain["texture_data"] as? [String: Any])?["azure_a1b2c3_ore"])
     }
 
-    func testCompilerEmitsMaterialCropSetWithStatesAndPermutations() throws {
+    func testCompilerEmitsPlantableGrowingCropWithStageSpecificHarvestAndScript() throws {
         let project = try AddOnProject.materialCropSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "crop", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: directory) }
         let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
         let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
         let behavior = try pack(named: "azure_a1b2c3_seed_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_seed_resources.mcpack", in: outer)
+        let seed = try json(named: "items/azure_a1b2c3_seed.json", in: behavior)
+        let seedBody = try XCTUnwrap(seed["minecraft:item"] as? [String: Any])
+        let seedComponents = try XCTUnwrap(seedBody["components"] as? [String: Any])
+        let placer = try XCTUnwrap(seedComponents["minecraft:block_placer"] as? [String: Any])
+        XCTAssertEqual(placer["block"] as? String, "craftberry:azure_a1b2c3_crop")
+        XCTAssertEqual(placer["use_on"] as? [String], ["minecraft:farmland"])
+
         let block = try json(named: "blocks/azure_a1b2c3_crop.json", in: behavior)
         let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
         let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
@@ -912,11 +920,62 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(values["max"] as? Int, 7)
         let perms = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
         XCTAssertEqual(perms.count, 8)
-        XCTAssertTrue(perms.allSatisfy { ($0["condition"] as? String)?.contains("craftberry:growth") == true })
-        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop.json", in: behavior)
+        let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
+        let placement = try XCTUnwrap(components["minecraft:placement_filter"] as? [String: Any])
+        let conditions = try XCTUnwrap(placement["conditions"] as? [[String: Any]])
+        XCTAssertEqual(conditions.first?["allowed_faces"] as? [String], ["up"])
+        XCTAssertEqual(conditions.first?["block_filter"] as? [String], ["minecraft:farmland"])
+        XCTAssertEqual(components["minecraft:geometry"] as? String, "geometry.craftberry_crop")
+        XCTAssertEqual(components["minecraft:collision_box"] as? Bool, false)
+        XCTAssertEqual(components["minecraft:loot"] as? String, "loot_tables/blocks/azure_a1b2c3_crop_seeds.json")
+        XCTAssertEqual(components["craftberry:crop_grow"] as? [String: Int], ["stage_count": 8])
+        for (stage, permutation) in perms.enumerated() {
+            XCTAssertEqual(permutation["condition"] as? String, "query.block_state('craftberry:growth') == \(stage)")
+            let permutationComponents = try XCTUnwrap(permutation["components"] as? [String: Any])
+            let materialInstances = try XCTUnwrap(permutationComponents["minecraft:material_instances"] as? [String: Any])
+            let allFaces = try XCTUnwrap(materialInstances["*"] as? [String: Any])
+            XCTAssertEqual(allFaces["texture"] as? String, "azure_a1b2c3_crop_stage_\(stage)")
+            XCTAssertEqual(allFaces["render_method"] as? String, "alpha_test")
+            let expectedLoot = stage == 7 ? "loot_tables/blocks/azure_a1b2c3_crop_harvest.json" : nil
+            XCTAssertEqual(permutationComponents["minecraft:loot"] as? String, expectedLoot)
+        }
+
+        let unripeLoot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop_seeds.json", in: behavior)
+        let unripePools = try XCTUnwrap(unripeLoot["pools"] as? [[String: Any]])
+        let unripeEntry = try XCTUnwrap((unripePools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(unripeEntry["name"] as? String, "craftberry:azure_a1b2c3_seed")
+        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop_harvest.json", in: behavior)
         let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
-        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
-        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_produce")
+        let harvestItems = pools.compactMap { ($0["entries"] as? [[String: Any]])?.first?["name"] as? String }
+        XCTAssertEqual(harvestItems, ["craftberry:azure_a1b2c3_produce", "craftberry:azure_a1b2c3_seed"])
+
+        let manifest = try json(named: "manifest.json", in: behavior)
+        let modules = try XCTUnwrap(manifest["modules"] as? [[String: Any]])
+        let scriptModule = try XCTUnwrap(modules.first(where: { $0["type"] as? String == "script" }))
+        XCTAssertEqual(scriptModule["language"] as? String, "javascript")
+        XCTAssertEqual(scriptModule["entry"] as? String, "scripts/craftberry.js")
+        let dependencies = try XCTUnwrap(manifest["dependencies"] as? [[String: Any]])
+        XCTAssertTrue(dependencies.contains { $0["module_name"] as? String == "@minecraft/server" && $0["version"] as? String == "2.0.0" })
+        let scriptEntry = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/craftberry.js" }))
+        let script = try XCTUnwrap(String(data: scriptEntry.data, encoding: .utf8))
+        XCTAssertTrue(script.contains("onRandomTick"))
+        XCTAssertTrue(script.contains("stage + 1"))
+        XCTAssertTrue(script.contains("stage >= stageCount - 1"))
+
+        let stageTextures = (0..<8).compactMap { stage in
+            resources.first { $0.path == "textures/blocks/azure_a1b2c3_crop_stage_\(stage).png" }?.data
+        }
+        XCTAssertEqual(stageTextures.count, 8)
+        XCTAssertEqual(Set(stageTextures.map { $0.base64EncodedString() }).count, 8)
+        let terrain = try json(named: "textures/terrain_texture.json", in: resources)
+        let terrainData = try XCTUnwrap(terrain["texture_data"] as? [String: Any])
+        for stage in 0..<8 {
+            XCTAssertNotNil(terrainData["azure_a1b2c3_crop_stage_\(stage)"])
+        }
+        let geometry = try json(named: "models/blocks/craftberry_crop.geo.json", in: resources)
+        let geometries = try XCTUnwrap(geometry["minecraft:geometry"] as? [[String: Any]])
+        let bones = try XCTUnwrap(geometries.first?["bones"] as? [[String: Any]])
+        XCTAssertEqual((bones.first?["cubes"] as? [[String: Any]])?.count, 2)
     }
 
     func testCompilerEmitsMaterialEntitySetWithSpawnAndLoot() throws {

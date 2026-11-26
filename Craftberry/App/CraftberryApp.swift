@@ -119,6 +119,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneBrewingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-brewing-set")
         let usesRedstoneStructureSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-structure-set")
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
+        let usesCropGrowth = ProcessInfo.processInfo.arguments.contains("--ui-testing-crop-growth")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesRedstoneBossSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-boss-set")
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
@@ -201,6 +202,16 @@ private struct UITestingLLMClient: LLMClient {
                 destroyTime: 3.0,
                 mapColor: "#B01A14",
                 shortDescription: "A redstone ore kit with a custom ingot and ore block.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesCropGrowth {
+            project = try AddOnProject.materialCropSet(
+                materialName: "Crop Growth",
+                color: .green,
+                sourceItem: "minecraft:diamond",
+                sourceCount: 4,
+                shortDescription: "A plantable crop with eight visible growth stages and mature harvest drops.",
                 originalPrompt: prompt,
                 identity: identity
             )

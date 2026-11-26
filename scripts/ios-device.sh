@@ -330,9 +330,9 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         crop)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneCropSetCanCraftSeedsInImportedCreativeWorld"
-            result_name="MinecraftRedstoneCropSetE2EUITests"
-            prepared_world_name="Redstone (Creative)"
+            test_selector="CraftberryUITests/MinecraftCropGrowthE2EUITests/testCropSeedPlantsGrowsToMaturityAndDropsProduce"
+            result_name="MinecraftCropGrowthE2EUITests"
+            prepared_world_name="Crop Growth (Creative)"
             ;;
         entity)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneHostileEntityDamagesPlayerInSurvival"

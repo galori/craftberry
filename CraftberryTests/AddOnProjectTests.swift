@@ -184,7 +184,7 @@ final class AddOnProjectTests: XCTestCase {
             originalPrompt: "Azure diamond material set", identity: testIdentity()
         )
 
-        XCTAssertEqual(project.schemaVersion, 3)
+        XCTAssertEqual(project.schemaVersion, AddOnProject.currentSchemaVersion)
         XCTAssertEqual(project.items.map(\.id), [ContentID("azure_a1b2c3_ingot"), ContentID("azure_a1b2c3_sword")])
         XCTAssertEqual(project.items.first?.displayName, "Azure Ingot")
         XCTAssertEqual(project.items.first?.traits, ItemTraits())
@@ -410,7 +410,7 @@ final class AddOnProjectTests: XCTestCase {
         let project = try makeSwordProject()
         let v1 = AddOnProject(schemaVersion: 1, id: project.id, namespace: project.namespace, displayName: project.displayName, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: project.targetProfileID, originalPrompt: project.originalPrompt, content: project.content)
         let migrated = try v1.migratedToCurrentSchema()
-        XCTAssertEqual(migrated.schemaVersion, 3)
+        XCTAssertEqual(migrated.schemaVersion, AddOnProject.currentSchemaVersion)
         XCTAssertEqual(migrated.id, v1.id)
         XCTAssertEqual(migrated.packUUIDs, v1.packUUIDs)
         XCTAssertEqual(migrated.content, v1.content)
@@ -425,7 +425,7 @@ final class AddOnProjectTests: XCTestCase {
             identity: testIdentity()
         )
 
-        XCTAssertEqual(project.schemaVersion, 3)
+        XCTAssertEqual(project.schemaVersion, AddOnProject.currentSchemaVersion)
         XCTAssertEqual(project.shortDescription, "A bright custom sword tuned for quick cave runs.")
 
         let sidecar = try JSONEncoder().encode(project)
@@ -449,6 +449,82 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(v2.schemaVersion, 2)
         XCTAssertEqual(v2.shortDescription, "Azure adds 6 custom items with matching crafting recipes.")
     }
+
+    func testV3CropSidecarMigratesPlantingAndGrowthResources() throws {
+        let project = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            originalPrompt: "Azure crop",
+            identity: testIdentity()
+        )
+        var sidecar = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(project)) as? [String: Any])
+        sidecar["schemaVersion"] = 3
+        var content = try XCTUnwrap(sidecar["content"] as? [[String: Any]])
+        for index in content.indices {
+            guard var value = content[index]["value"] as? [String: Any] else { continue }
+            if content[index]["type"] as? String == "block" {
+                value["seedItemID"] = nil
+                value["growthStageResourceIDs"] = nil
+            } else if content[index]["type"] as? String == "item",
+                      var traits = value["traits"] as? [String: Any] {
+                traits["blockPlacer"] = nil
+                value["traits"] = traits
+            } else if content[index]["type"] as? String == "visualResource" {
+                value["growthStage"] = nil
+                value["growthStageCount"] = nil
+            }
+            content[index]["value"] = value
+        }
+        sidecar["content"] = content
+        var packUUIDs = try XCTUnwrap(sidecar["packUUIDs"] as? [String: Any])
+        packUUIDs["behaviorScriptModule"] = nil
+        sidecar["packUUIDs"] = packUUIDs
+
+        let decoded = try JSONDecoder().decode(AddOnProject.self, from: JSONSerialization.data(withJSONObject: sidecar))
+        let migrated = try decoded.migratedToCurrentSchema()
+        let crop = try XCTUnwrap(migrated.blocks.first)
+        let seedID = try XCTUnwrap(crop.seedItemID)
+        XCTAssertEqual(seedID, ContentID("azure_a1b2c3_seed"))
+        XCTAssertEqual(crop.growthStageResourceIDs?.count, 8)
+        XCTAssertEqual(migrated.items.first(where: { $0.id == seedID })?.traits.blockPlacer?.blockID, crop.id)
+        XCTAssertEqual(migrated.visualResources.filter { $0.growthStage != nil }.count, 8)
+        XCTAssertNotNil(migrated.packUUIDs.behaviorScriptModule)
+    }
+
+    func testOldItemTraitsDecodeWithoutBlockPlacer() throws {
+        let legacyTraits = Data(#"{"handEquipped":false,"maximumStackSize":64}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(ItemTraits.self, from: legacyTraits).blockPlacer)
+    }
+
+    func testGrowingCropRequiresStableScriptModuleIdentifier() throws {
+        let project = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            originalPrompt: "Azure crop",
+            identity: testIdentity()
+        )
+        let invalidProject = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            packUUIDs: PackUUIDs(
+                behaviorHeader: project.packUUIDs.behaviorHeader,
+                behaviorModule: project.packUUIDs.behaviorModule,
+                resourceHeader: project.packUUIDs.resourceHeader,
+                resourceModule: project.packUUIDs.resourceModule
+            ),
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content
+        )
+
+        let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
+
+        XCTAssertEqual(report.errors.map(\.code), ["missing_crop_script_module_uuid"])
+        XCTAssertEqual(report.errors.first?.path, "packUUIDs.behaviorScriptModule")
+    }
+
     func testSwordArchetypeRejectsInvalidSemanticTraits() {
         XCTAssertThrowsError(
             try AddOnProject.sword(

@@ -38,7 +38,7 @@ public struct CompilationReport: Codable, Equatable, Sendable {
 public enum AddOnProjectValidator {
     public static func validate(_ project: AddOnProject, profile: BedrockContentProfile) -> CompilationReport {
         var issues: [CompilationIssue] = []
-        if project.schemaVersion != 1 && project.schemaVersion != 2 && project.schemaVersion != AddOnProject.currentSchemaVersion {
+        if project.schemaVersion != 1 && project.schemaVersion != 2 && project.schemaVersion != 3 && project.schemaVersion != AddOnProject.currentSchemaVersion {
             issues.append(
                 CompilationIssue(
                     severity: .error,
@@ -69,6 +69,16 @@ public enum AddOnProjectValidator {
             )
         }
         appendDuplicateUUIDIssue(project.packUUIDs, to: &issues)
+        if project.blocks.contains(where: { $0.growthStages != nil }), project.packUUIDs.behaviorScriptModule == nil {
+            issues.append(
+                CompilationIssue(
+                    severity: .error,
+                    code: "missing_crop_script_module_uuid",
+                    path: "packUUIDs.behaviorScriptModule",
+                    message: "Growing crops require a dedicated behavior script module identifier."
+                )
+            )
+        }
         appendDuplicateIssues(
             values: project.items.map(\.id),
             code: "duplicate_item_id",
@@ -194,6 +204,33 @@ public enum AddOnProjectValidator {
             }
             if let stages = block.growthStages, !(2...16).contains(stages) {
                 issues.append(CompilationIssue(severity: .error, code: "invalid_block_growth_stages", path: "\(blockPath).growthStages", message: "Crop growth stages must be between 2 and 16."))
+            }
+            if let stages = block.growthStages {
+                if let seedItemID = block.seedItemID {
+                    if !itemIDs.contains(seedItemID) {
+                        issues.append(CompilationIssue(severity: .error, code: "missing_crop_seed_item", path: "\(blockPath).seedItemID", message: "Crop references missing seed item \(seedItemID.rawValue)."))
+                    } else if project.items.first(where: { $0.id == seedItemID })?.traits.blockPlacer?.blockID != block.id {
+                        issues.append(CompilationIssue(severity: .error, code: "invalid_crop_seed_placer", path: "content.items.\(seedItemID.rawValue).traits.blockPlacer.blockID", message: "Crop seed must place its matching crop block."))
+                    }
+                } else {
+                    issues.append(CompilationIssue(severity: .error, code: "missing_crop_seed_item", path: "\(blockPath).seedItemID", message: "Growing crops must identify the seed item used to plant them."))
+                }
+                if let stageResourceIDs = block.growthStageResourceIDs {
+                    if stageResourceIDs.count != stages {
+                        issues.append(CompilationIssue(severity: .error, code: "invalid_crop_growth_resources", path: "\(blockPath).growthStageResourceIDs", message: "Growing crops must provide one terrain visual for each growth stage."))
+                    }
+                    for (stage, resourceID) in stageResourceIDs.enumerated() {
+                        guard let resource = project.visualResources.first(where: { $0.id == resourceID }) else {
+                            issues.append(CompilationIssue(severity: .error, code: "missing_crop_growth_resource", path: "\(blockPath).growthStageResourceIDs[\(stage)]", message: "Crop growth stage \(stage) references missing visual resource \(resourceID.rawValue)."))
+                            continue
+                        }
+                        if resource.kind != .cropTerrain || resource.growthStage != stage || resource.growthStageCount != stages {
+                            issues.append(CompilationIssue(severity: .error, code: "invalid_crop_growth_resource", path: "\(blockPath).growthStageResourceIDs[\(stage)]", message: "Each crop growth resource must be a crop terrain visual marked for its matching stage."))
+                        }
+                    }
+                } else {
+                    issues.append(CompilationIssue(severity: .error, code: "missing_crop_growth_resources", path: "\(blockPath).growthStageResourceIDs", message: "Growing crops must provide a distinct terrain visual for every stage."))
+                }
             }
             if let loot = block.lootDropID, !itemIDs.contains(loot) {
                 issues.append(CompilationIssue(severity: .error, code: "missing_block_loot_item", path: "\(blockPath).lootDropID", message: "Block loot target \(loot.rawValue) must be a generated item."))
@@ -743,7 +780,7 @@ public enum AddOnProjectValidator {
             packUUIDs.behaviorModule,
             packUUIDs.resourceHeader,
             packUUIDs.resourceModule
-        ]
+        ] + (packUUIDs.behaviorScriptModule.map { [$0] } ?? [])
         guard Set(values).count != values.count else { return }
         issues.append(
             CompilationIssue(
@@ -789,6 +826,11 @@ public enum AddOnProjectValidator {
                 false
             }
         }
+    }
+
+    private static func isValidNamespacedIdentifier(_ value: String) -> Bool {
+        let parts = value.split(separator: ":", omittingEmptySubsequences: false)
+        return parts.count == 2 && parts.allSatisfy { isValidIdentifierSegment(String($0)) }
     }
 
     private static func appendUnsupportedTrait(

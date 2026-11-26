@@ -210,7 +210,11 @@ final class MinecraftE2EHarness {
         testCase.attachScreenshot("Minecraft confirmed the preconfigured world import")
     }
 
-    func runPreconfiguredWorld(_ scenario: MinecraftE2EScenario, gameMode: MinecraftWorldGameMode) throws {
+    func runPreconfiguredWorld(
+        _ scenario: MinecraftE2EScenario,
+        gameMode: MinecraftWorldGameMode,
+        freshPackIdentity: Bool = true
+    ) throws {
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
             throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
@@ -219,9 +223,9 @@ final class MinecraftE2EHarness {
         let craftberry = XCUIApplication()
         craftberry.launchArguments = [
             "--ui-testing",
-            scenario.launchArgument,
-            "--ui-testing-fresh-pack-identity"
-        ] + scenario.additionalLaunchArguments
+            scenario.launchArgument
+        ] + (freshPackIdentity ? ["--ui-testing-fresh-pack-identity"] : [])
+            + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 

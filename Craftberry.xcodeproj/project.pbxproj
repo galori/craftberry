@@ -70,6 +70,7 @@
 		A10000000000000000000050 /* MinecraftCalibrationHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000050 /* MinecraftCalibrationHarness.swift */; };
 		A10000000000000000000051 /* MinecraftCalibrationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000051 /* MinecraftCalibrationUITests.swift */; };
 		A10000000000000000000052 /* MinecraftE2EStepSlices.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000052 /* MinecraftE2EStepSlices.swift */; };
+		A10000000000000000000058 /* MinecraftCropGrowthE2EUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000062 /* MinecraftCropGrowthE2EUITests.swift */; };
 		A10000000000000000000036 /* RecipeBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* RecipeBook.swift */; };
 /* End PBXBuildFile section */
 
@@ -118,6 +119,7 @@
 		A20000000000000000000010 /* BedrockAddOnCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockAddOnCompiler.swift; sourceTree = "<group>"; };
 		A20000000000000000000060 /* MCStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCStructure.swift; sourceTree = "<group>"; };
 		A20000000000000000000061 /* BedrockWorldTemplate */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BedrockWorldTemplate; path = Resources/BedrockWorldTemplate; sourceTree = "<group>"; };
+		A20000000000000000000062 /* MinecraftCropGrowthE2EUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCropGrowthE2EUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* ContentIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIdentityTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* BedrockCompilerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedrockCompilerTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -274,6 +276,7 @@
 				A20000000000000000000028 /* MinecraftHandoffUITests.swift */,
 				A20000000000000000000030 /* MinecraftCoordinateTouchUITests.swift */,
 				A20000000000000000000031 /* MinecraftDeviceE2EUITests.swift */,
+				A20000000000000000000062 /* MinecraftCropGrowthE2EUITests.swift */,
 				A20000000000000000000033 /* MinecraftE2ESupportTests.swift */,
 				B2B54F7B973E45A9BF1618A5 /* MinecraftFurnacePlanCompilerTests.swift */,
 				8A746230871F4BCD830FABEA /* MinecraftFurnaceFuelE2ETests.swift */,
@@ -549,6 +552,7 @@
 				A10000000000000000000023 /* MinecraftHandoffUITests.swift in Sources */,
 				A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */,
 				A10000000000000000000026 /* MinecraftDeviceE2EUITests.swift in Sources */,
+				A10000000000000000000058 /* MinecraftCropGrowthE2EUITests.swift in Sources */,
 				A10000000000000000000028 /* MinecraftE2ESupportTests.swift in Sources */,
 				A10000000000000000000051 /* MinecraftCalibrationUITests.swift in Sources */,
 				FE63C29E57D149A59A239B6B /* MinecraftFurnacePlanCompilerTests.swift in Sources */,

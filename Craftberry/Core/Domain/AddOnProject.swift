@@ -19,12 +19,14 @@ public struct PackUUIDs: Codable, Equatable, Sendable {
     public let behaviorModule: UUID
     public let resourceHeader: UUID
     public let resourceModule: UUID
+    public let behaviorScriptModule: UUID?
 
-    public init(behaviorHeader: UUID, behaviorModule: UUID, resourceHeader: UUID, resourceModule: UUID) {
+    public init(behaviorHeader: UUID, behaviorModule: UUID, resourceHeader: UUID, resourceModule: UUID, behaviorScriptModule: UUID? = nil) {
         self.behaviorHeader = behaviorHeader
         self.behaviorModule = behaviorModule
         self.resourceHeader = resourceHeader
         self.resourceModule = resourceModule
+        self.behaviorScriptModule = behaviorScriptModule
     }
 }
 
@@ -54,7 +56,8 @@ public struct AddOnProjectIdentity: Codable, Equatable, Sendable {
                 behaviorHeader: uuidGenerator(),
                 behaviorModule: uuidGenerator(),
                 resourceHeader: uuidGenerator(),
-                resourceModule: uuidGenerator()
+                resourceModule: uuidGenerator(),
+                behaviorScriptModule: uuidGenerator()
             )
         )
     }
@@ -191,6 +194,16 @@ public struct EntityPlacerTrait: Codable, Equatable, Sendable {
     }
 }
 
+public struct BlockPlacerTrait: Codable, Equatable, Sendable {
+    public let blockID: ContentID
+    public let useOn: [String]
+
+    public init(blockID: ContentID, useOn: [String] = ["minecraft:farmland"]) {
+        self.blockID = blockID
+        self.useOn = useOn
+    }
+}
+
 public struct ItemTraits: Codable, Equatable, Sendable {
     public let combat: CombatTrait?
     public let durability: DurabilityTrait?
@@ -202,6 +215,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
     public let enchantment: EnchantmentTrait?
     public let entityPlacer: EntityPlacerTrait?
     public let musicRecord: MusicRecordTrait?
+    public let blockPlacer: BlockPlacerTrait?
 
     public init(
         combat: CombatTrait? = nil,
@@ -213,7 +227,8 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         fuel: FuelTrait? = nil,
         enchantment: EnchantmentTrait? = nil,
         entityPlacer: EntityPlacerTrait? = nil,
-        musicRecord: MusicRecordTrait? = nil
+        musicRecord: MusicRecordTrait? = nil,
+        blockPlacer: BlockPlacerTrait? = nil
     ) {
         self.combat = combat
         self.durability = durability
@@ -225,6 +240,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         self.enchantment = enchantment
         self.entityPlacer = entityPlacer
         self.musicRecord = musicRecord
+        self.blockPlacer = blockPlacer
     }
 }
 
@@ -440,8 +456,20 @@ public struct BlockDefinition: Codable, Equatable, Sendable {
     public let terrainResourceID: ContentID
     public let lootDropID: ContentID?
     public let growthStages: Int?
+    public let seedItemID: ContentID?
+    public let growthStageResourceIDs: [ContentID]?
 
-    public init(id: ContentID, displayName: String, destroyTime: Double, mapColor: String, terrainResourceID: ContentID, lootDropID: ContentID? = nil, growthStages: Int? = nil) {
+    public init(
+        id: ContentID,
+        displayName: String,
+        destroyTime: Double,
+        mapColor: String,
+        terrainResourceID: ContentID,
+        lootDropID: ContentID? = nil,
+        growthStages: Int? = nil,
+        seedItemID: ContentID? = nil,
+        growthStageResourceIDs: [ContentID]? = nil
+    ) {
         self.id = id
         self.displayName = displayName
         self.destroyTime = destroyTime
@@ -449,9 +477,11 @@ public struct BlockDefinition: Codable, Equatable, Sendable {
         self.terrainResourceID = terrainResourceID
         self.lootDropID = lootDropID
         self.growthStages = growthStages
+        self.seedItemID = seedItemID
+        self.growthStageResourceIDs = growthStageResourceIDs
     }
 
-    private enum CodingKeys: String, CodingKey { case id, displayName, destroyTime, mapColor, terrainResourceID, lootDropID, growthStages }
+    private enum CodingKeys: String, CodingKey { case id, displayName, destroyTime, mapColor, terrainResourceID, lootDropID, growthStages, seedItemID, growthStageResourceIDs }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -462,6 +492,8 @@ public struct BlockDefinition: Codable, Equatable, Sendable {
         self.terrainResourceID = try c.decode(ContentID.self, forKey: .terrainResourceID)
         self.lootDropID = try c.decodeIfPresent(ContentID.self, forKey: .lootDropID)
         self.growthStages = try c.decodeIfPresent(Int.self, forKey: .growthStages)
+        self.seedItemID = try c.decodeIfPresent(ContentID.self, forKey: .seedItemID)
+        self.growthStageResourceIDs = try c.decodeIfPresent([ContentID].self, forKey: .growthStageResourceIDs)
     }
 }
 
@@ -545,12 +577,16 @@ public struct VisualResource: Codable, Equatable, Sendable {
     public let kind: VisualResourceKind
     public let color: PixelArtColor
     public let customPixels: Data?
+    public let growthStage: Int?
+    public let growthStageCount: Int?
 
-    public init(id: ContentID, kind: VisualResourceKind, color: PixelArtColor, customPixels: Data? = nil) {
+    public init(id: ContentID, kind: VisualResourceKind, color: PixelArtColor, customPixels: Data? = nil, growthStage: Int? = nil, growthStageCount: Int? = nil) {
         self.id = id
         self.kind = kind
         self.color = color
         self.customPixels = customPixels
+        self.growthStage = growthStage
+        self.growthStageCount = growthStageCount
     }
 }
 
@@ -643,7 +679,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
 }
 
 public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
-    public static let currentSchemaVersion = 3
+    public static let currentSchemaVersion = 4
 
     public let schemaVersion: Int
     public let id: UUID
@@ -774,7 +810,110 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     public func migratedToCurrentSchema() throws -> AddOnProject {
         guard schemaVersion <= Self.currentSchemaVersion else { throw AddOnProjectError.unsupportedProjectSchema(schemaVersion) }
         guard schemaVersion != Self.currentSchemaVersion else { return self }
-        return AddOnProject(schemaVersion: Self.currentSchemaVersion, id: id, namespace: namespace, displayName: displayName, shortDescription: shortDescription, packUUIDs: packUUIDs, buildVersion: buildVersion, targetProfileID: targetProfileID, originalPrompt: originalPrompt, content: content)
+        let migratedContent = Self.migrateLegacyCropContent(content)
+        let needsCropScript = migratedContent.contains { node in
+            if case .block(let block) = node { return block.growthStages != nil }
+            return false
+        }
+        let migratedUUIDs = PackUUIDs(
+            behaviorHeader: packUUIDs.behaviorHeader,
+            behaviorModule: packUUIDs.behaviorModule,
+            resourceHeader: packUUIDs.resourceHeader,
+            resourceModule: packUUIDs.resourceModule,
+            behaviorScriptModule: packUUIDs.behaviorScriptModule ?? (needsCropScript ? UUID() : nil)
+        )
+        return AddOnProject(schemaVersion: Self.currentSchemaVersion, id: id, namespace: namespace, displayName: displayName, shortDescription: shortDescription, packUUIDs: migratedUUIDs, buildVersion: buildVersion, targetProfileID: targetProfileID, originalPrompt: originalPrompt, content: migratedContent)
+    }
+
+    private static func migrateLegacyCropContent(_ content: [AddOnContentNode]) -> [AddOnContentNode] {
+        let originalBlocks = content.compactMap { if case .block(let block) = $0 { block } else { nil } }
+        var replacementBlocks: [ContentID: BlockDefinition] = [:]
+        var replacementVisuals: [ContentID: VisualResource] = [:]
+        var seedToCrop: [ContentID: ContentID] = [:]
+
+        for block in originalBlocks where block.growthStages != nil {
+            guard let stageCount = block.growthStages else { continue }
+            let inferredSeedID = block.seedItemID ?? {
+                guard block.id.rawValue.hasSuffix("_crop") else { return nil }
+                return ContentID(String(block.id.rawValue.dropLast("_crop".count)) + "_seed")
+            }()
+            let matchingSeedExists = inferredSeedID.map { candidate in
+                content.contains { if case .item(let item) = $0 { item.id == candidate } else { false } }
+            } ?? false
+            let seedID = matchingSeedExists ? inferredSeedID : nil
+            let existingResourceIDs = block.growthStageResourceIDs
+            let resourceIDs: [ContentID] = (0..<stageCount).map { stage in
+                if let existingResourceIDs, existingResourceIDs.indices.contains(stage) { return existingResourceIDs[stage] }
+                if stage == 0 { return block.terrainResourceID }
+                return ContentID("\(block.id.rawValue)_stage_\(stage)")
+            }
+            let baseVisual = content.compactMap { node -> VisualResource? in
+                if case .visualResource(let resource) = node, resource.id == block.terrainResourceID { return resource }
+                return nil
+            }.first
+            for stage in 0..<stageCount {
+                let resourceID = resourceIDs[stage]
+                let color = baseVisual?.color ?? .green
+                replacementVisuals[resourceID] = VisualResource(
+                    id: resourceID,
+                    kind: .cropTerrain,
+                    color: color,
+                    growthStage: stage,
+                    growthStageCount: stageCount
+                )
+            }
+            replacementBlocks[block.id] = BlockDefinition(
+                id: block.id,
+                displayName: block.displayName,
+                destroyTime: block.destroyTime,
+                mapColor: block.mapColor,
+                terrainResourceID: resourceIDs[0],
+                lootDropID: block.lootDropID,
+                growthStages: block.growthStages,
+                seedItemID: seedID,
+                growthStageResourceIDs: resourceIDs
+            )
+            if let seedID { seedToCrop[seedID] = block.id }
+        }
+
+        var result: [AddOnContentNode] = []
+        for node in content {
+            switch node {
+            case .block(let block):
+                result.append(.block(replacementBlocks[block.id] ?? block))
+            case .item(let item):
+                if let cropID = seedToCrop[item.id], item.traits.blockPlacer == nil {
+                    let traits = ItemTraits(
+                        combat: item.traits.combat,
+                        durability: item.traits.durability,
+                        handEquipped: item.traits.handEquipped,
+                        maximumStackSize: item.traits.maximumStackSize,
+                        armor: item.traits.armor,
+                        food: item.traits.food,
+                        fuel: item.traits.fuel,
+                        enchantment: item.traits.enchantment,
+                        entityPlacer: item.traits.entityPlacer,
+                        blockPlacer: BlockPlacerTrait(blockID: cropID)
+                    )
+                    result.append(.item(ItemDefinition(id: item.id, displayName: item.displayName, menuCategory: item.menuCategory, menuGroup: item.menuGroup, traits: traits, visualResourceID: item.visualResourceID)))
+                } else {
+                    result.append(node)
+                }
+            case .visualResource(let resource):
+                result.append(.visualResource(replacementVisuals[resource.id] ?? resource))
+            default:
+                result.append(node)
+            }
+        }
+
+        let existingVisualIDs = Set(result.compactMap { node -> ContentID? in
+            if case .visualResource(let visual) = node { return visual.id }
+            return nil
+        })
+        for visual in replacementVisuals.values where !existingVisualIDs.contains(visual.id) {
+            result.append(.visualResource(visual))
+        }
+        return result
     }
 
     public static func sword(
@@ -1518,19 +1657,29 @@ extension AddOnProject {
         let seedID = ContentID("\(stem)_seed")
         let cropID = ContentID("\(stem)_crop")
         let produceID = ContentID("\(stem)_produce")
-        let terrainID = ContentID("\(stem)_crop_terrain")
-        let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: seedID)
+        let packUUIDs = identity.packUUIDs.behaviorScriptModule == nil
+            ? PackUUIDs(
+                behaviorHeader: identity.packUUIDs.behaviorHeader,
+                behaviorModule: identity.packUUIDs.behaviorModule,
+                resourceHeader: identity.packUUIDs.resourceHeader,
+                resourceModule: identity.packUUIDs.resourceModule,
+                behaviorScriptModule: UUID()
+            )
+            : identity.packUUIDs
+        let stageResourceIDs = (0..<8).map { ContentID("\(cropID.rawValue)_stage_\($0)") }
+        let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: nil, traits: ItemTraits(blockPlacer: BlockPlacerTrait(blockID: cropID)), visualResourceID: seedID)
         let produce = ItemDefinition(id: produceID, displayName: "\(material) Produce", menuCategory: .items, menuGroup: nil, traits: ItemTraits(food: FoodTrait(nutrition: 4, saturationModifier: "0.6")), visualResourceID: produceID)
         let cropItem = ItemDefinition(id: cropID, displayName: "\(material) Crop", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 64), visualResourceID: cropID)
-        let cropBlock = BlockDefinition(id: cropID, displayName: "\(material) Crop", destroyTime: 0.5, mapColor: "#5CDBD5", terrainResourceID: terrainID, lootDropID: produceID, growthStages: 8)
+        let cropBlock = BlockDefinition(id: cropID, displayName: "\(material) Crop", destroyTime: 0.5, mapColor: "#5CDBD5", terrainResourceID: stageResourceIDs[0], lootDropID: produceID, growthStages: stageResourceIDs.count, seedItemID: seedID, growthStageResourceIDs: stageResourceIDs)
         let seedRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_seed_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(seedID), count: 4), unlock: [.vanilla(sourceItem)])
         let visuals = [
             VisualResource(id: seedID, kind: .seedPixelArt, color: color),
             VisualResource(id: produceID, kind: .foodPixelArt, color: color),
-            VisualResource(id: cropID, kind: .cropTerrain, color: color),
-            VisualResource(id: terrainID, kind: .cropTerrain, color: color)
-        ]
-        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(seed), .item(produce), .item(cropItem), .block(cropBlock), .shapelessRecipe(seedRecipe)] + visuals.map(AddOnContentNode.visualResource))
+            VisualResource(id: cropID, kind: .blockPixelArt, color: color)
+        ] + stageResourceIDs.enumerated().map { stage, id in
+            VisualResource(id: id, kind: .cropTerrain, color: color, growthStage: stage, growthStageCount: stageResourceIDs.count)
+        }
+        return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(seed), .item(produce), .item(cropItem), .block(cropBlock), .shapelessRecipe(seedRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }
 
     public static func materialEntitySet(

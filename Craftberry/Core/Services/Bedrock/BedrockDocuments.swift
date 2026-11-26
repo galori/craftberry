@@ -23,11 +23,49 @@ struct ManifestDocument: Encodable {
         let type: String
         let uuid: String
         let version: [Int]
+        let description: String?
+        let language: String?
+        let entry: String?
+
+        init(type: String, uuid: String, version: [Int], description: String? = nil, language: String? = nil, entry: String? = nil) {
+            self.type = type
+            self.uuid = uuid
+            self.version = version
+            self.description = description
+            self.language = language
+            self.entry = entry
+        }
     }
 
     struct Dependency: Encodable {
-        let uuid: String
-        let version: [Int]
+        private let uuid: String?
+        private let moduleName: String?
+        private let uuidVersion: [Int]?
+        private let moduleVersion: String?
+
+        private enum CodingKeys: String, CodingKey { case uuid, moduleName = "module_name", version }
+
+        init(uuid: String, version: [Int]) {
+            self.uuid = uuid
+            moduleName = nil
+            uuidVersion = version
+            moduleVersion = nil
+        }
+
+        init(moduleName: String, version: String) {
+            uuid = nil
+            self.moduleName = moduleName
+            uuidVersion = nil
+            moduleVersion = version
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(uuid, forKey: .uuid)
+            try container.encodeIfPresent(moduleName, forKey: .moduleName)
+            if let uuidVersion { try container.encode(uuidVersion, forKey: .version) }
+            if let moduleVersion { try container.encode(moduleVersion, forKey: .version) }
+        }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -72,6 +110,7 @@ struct ItemDocument: Encodable {
         let fuel: Fuel?
         let enchantable: Enchantable?
         let entityPlacer: EntityPlacer?
+        let blockPlacer: BlockPlacer?
         let useAnimation: UseAnimation?
         let useModifiers: UseModifiers?
         let tags: Tags?
@@ -89,6 +128,7 @@ struct ItemDocument: Encodable {
             case fuel = "minecraft:fuel"
             case enchantable = "minecraft:enchantable"
             case entityPlacer = "minecraft:entity_placer"
+            case blockPlacer = "minecraft:block_placer"
             case useAnimation = "minecraft:use_animation"
             case useModifiers = "minecraft:use_modifiers"
             case tags = "minecraft:tags"
@@ -121,6 +161,13 @@ struct ItemDocument: Encodable {
     struct Enchantable: Encodable { let slot: String; let value: Int }
 
     struct EntityPlacer: Encodable { let entity: String }
+
+    struct BlockPlacer: Encodable {
+        let block: String
+        let useOn: [String]
+
+        enum CodingKeys: String, CodingKey { case block; case useOn = "use_on" }
+    }
 
     struct Tags: Encodable { let tags: [String] }
 
@@ -503,15 +550,25 @@ struct BlockDocument: Encodable {
 
         struct Permutation: Encodable {
             let condition: String
-            let components: [String: Int]?
+            let components: PermutationComponents?
 
             func encode(to encoder: Encoder) throws {
                 var c = encoder.container(keyedBy: CodingKeys.self)
                 try c.encode(condition, forKey: .condition)
-                if let components { try c.encode(components, forKey: .components) }
+                try c.encodeIfPresent(components, forKey: .components)
             }
 
             enum CodingKeys: String, CodingKey { case condition, components }
+        }
+
+        struct PermutationComponents: Encodable {
+            let loot: String?
+            let materialInstances: [String: MaterialInstance]?
+
+            enum CodingKeys: String, CodingKey {
+                case loot = "minecraft:loot"
+                case materialInstances = "minecraft:material_instances"
+            }
         }
     }
 
@@ -546,6 +603,12 @@ struct BlockDocument: Encodable {
         let mapColor: MapColor
         let lightDampening: Int
         let loot: String
+        let geometry: String?
+        let materialInstances: [String: MaterialInstance]?
+        let collisionBox: Bool?
+        let placementFilter: PlacementFilter?
+        let tags: Tags?
+        let cropGrow: CropGrow?
 
         struct DestructibleByMining: Encodable {
             let secondsToDestroy: Double
@@ -560,6 +623,34 @@ struct BlockDocument: Encodable {
             case mapColor = "minecraft:map_color"
             case lightDampening = "minecraft:light_dampening"
             case loot = "minecraft:loot"
+            case geometry = "minecraft:geometry"
+            case materialInstances = "minecraft:material_instances"
+            case collisionBox = "minecraft:collision_box"
+            case placementFilter = "minecraft:placement_filter"
+            case tags = "minecraft:tags"
+            case cropGrow = "craftberry:crop_grow"
+        }
+
+        struct PlacementFilter: Encodable {
+            let conditions: [Condition]
+
+            struct Condition: Encodable {
+                let allowedFaces: [String]
+                let blockFilter: [String]
+
+                enum CodingKeys: String, CodingKey {
+                    case allowedFaces = "allowed_faces"
+                    case blockFilter = "block_filter"
+                }
+            }
+        }
+
+        struct Tags: Encodable { let tags: [String] }
+
+        struct CropGrow: Encodable {
+            let stageCount: Int
+
+            enum CodingKeys: String, CodingKey { case stageCount = "stage_count" }
         }
     }
 
@@ -567,10 +658,85 @@ struct BlockDocument: Encodable {
         let color: String
     }
 
+    struct MaterialInstance: Encodable {
+        let texture: String
+        let renderMethod: String?
+
+        enum CodingKeys: String, CodingKey { case texture; case renderMethod = "render_method" }
+    }
+
     enum CodingKeys: String, CodingKey {
         case formatVersion = "format_version"
         case block = "minecraft:block"
     }
+}
+
+struct CropGeometryDocument: Encodable {
+    let formatVersion = "1.21.10"
+    let geometries: [Geometry]
+
+    struct Geometry: Encodable {
+        let description: Description
+        let bones: [Bone]
+    }
+
+    struct Description: Encodable {
+        let identifier: String
+        let textureWidth: Int
+        let textureHeight: Int
+        let visibleBoundsWidth: Int
+        let visibleBoundsHeight: Int
+        let visibleBoundsOffset: [Int]
+
+        enum CodingKeys: String, CodingKey {
+            case identifier
+            case textureWidth = "texture_width"
+            case textureHeight = "texture_height"
+            case visibleBoundsWidth = "visible_bounds_width"
+            case visibleBoundsHeight = "visible_bounds_height"
+            case visibleBoundsOffset = "visible_bounds_offset"
+        }
+    }
+
+    struct Bone: Encodable {
+        let name: String
+        let pivot: [Int]
+        let cubes: [Cube]
+    }
+
+    struct Cube: Encodable {
+        let origin: [Int]
+        let size: [Int]
+        let pivot: [Int]
+        let rotation: [Int]
+        let uv: [Int]
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case geometries = "minecraft:geometry"
+    }
+
+    static let crop = CropGeometryDocument(geometries: [
+        Geometry(
+            description: Description(
+                identifier: "geometry.craftberry_crop",
+                textureWidth: 16,
+                textureHeight: 16,
+                visibleBoundsWidth: 2,
+                visibleBoundsHeight: 2,
+                visibleBoundsOffset: [0, 0, 0]
+            ),
+            bones: [Bone(
+                name: "world",
+                pivot: [0, 0, 0],
+                cubes: [
+                    Cube(origin: [-8, -1, 0], size: [16, 16, 0], pivot: [0, -1, 0], rotation: [0, 45, 0], uv: [0, 0]),
+                    Cube(origin: [-8, -1, 0], size: [16, 16, 0], pivot: [0, -1, 0], rotation: [0, -45, 0], uv: [0, 0])
+                ]
+            )]
+        )
+    ])
 }
 
 struct EntityDocument: Encodable {
