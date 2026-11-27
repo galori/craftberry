@@ -127,7 +127,7 @@ struct ItemDocument: Encodable {
     struct Record: Encodable {
         let comparatorSignal: Int
         let duration: Double
-        let soundEvent: String
+        let soundEvent: String?
 
         enum CodingKeys: String, CodingKey {
             case comparatorSignal = "comparator_signal"

@@ -460,11 +460,15 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                             movementModifier: 0.35
                         ),
                         tags: item.traits.armor == nil ? nil : ItemDocument.Tags(tags: ["minecraft:is_armor"]),
+                        // shortcut: soundEvent omitted on profiles without musicRecord support,
+                        // when to upgrade: add to supportedItemTraits once sound_event no longer requires Beta APIs.
                         record: item.traits.musicRecord.map { _ in
                             ItemDocument.Record(
                                 comparatorSignal: 12,
                                 duration: MusicRecordAudioRenderer.duration,
-                                soundEvent: MusicRecordAudioRenderer.soundEventIdentifier(for: item.id)
+                                soundEvent: profile.supportedItemTraits.contains(.musicRecord)
+                                    ? MusicRecordAudioRenderer.soundEventIdentifier(for: item.id)
+                                    : nil
                             )
                         }
                     )
@@ -736,7 +740,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             }
         }
         let musicRecords = project.items.filter { $0.traits.musicRecord != nil }
-        if !musicRecords.isEmpty {
+        if !musicRecords.isEmpty && profile.supportedItemTraits.contains(.musicRecord) {
             var soundDefinitions: [String: SoundDefinitionsDocument.SoundDefinition] = [:]
             for item in musicRecords.sorted(by: contentOrder) {
                 let record = try require(

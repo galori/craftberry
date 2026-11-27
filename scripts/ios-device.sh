@@ -32,8 +32,9 @@ Commands:
           remove that exact test world before and after the run.
           The enchant scenario verifies an applied sharpness enchantment on a
           crafted material sword.
-          The music-record scenario crafts a disc, checks jukebox playback,
-          and confirms the disc is ejected.
+          The music-record scenario is currently skipped: custom
+          minecraft:record sound_event names require Beta APIs unavailable
+          in the stable profile.
   minecraft-e2e-all [--fresh-world]
           Run all fifteen stable acceptance scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
