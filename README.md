@@ -18,6 +18,8 @@ The model produces semantic intent only. Swift owns identifiers, UUIDs, Bedrock 
 
 Telemetry is off by default. If enabled in **Privacy & Data**, Craftberry stores fixed action/outcome events locally; it never records prompts, artwork, project names, or files and does not upload telemetry. Turning it off deletes stored events. Before a distributable build, configure `CRAFTBERRY_PRIVACY_CONTACT_URL` with a real HTTPS privacy contact page. Empty or example placeholder URLs fail distributable validation.
 
+Release builds use the authenticated generation service; configuring the HTTPS service origin and Apple App Attest application setup is a separate staging step. See [docs/GENERATION_SERVICE.md](docs/GENERATION_SERVICE.md) for the runnable service and deployment requirements. Debug builds remain on the existing local personal-POC key path.
+
 ## Validate
 
 ```sh

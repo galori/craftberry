@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import XCTest
 #if canImport(CraftberryCore)
 @testable import CraftberryCore
@@ -36,6 +37,12 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer runtime-test-token")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
         let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let encodedAssertionData = request.value(forHTTPHeaderField: "App-Attest-Client-Data")
+        let assertionData = try XCTUnwrap(encodedAssertionData.flatMap { Data(base64Encoded: $0) })
+        let assertionClientData = try JSONDecoder().decode(GenerationAssertionClientData.self, from: assertionData)
+        XCTAssertEqual(assertionClientData.requestBodySHA256, Self.base64URL(Data(SHA256.hash(data: requestBody))))
+        XCTAssertEqual(request.value(forHTTPHeaderField: "App-Attest-Challenge-ID"), assertionClientData.challengeID)
+        XCTAssertNotNil(request.value(forHTTPHeaderField: "App-Attest-Assertion"))
         let decodedRequest = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
         XCTAssertEqual(decodedRequest["intentVersion"] as? Int, fixtureRequest["intentVersion"] as? Int)
         XCTAssertEqual(decodedRequest["profileID"] as? String, fixtureRequest["profileID"] as? String)
@@ -71,6 +78,39 @@ final class OpenAIResponsesClientTests: XCTestCase {
         try await assertBackendFailure(scenario: "serviceFailure", expected: .serviceUnavailable)
     }
 
+    func testBackendClientRetriesServiceFailureWithSameIdempotencyKey() async throws {
+        let fixture = try generationFixture()
+        let (status, body) = try fixtureScenario("ready", in: fixture)
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            let requestNumber = recorder.record(request)
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: requestNumber == 1 ? 503 : status,
+                    httpVersion: nil,
+                    headerFields: nil
+                )
+            )
+            return (response, requestNumber == 1 ? Data("{}".utf8) : body)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+
+        let client = backendClient()
+        let generation = try await client.generateProject(from: "Craft a cyan diamond sword named Harbor.")
+
+        XCTAssertEqual(generation.outcome, .ready)
+        XCTAssertEqual(recorder.count, 2)
+        XCTAssertEqual(
+            recorder.request(at: 0)?.value(forHTTPHeaderField: "Idempotency-Key"),
+            recorder.request(at: 1)?.value(forHTTPHeaderField: "Idempotency-Key")
+        )
+        XCTAssertNotEqual(
+            recorder.request(at: 0)?.value(forHTTPHeaderField: "App-Attest-Challenge-ID"),
+            recorder.request(at: 1)?.value(forHTTPHeaderField: "App-Attest-Challenge-ID")
+        )
+    }
+
     func testBackendClientRejectsUnconfiguredOrNonHTTPSEndpointBeforeFetchingCredential() async throws {
         let provider = CredentialProviderSpy(token: "runtime-test-token")
         let unconfigured = BackendGenerationClient(baseURL: nil, credentialProvider: provider)
@@ -92,6 +132,81 @@ final class OpenAIResponsesClientTests: XCTestCase {
         }
         let requestsAfterInsecureURL = await provider.requestCount()
         XCTAssertEqual(requestsAfterInsecureURL, 0)
+    }
+
+    func testKeychainCredentialProviderEnrollsAndPersistsAppAttestSessionOnceForConcurrentCalls() async throws {
+        let challenge = Data("fixture-server-challenge".utf8)
+        let store = SessionCredentialStoreSpy()
+        let attestState = AppAttestStateSpy()
+        let transportState = EnrollmentTransportStateSpy(challenge: challenge)
+        let provider = KeychainGenerationCredentialProvider(
+            baseURL: URL(string: "https://generation.test"),
+            credentialStore: store,
+            appAttestService: AppAttestServiceSpy(state: attestState),
+            enrollmentTransport: EnrollmentTransportSpy(state: transportState)
+        )
+
+        let tokens = try await withThrowingTaskGroup(of: String.self) { group in
+            for _ in 0..<8 { group.addTask { try await provider.bearerToken() } }
+            var values: [String] = []
+            for try await token in group { values.append(token) }
+            return values
+        }
+
+        XCTAssertEqual(Set(tokens), ["fixture-session-token"])
+        let enrollmentCounts = await transportState.counts()
+        XCTAssertEqual(enrollmentCounts.challenge, 1)
+        XCTAssertEqual(enrollmentCounts.enroll, 1)
+        let attestCounts = await attestState.counts()
+        XCTAssertEqual(attestCounts.generated, 1)
+        XCTAssertEqual(attestCounts.attested, 1)
+        XCTAssertEqual(attestCounts.lastClientDataHash, Data(SHA256.hash(data: challenge + Data([1]))))
+        let storedValues = await store.values()
+        XCTAssertEqual(storedValues.keyID, "fixture-app-attest-key-id")
+        XCTAssertEqual(storedValues.token, "fixture-session-token")
+    }
+
+    func testKeychainCredentialProviderReusesStoredSessionWithoutAttestingAgain() async throws {
+        let store = SessionCredentialStoreSpy(token: "existing-session")
+        let attestState = AppAttestStateSpy()
+        let transportState = EnrollmentTransportStateSpy(challenge: Data("unused".utf8))
+        let provider = KeychainGenerationCredentialProvider(
+            baseURL: URL(string: "https://generation.test"),
+            credentialStore: store,
+            appAttestService: AppAttestServiceSpy(state: attestState),
+            enrollmentTransport: EnrollmentTransportSpy(state: transportState)
+        )
+
+        let token = try await provider.bearerToken()
+        XCTAssertEqual(token, "existing-session")
+        let enrollmentCounts = await transportState.counts()
+        let attestCounts = await attestState.counts()
+        XCTAssertEqual(enrollmentCounts.challenge, 0)
+        XCTAssertEqual(attestCounts.generated, 0)
+    }
+
+    func testKeychainCredentialProviderSignsEachGenerationRequestWithFreshChallenge() async throws {
+        let store = SessionCredentialStoreSpy(token: "existing-session", keyID: "existing-app-attest-key")
+        let attestState = AppAttestStateSpy()
+        let transportState = EnrollmentTransportStateSpy(challenge: Data("server-challenge-123456".utf8))
+        let provider = KeychainGenerationCredentialProvider(
+            baseURL: URL(string: "https://generation.test"),
+            credentialStore: store,
+            appAttestService: AppAttestServiceSpy(state: attestState),
+            enrollmentTransport: EnrollmentTransportSpy(state: transportState)
+        )
+        let body = Data(#"{"intentVersion":1,"profileID":"bedrock-stable-1.26.30","prompt":"Build a sword"}"#.utf8)
+
+        let first = try await provider.assertionHeaders(for: body, idempotencyKey: "operation-1")
+        let second = try await provider.assertionHeaders(for: body, idempotencyKey: "operation-1")
+
+        XCTAssertNotEqual(first.challengeID, second.challengeID)
+        let counts = await transportState.counts()
+        XCTAssertEqual(counts.challenge, 2)
+        let attestCounts = await attestState.counts()
+        XCTAssertEqual(attestCounts.assertions, 2)
+        XCTAssertNotEqual(attestCounts.assertionHashes.first, nil)
+        XCTAssertEqual(attestCounts.assertionHashes.count, 2)
     }
 
     func testClientAssemblesHostileEntitySetFromStructuredIntent() async throws {
@@ -354,6 +469,12 @@ final class OpenAIResponsesClientTests: XCTestCase {
         return (status, try JSONSerialization.data(withJSONObject: body))
     }
 
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
     #if !SWIFT_PACKAGE
     private static let generationFixtureFallback = #"""
     {
@@ -398,6 +519,7 @@ private final class URLProtocolStub: URLProtocol, @unchecked Sendable {
 private actor CredentialProviderSpy: RuntimeGenerationCredentialProvider {
     private let token: String
     private var requests = 0
+    private var assertionRequests = 0
 
     init(token: String) {
         self.token = token
@@ -407,9 +529,141 @@ private actor CredentialProviderSpy: RuntimeGenerationCredentialProvider {
         requests
     }
 
+    func assertionRequestCount() -> Int { assertionRequests }
+
     func bearerToken() async throws -> String {
         requests += 1
         return token
+    }
+
+    func assertionHeaders(for requestBody: Data, idempotencyKey: String) async throws -> GenerationAssertionHeaders {
+        assertionRequests += 1
+        let challenge = Data("mock-challenge-\(assertionRequests)".utf8)
+        let clientData = GenerationAssertionClientData(
+            challengeID: "mock-challenge-id-\(assertionRequests)",
+            challenge: challenge.base64EncodedString(),
+            requestBodySHA256: Self.base64URL(Data(SHA256.hash(data: requestBody))),
+            idempotencyKey: idempotencyKey
+        )
+        return GenerationAssertionHeaders(
+            challengeID: clientData.challengeID,
+            clientData: try clientData.canonicalData().base64EncodedString(),
+            assertion: Data("mock-assertion-\(assertionRequests)".utf8).base64EncodedString()
+        )
+    }
+
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
+
+private actor SessionCredentialStoreSpy: GenerationSessionCredentialStore {
+    private var token: String?
+    private var keyID: String?
+
+    init(token: String? = nil, keyID: String? = nil) {
+        self.token = token
+        self.keyID = keyID
+    }
+
+    func bearerToken() async throws -> String? { token }
+    func appAttestKeyID() async throws -> String? { keyID }
+
+    func saveBearerToken(_ token: String) async throws {
+        self.token = token
+    }
+
+    func saveAppAttestKeyID(_ keyID: String) async throws {
+        self.keyID = keyID
+    }
+
+    func values() -> (token: String?, keyID: String?) {
+        (token, keyID)
+    }
+}
+
+private actor AppAttestStateSpy {
+    private var generated = 0
+    private var attested = 0
+    private var lastClientDataHash: Data?
+    private var assertionHashes: [Data] = []
+
+    func didGenerate() { generated += 1 }
+
+    func didAttest(clientDataHash: Data) {
+        attested += 1
+        lastClientDataHash = clientDataHash
+    }
+
+    func didAssert(clientDataHash: Data) { assertionHashes.append(clientDataHash) }
+
+    func counts() -> (generated: Int, attested: Int, lastClientDataHash: Data?, assertions: Int, assertionHashes: [Data]) {
+        (generated, attested, lastClientDataHash, assertionHashes.count, assertionHashes)
+    }
+}
+
+private struct AppAttestServiceSpy: GenerationAppAttestService {
+    let state: AppAttestStateSpy
+    var isSupported: Bool { true }
+
+    func generateKey() async throws -> String {
+        await state.didGenerate()
+        return "fixture-app-attest-key-id"
+    }
+
+    func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        await state.didAttest(clientDataHash: clientDataHash)
+        return Data("fixture-attestation".utf8)
+    }
+
+    func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        await state.didAssert(clientDataHash: clientDataHash)
+        return Data("fixture-assertion".utf8)
+    }
+}
+
+private actor EnrollmentTransportStateSpy {
+    private let challenge: Data
+    private var challengeRequests = 0
+    private var enrollmentRequests = 0
+
+    init(challenge: Data) {
+        self.challenge = challenge
+    }
+
+    func requestChallenge() -> GenerationEnrollmentChallenge {
+        challengeRequests += 1
+        return GenerationEnrollmentChallenge(
+            challengeID: "fixture-challenge-id-\(challengeRequests)",
+            challengeBase64: (challenge + Data([UInt8(challengeRequests)])).base64EncodedString()
+        )
+    }
+
+    func enroll() -> String {
+        enrollmentRequests += 1
+        return "fixture-session-token"
+    }
+
+    func counts() -> (challenge: Int, enroll: Int) {
+        (challengeRequests, enrollmentRequests)
+    }
+}
+
+private struct EnrollmentTransportSpy: GenerationSessionEnrollmentTransport {
+    let state: EnrollmentTransportStateSpy
+
+    func requestChallenge() async throws -> GenerationEnrollmentChallenge {
+        await state.requestChallenge()
+    }
+
+    func enroll(
+        keyID: String,
+        challenge: GenerationEnrollmentChallenge,
+        attestationObject: Data
+    ) async throws -> String {
+        await state.enroll()
     }
 }
 

@@ -1,0 +1,313 @@
+import CraftberryCore
+import Foundation
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
+
+@main
+enum GenerationServerMain {
+    static func main() async {
+        do {
+            try await run()
+        } catch {
+            fputs("GenerationServer: \(error.localizedDescription)\n", stderr)
+            exit(EXIT_FAILURE)
+        }
+    }
+
+    private static func run() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        _ = umask(0o077)
+        let appIdentifier = try requiredEnvironment("APP_ATTEST_APP_ID", in: environment)
+        _ = try requiredEnvironment("OPENAI_API_KEY", in: environment)
+        let appEnvironmentValue = try requiredEnvironment("APP_ATTEST_ENVIRONMENT", in: environment)
+        guard let appEnvironment = AppAttestEnvironment(rawValue: appEnvironmentValue) else {
+            throw ServerStartupError.invalidAppAttestEnvironment
+        }
+        let allowedVersionValues = try requiredEnvironment("APP_ATTEST_ALLOWED_BUNDLE_VERSIONS", in: environment)
+        let allowedVersions = Set(allowedVersionValues.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty })
+        guard !allowedVersions.isEmpty else { throw ServerStartupError.missingAllowedBundleVersions }
+        let databasePath = environment["GENERATION_DATABASE_PATH"] ?? "craftberry-generation.sqlite"
+        let bindHost = environment["GENERATION_BIND_HOST"] ?? "127.0.0.1"
+        guard let port = UInt16(environment["GENERATION_PORT"] ?? "8787"), port > 0 else {
+            throw ServerStartupError.invalidPort
+        }
+
+        guard let rootURL = Bundle.module.url(
+            forResource: "Apple_App_Attestation_Root_CA",
+            withExtension: "pem"
+        ), let rootPEM = try? String(contentsOf: rootURL, encoding: .utf8),
+           let rootDER = pemCertificate(rootPEM) else {
+            throw ServerStartupError.missingAppleAttestationRoot
+        }
+
+        let service = GenerationService(
+            configuration: GenerationServiceConfiguration(
+                expectedAppIdentifier: appIdentifier,
+                appAttestEnvironment: appEnvironment
+            ),
+            store: try SQLiteGenerationServiceStore(databaseURL: URL(fileURLWithPath: databasePath)),
+            attestationVerifier: AppleAppAttestVerifier(
+                rootCertificateDER: rootDER,
+                allowedBundleVersions: allowedVersions
+            ),
+            intentProvider: EnvironmentOpenAIIntentProvider(environment: environment)
+        )
+
+        let socketServer = GenerationHTTPServer(bindHost: bindHost, port: port)
+        print("Generation service listening on \(bindHost):\(port); database \(databasePath)")
+        try await socketServer.run(service: service)
+    }
+
+    private static func requiredEnvironment(_ key: String, in environment: [String: String]) throws -> String {
+        guard let value = environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            throw ServerStartupError.missingEnvironment(key)
+        }
+        return value
+    }
+
+    private static func pemCertificate(_ pem: String) -> Data? {
+        let content = pem
+            .replacingOccurrences(of: "-----BEGIN CERTIFICATE-----", with: "")
+            .replacingOccurrences(of: "-----END CERTIFICATE-----", with: "")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .joined()
+        return Data(base64Encoded: content)
+    }
+}
+
+private enum ServerStartupError: LocalizedError {
+    case missingEnvironment(String)
+    case missingAppleAttestationRoot
+    case invalidAppAttestEnvironment
+    case missingAllowedBundleVersions
+    case invalidPort
+
+    var errorDescription: String? {
+        switch self {
+        case .missingEnvironment(let name): "Required server environment variable is missing: \(name)"
+        case .missingAppleAttestationRoot: "The Apple App Attestation Root CA resource is missing or invalid."
+        case .invalidAppAttestEnvironment: "APP_ATTEST_ENVIRONMENT must be development or production."
+        case .missingAllowedBundleVersions: "APP_ATTEST_ALLOWED_BUNDLE_VERSIONS must contain at least one version."
+        case .invalidPort: "GENERATION_PORT must be a TCP port between 1 and 65535."
+        }
+    }
+}
+
+private struct GenerationHTTPServer {
+    let bindHost: String
+    let port: UInt16
+    private let maximumHeaderBytes = 16_384
+    private let maximumBodyBytes = 65_536
+
+    func run(service: GenerationService) async throws -> Never {
+        signal(SIGPIPE, SIG_IGN)
+        let listener = try makeListener()
+        defer { _ = close(listener) }
+        while true {
+            let client = accept(listener, nil, nil)
+            guard client >= 0 else {
+                if errno == EINTR { continue }
+                throw SocketServerError.systemCall("accept", errno)
+            }
+            Task.detached {
+                await handle(client: client, service: service)
+            }
+        }
+    }
+
+    private func makeListener() throws -> Int32 {
+        let descriptor = socket(AF_INET, Int32(SOCK_STREAM), 0)
+        guard descriptor >= 0 else { throw SocketServerError.systemCall("socket", errno) }
+        var reuse: Int32 = 1
+        guard setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
+            let failure = errno
+            _ = close(descriptor)
+            throw SocketServerError.systemCall("setsockopt", failure)
+        }
+        #if canImport(Darwin)
+        var noPipe: Int32 = 1
+        _ = setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noPipe, socklen_t(MemoryLayout<Int32>.size))
+        #endif
+
+        var address = sockaddr_in()
+        #if canImport(Darwin)
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        #endif
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = port.bigEndian
+        let parsedHost = bindHost.withCString { inet_pton(AF_INET, $0, &address.sin_addr) }
+        guard parsedHost == 1 else {
+            _ = close(descriptor)
+            throw SocketServerError.invalidBindAddress(bindHost)
+        }
+        let bindResult = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard bindResult == 0 else {
+            let failure = errno
+            _ = close(descriptor)
+            throw SocketServerError.systemCall("bind", failure)
+        }
+        guard listen(descriptor, 128) == 0 else {
+            let failure = errno
+            _ = close(descriptor)
+            throw SocketServerError.systemCall("listen", failure)
+        }
+        return descriptor
+    }
+
+    private func handle(client: Int32, service: GenerationService) async {
+        defer { _ = close(client) }
+        do {
+            let request = try readRequest(client)
+            let response = await service.handle(request)
+            try writeResponse(response, to: client)
+        } catch let error as HTTPParseError {
+            let status = error == .bodyTooLarge ? 413 : 400
+            let payload = Data((status == 413 ? "{\"error\":\"request_too_large\"}" : "{\"error\":\"invalid_request\"}").utf8)
+            try? writeResponse(
+                GenerationServiceResponse(statusCode: status, headers: ["Content-Type": "application/json"], body: payload),
+                to: client
+            )
+        } catch {
+            let payload = Data("{\"error\":\"service_unavailable\"}".utf8)
+            try? writeResponse(
+                GenerationServiceResponse(statusCode: 503, headers: ["Content-Type": "application/json"], body: payload),
+                to: client
+            )
+        }
+    }
+
+    private func readRequest(_ descriptor: Int32) throws -> GenerationServiceRequest {
+        var accumulated = Data()
+        let headerDelimiter = Data([13, 10, 13, 10])
+        var headerRange: Range<Data.Index>?
+        while headerRange == nil {
+            let chunk = try receive(descriptor, maximum: 4_096)
+            guard !chunk.isEmpty else { throw HTTPParseError.invalid }
+            accumulated.append(chunk)
+            guard accumulated.count <= maximumHeaderBytes + maximumBodyBytes else { throw HTTPParseError.bodyTooLarge }
+            headerRange = accumulated.range(of: headerDelimiter)
+            if headerRange == nil, accumulated.count > maximumHeaderBytes { throw HTTPParseError.invalid }
+        }
+        guard let headerRange else { throw HTTPParseError.invalid }
+        let headerData = accumulated[..<headerRange.lowerBound]
+        guard let headerText = String(data: headerData, encoding: .utf8) else { throw HTTPParseError.invalid }
+        let lines = headerText.components(separatedBy: "\r\n")
+        guard let requestLine = lines.first else { throw HTTPParseError.invalid }
+        let components = requestLine.split(separator: " ")
+        guard components.count == 3, components[2].hasPrefix("HTTP/") else { throw HTTPParseError.invalid }
+        let requestPath = String(components[1]).split(separator: "?", maxSplits: 1).first.map(String.init) ?? "/"
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            guard let separator = line.firstIndex(of: ":") else { throw HTTPParseError.invalid }
+            let name = String(line[..<separator]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = String(line[line.index(after: separator)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedName = name.lowercased()
+            guard !normalizedName.isEmpty, headers[normalizedName] == nil else {
+                throw HTTPParseError.invalid
+            }
+            headers[normalizedName] = value
+        }
+        guard headers["transfer-encoding"] == nil else { throw HTTPParseError.invalid }
+        let contentLength: Int
+        if let value = headers["content-length"] {
+            guard let parsedLength = Int(value) else { throw HTTPParseError.invalid }
+            contentLength = parsedLength
+        } else {
+            contentLength = 0
+        }
+        guard contentLength >= 0, contentLength <= maximumBodyBytes else { throw HTTPParseError.bodyTooLarge }
+        var body = Data(accumulated[headerRange.upperBound...])
+        while body.count < contentLength {
+            let chunk = try receive(descriptor, maximum: min(4_096, contentLength - body.count))
+            guard !chunk.isEmpty else { throw HTTPParseError.invalid }
+            body.append(chunk)
+        }
+        guard body.count >= contentLength else { throw HTTPParseError.invalid }
+        body = Data(body.prefix(contentLength))
+        return GenerationServiceRequest(
+            method: String(components[0]),
+            path: requestPath,
+            headers: headers,
+            body: body
+        )
+    }
+
+    private func receive(_ descriptor: Int32, maximum: Int) throws -> Data {
+        while true {
+            var buffer = [UInt8](repeating: 0, count: maximum)
+            let received = buffer.withUnsafeMutableBytes { rawBuffer in
+                recv(descriptor, rawBuffer.baseAddress, maximum, 0)
+            }
+            if received < 0 {
+                if errno == EINTR { continue }
+                throw SocketServerError.systemCall("recv", errno)
+            }
+            return Data(buffer.prefix(Int(received)))
+        }
+    }
+
+    private func writeResponse(_ response: GenerationServiceResponse, to descriptor: Int32) throws {
+        let reason: String
+        switch response.statusCode {
+        case 200: reason = "OK"
+        case 400: reason = "Bad Request"
+        case 401: reason = "Unauthorized"
+        case 404: reason = "Not Found"
+        case 409: reason = "Conflict"
+        case 413: reason = "Payload Too Large"
+        case 429: reason = "Too Many Requests"
+        case 500: reason = "Internal Server Error"
+        case 503: reason = "Service Unavailable"
+        default: reason = "Error"
+        }
+        var headers = response.headers
+        headers["Content-Length"] = String(response.body.count)
+        headers["Connection"] = "close"
+        let headerLines = headers.map { "\($0.key): \($0.value)" }.sorted().joined(separator: "\r\n")
+        var output = Data("HTTP/1.1 \(response.statusCode) \(reason)\r\n\(headerLines)\r\n\r\n".utf8)
+        output.append(response.body)
+        var offset = 0
+        while offset < output.count {
+            let sent = output.withUnsafeBytes { rawBuffer -> Int in
+                let base = rawBuffer.baseAddress!.advanced(by: offset)
+                #if canImport(Darwin)
+                return Darwin.send(descriptor, base, output.count - offset, 0)
+                #else
+                return Glibc.send(descriptor, base, output.count - offset, Int32(MSG_NOSIGNAL))
+                #endif
+            }
+            if sent < 0 {
+                if errno == EINTR { continue }
+                throw SocketServerError.systemCall("send", errno)
+            }
+            guard sent > 0 else { throw SocketServerError.systemCall("send", EPIPE) }
+            offset += sent
+        }
+    }
+}
+
+private enum HTTPParseError: Error, Equatable {
+    case invalid
+    case bodyTooLarge
+}
+
+private enum SocketServerError: LocalizedError {
+    case systemCall(String, Int32)
+    case invalidBindAddress(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .systemCall(let name, let code): "Socket \(name) failed with errno \(code)."
+        case .invalidBindAddress(let host): "Bind host must be an IPv4 address, got \(host)."
+        }
+    }
+}

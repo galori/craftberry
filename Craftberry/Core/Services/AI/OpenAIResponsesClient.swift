@@ -1,4 +1,10 @@
 import Foundation
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+#if canImport(DeviceCheck)
+import DeviceCheck
+#endif
 #if canImport(Security)
 import Security
 #endif
@@ -32,6 +38,14 @@ public struct OpenAIResponsesClient: LLMClient {
             }
         }
         throw LLMClientError.invalidResponse
+    }
+
+    /// Returns the model-produced intent document without assigning project IDs.
+    /// The backend uses this entry point; callers still validate and assemble the
+    /// returned intent with the local Swift compiler pipeline.
+    public func generateIntentJSON(from prompt: String) async throws -> String {
+        guard !apiKey.isEmpty else { throw LLMClientError.missingAPIKey }
+        return try await requestStructuredIntent(prompt: prompt, repairIssues: [])
     }
 
     private func requestStructuredIntent(prompt: String, repairIssues: [String]) async throws -> String {
@@ -119,25 +133,114 @@ public struct OpenAIResponsesClient: LLMClient {
 /// Supplies a short-lived generation session credential at request time.
 /// Production authentication can replace the Keychain-backed implementation with
 /// an App Attest/session exchange without changing the generation client.
-public protocol RuntimeGenerationCredentialProvider: Sendable {
-    func bearerToken() async throws -> String
+/// The body digest binds the signature to the exact versioned request while keeping
+/// the App Attest client data small enough to send in request headers.
+public struct GenerationAssertionClientData: Codable, Equatable, Sendable {
+    public let challengeID: String
+    public let challenge: String
+    public let requestBodySHA256: String
+    public let idempotencyKey: String
+    public let method: String
+    public let path: String
+
+    public init(
+        challengeID: String,
+        challenge: String,
+        requestBodySHA256: String,
+        idempotencyKey: String,
+        method: String = "POST",
+        path: String = "/v1/generate"
+    ) {
+        self.challengeID = challengeID
+        self.challenge = challenge
+        self.requestBodySHA256 = requestBodySHA256
+        self.idempotencyKey = idempotencyKey
+        self.method = method
+        self.path = path
+    }
+
+    public func canonicalData() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(self)
+    }
 }
 
-/// Reads a server-issued bearer session from Keychain. The app never embeds a
-/// provider API key or a backend bearer token in its bundle.
-public struct KeychainGenerationCredentialProvider: RuntimeGenerationCredentialProvider {
+public struct GenerationAssertionHeaders: Sendable {
+    public let challengeID: String
+    public let clientData: String
+    public let assertion: String
+
+    public init(challengeID: String, clientData: String, assertion: String) {
+        self.challengeID = challengeID
+        self.clientData = clientData
+        self.assertion = assertion
+    }
+}
+
+public protocol RuntimeGenerationCredentialProvider: Sendable {
+    func bearerToken() async throws -> String
+    func assertionHeaders(for requestBody: Data, idempotencyKey: String) async throws -> GenerationAssertionHeaders
+}
+
+public protocol GenerationSessionCredentialStore: Sendable {
+    func bearerToken() async throws -> String?
+    func appAttestKeyID() async throws -> String?
+    func saveBearerToken(_ token: String) async throws
+    func saveAppAttestKeyID(_ keyID: String) async throws
+}
+
+public protocol GenerationAppAttestService: Sendable {
+    var isSupported: Bool { get }
+    func generateKey() async throws -> String
+    func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data
+    func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data
+}
+
+public protocol GenerationSessionEnrollmentTransport: Sendable {
+    func requestChallenge() async throws -> GenerationEnrollmentChallenge
+    func enroll(keyID: String, challenge: GenerationEnrollmentChallenge, attestationObject: Data) async throws -> String
+}
+
+public struct GenerationEnrollmentChallenge: Sendable {
+    public let challengeID: String
+    public let challengeBase64: String
+
+    public init(challengeID: String, challengeBase64: String) {
+        self.challengeID = challengeID
+        self.challengeBase64 = challengeBase64
+    }
+}
+
+/// Reads a server-issued bearer session from Keychain and enrolls a new App Attest
+/// key when needed. The app never embeds a provider key or backend bearer token.
+public struct KeychainGenerationCredentialStore: GenerationSessionCredentialStore {
     public static let defaultService = "com.craftberry.app.generation-session"
     public static let defaultAccount = "bearer"
 
     private let service: String
-    private let account: String
 
-    public init(service: String = defaultService, account: String = defaultAccount) {
+    public init(service: String = defaultService) {
         self.service = service
-        self.account = account
     }
 
-    public func bearerToken() async throws -> String {
+    public func bearerToken() async throws -> String? {
+        try read(account: Self.defaultAccount).flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    public func appAttestKeyID() async throws -> String? {
+        try read(account: "app-attest-key-id").flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    public func saveBearerToken(_ token: String) async throws {
+        try save(Data(token.utf8), account: Self.defaultAccount)
+    }
+
+    public func saveAppAttestKeyID(_ keyID: String) async throws {
+        try save(Data(keyID.utf8), account: "app-attest-key-id")
+    }
+
+    private func read(account: String) throws -> Data? {
         #if canImport(Security)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -148,16 +251,240 @@ public struct KeychainGenerationCredentialProvider: RuntimeGenerationCredentialP
         ]
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess,
-              let data = result as? Data,
-              let token = String(data: data, encoding: .utf8),
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else {
             throw BackendGenerationClientError.missingCredential
         }
-        return token
+        return data
+        #else
+        return nil
+        #endif
+    }
+
+    private func save(_ data: Data, account: String) throws {
+        #if canImport(Security)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        let update = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if update == errSecItemNotFound {
+            var insertion = query
+            insertion[kSecValueData as String] = data
+            insertion[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            guard SecItemAdd(insertion as CFDictionary, nil) == errSecSuccess else {
+                throw BackendGenerationClientError.missingCredential
+            }
+        } else if update != errSecSuccess {
+            throw BackendGenerationClientError.missingCredential
+        }
         #else
         throw BackendGenerationClientError.missingCredential
         #endif
+    }
+}
+
+public struct SystemGenerationAppAttestService: GenerationAppAttestService {
+    public init() {}
+
+    public var isSupported: Bool {
+        #if canImport(DeviceCheck)
+        DCAppAttestService.shared.isSupported
+        #else
+        false
+        #endif
+    }
+
+    public func generateKey() async throws -> String {
+        #if canImport(DeviceCheck)
+        try await DCAppAttestService.shared.generateKey()
+        #else
+        throw BackendGenerationClientError.missingCredential
+        #endif
+    }
+
+    public func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        #if canImport(DeviceCheck)
+        try await DCAppAttestService.shared.attestKey(keyID, clientDataHash: clientDataHash)
+        #else
+        throw BackendGenerationClientError.missingCredential
+        #endif
+    }
+
+    public func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        #if canImport(DeviceCheck)
+        try await DCAppAttestService.shared.generateAssertion(keyID, clientDataHash: clientDataHash)
+        #else
+        throw BackendGenerationClientError.missingCredential
+        #endif
+    }
+}
+
+public struct URLSessionGenerationEnrollmentTransport: GenerationSessionEnrollmentTransport {
+    private let baseURL: URL?
+    private let session: URLSession
+
+    public init(baseURL: URL?, session: URLSession = .shared) {
+        self.baseURL = baseURL
+        self.session = session
+    }
+
+    public func requestChallenge() async throws -> GenerationEnrollmentChallenge {
+        let data = try await post(path: "v1/session/challenge", body: Data("{}".utf8))
+        let response = try JSONDecoder().decode(ChallengeResponse.self, from: data)
+        return GenerationEnrollmentChallenge(challengeID: response.challengeID, challengeBase64: response.challenge)
+    }
+
+    public func enroll(
+        keyID: String,
+        challenge: GenerationEnrollmentChallenge,
+        attestationObject: Data
+    ) async throws -> String {
+        let requestBody = EnrollmentRequestDocument(
+            challengeID: challenge.challengeID,
+            keyID: keyID,
+            attestationObject: attestationObject.base64EncodedString()
+        )
+        let data = try await post(path: "v1/session/enroll", body: try JSONEncoder().encode(requestBody))
+        let response = try JSONDecoder().decode(EnrollmentResponseDocument.self, from: data)
+        guard !response.sessionToken.isEmpty else { throw BackendGenerationClientError.invalidResponse }
+        return response.sessionToken
+    }
+
+    private func post(path: String, body: Data) async throws -> Data {
+        guard let baseURL else { throw BackendGenerationClientError.endpointNotConfigured }
+        guard baseURL.scheme?.lowercased() == "https", baseURL.host != nil,
+              baseURL.query == nil, baseURL.fragment == nil else {
+            throw BackendGenerationClientError.invalidEndpoint
+        }
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw BackendGenerationClientError.transportUnavailable
+        }
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw BackendGenerationClientError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 401 { throw BackendGenerationClientError.unauthorized }
+            throw BackendGenerationClientError.transportUnavailable
+        }
+        return data
+    }
+}
+
+private struct ChallengeResponse: Decodable {
+    let challengeID: String
+    let challenge: String
+}
+
+private struct EnrollmentRequestDocument: Encodable {
+    let challengeID: String
+    let keyID: String
+    let attestationObject: String
+}
+
+private struct EnrollmentResponseDocument: Decodable {
+    let sessionToken: String
+}
+
+/// Runtime provider that enrolls exactly once while concurrent requests share the
+/// same in-flight enrollment operation.
+public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialProvider {
+    private let credentialStore: any GenerationSessionCredentialStore
+    private let appAttestService: any GenerationAppAttestService
+    private let enrollmentTransport: any GenerationSessionEnrollmentTransport
+    private var enrollmentTask: Task<String, Error>?
+
+    public init(
+        baseURL: URL?,
+        session: URLSession = .shared,
+        credentialStore: any GenerationSessionCredentialStore = KeychainGenerationCredentialStore(),
+        appAttestService: any GenerationAppAttestService = SystemGenerationAppAttestService(),
+        enrollmentTransport: (any GenerationSessionEnrollmentTransport)? = nil
+    ) {
+        self.credentialStore = credentialStore
+        self.appAttestService = appAttestService
+        self.enrollmentTransport = enrollmentTransport ?? URLSessionGenerationEnrollmentTransport(
+            baseURL: baseURL,
+            session: session
+        )
+    }
+
+    public func bearerToken() async throws -> String {
+        if let token = try await credentialStore.bearerToken(),
+           !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return token
+        }
+        if let enrollmentTask { return try await enrollmentTask.value }
+        let task = Task { try await self.enrollInstallation() }
+        enrollmentTask = task
+        defer { enrollmentTask = nil }
+        return try await task.value
+    }
+
+    public func assertionHeaders(for requestBody: Data, idempotencyKey: String) async throws -> GenerationAssertionHeaders {
+        guard appAttestService.isSupported,
+              let keyID = try await credentialStore.appAttestKeyID(),
+              !keyID.isEmpty else {
+            throw BackendGenerationClientError.missingCredential
+        }
+        let challenge = try await enrollmentTransport.requestChallenge()
+        guard let challengeBytes = Data(base64Encoded: challenge.challengeBase64), challengeBytes.count >= 16 else {
+            throw BackendGenerationClientError.invalidResponse
+        }
+        let clientData = GenerationAssertionClientData(
+            challengeID: challenge.challengeID,
+            challenge: challenge.challengeBase64,
+            requestBodySHA256: Self.base64URL(Data(SHA256.hash(data: requestBody))),
+            idempotencyKey: idempotencyKey
+        )
+        let encodedClientData = try clientData.canonicalData()
+        let clientDataHash = Data(SHA256.hash(data: encodedClientData))
+        let assertion = try await appAttestService.generateAssertion(keyID, clientDataHash: clientDataHash)
+        return GenerationAssertionHeaders(
+            challengeID: challenge.challengeID,
+            clientData: encodedClientData.base64EncodedString(),
+            assertion: assertion.base64EncodedString()
+        )
+    }
+
+    private func enrollInstallation() async throws -> String {
+        guard appAttestService.isSupported else { throw BackendGenerationClientError.missingCredential }
+        let keyID = try await appAttestService.generateKey()
+        let challenge = try await enrollmentTransport.requestChallenge()
+        guard let challengeData = Data(base64Encoded: challenge.challengeBase64), !challengeData.isEmpty else {
+            throw BackendGenerationClientError.invalidResponse
+        }
+        #if canImport(CryptoKit)
+        let clientDataHash = Data(SHA256.hash(data: challengeData))
+        #else
+        throw BackendGenerationClientError.missingCredential
+        #endif
+        let attestation = try await appAttestService.attestKey(keyID, clientDataHash: clientDataHash)
+        let token = try await enrollmentTransport.enroll(
+            keyID: keyID,
+            challenge: challenge,
+            attestationObject: attestation
+        )
+        try await credentialStore.saveAppAttestKeyID(keyID)
+        try await credentialStore.saveBearerToken(token)
+        return token
+    }
+
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }
 
@@ -230,52 +557,71 @@ public struct BackendGenerationClient: LLMClient {
             throw BackendGenerationClientError.missingCredential
         }
 
-        var request = URLRequest(url: baseURL.appending(path: "v1/generate"))
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(GenerationRequest(prompt: prompt))
-
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch let error as URLError where error.code == .cancelled {
-            throw error
-        } catch {
-            throw BackendGenerationClientError.transportUnavailable
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw BackendGenerationClientError.invalidResponse
-        }
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            switch httpResponse.statusCode {
-            case 401:
-                throw BackendGenerationClientError.unauthorized
-            case 429:
-                throw BackendGenerationClientError.quotaExceeded
-            case 500...599:
-                throw BackendGenerationClientError.serviceUnavailable
-            default:
-                throw BackendGenerationClientError.requestFailed(statusCode: httpResponse.statusCode)
-            }
-        }
-
-        guard let intent = String(data: data, encoding: .utf8) else {
-            throw BackendGenerationClientError.invalidResponse
-        }
-        do {
-            return try OpenAIResponsesClient.assembleProject(
-                from: intent,
-                prompt: prompt,
-                identityGenerator: identityGenerator
+        let idempotencyKey = UUID().uuidString.lowercased()
+        let requestBody = try JSONEncoder().encode(GenerationRequest(prompt: prompt))
+        var didRetry = false
+        while true {
+            let assertionHeaders = try await credentialProvider.assertionHeaders(
+                for: requestBody,
+                idempotencyKey: idempotencyKey
             )
-        } catch {
-            throw BackendGenerationClientError.invalidResponse
+            var request = URLRequest(url: baseURL.appending(path: "v1/generate"))
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+            request.setValue(assertionHeaders.challengeID, forHTTPHeaderField: "App-Attest-Challenge-ID")
+            request.setValue(assertionHeaders.clientData, forHTTPHeaderField: "App-Attest-Client-Data")
+            request.setValue(assertionHeaders.assertion, forHTTPHeaderField: "App-Attest-Assertion")
+            request.httpBody = requestBody
+
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await session.data(for: request)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as URLError where error.code == .cancelled {
+                throw error
+            } catch {
+                guard !didRetry else { throw BackendGenerationClientError.transportUnavailable }
+                didRetry = true
+                continue
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw BackendGenerationClientError.invalidResponse
+            }
+            if (500...599).contains(httpResponse.statusCode), !didRetry {
+                didRetry = true
+                continue
+            }
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                switch httpResponse.statusCode {
+                case 401:
+                    throw BackendGenerationClientError.unauthorized
+                case 429:
+                    throw BackendGenerationClientError.quotaExceeded
+                case 500...599:
+                    throw BackendGenerationClientError.serviceUnavailable
+                default:
+                    throw BackendGenerationClientError.requestFailed(statusCode: httpResponse.statusCode)
+                }
+            }
+
+            guard let intent = String(data: data, encoding: .utf8) else {
+                throw BackendGenerationClientError.invalidResponse
+            }
+            do {
+                return try OpenAIResponsesClient.assembleProject(
+                    from: intent,
+                    prompt: prompt,
+                    identityGenerator: identityGenerator
+                )
+            } catch {
+                throw BackendGenerationClientError.invalidResponse
+            }
         }
     }
 }
