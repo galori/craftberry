@@ -53,12 +53,12 @@ private extension MinecraftE2EScenario {
             MinecraftStep(name: "Wait for all eight crop growth stages", action: .wait(seconds: 45)),
             MinecraftStep(
                 name: "Verify the crop reached mature growth stage seven",
-                action: .chatCommand("/testforblock 98 80 95 \(Self.cropBlockID) [\"\(Self.cropGrowthState)\":7]")
+                action: .chatCommand("/testforblock 98 80 95 \(Self.cropBlockID) [\"\(Self.cropGrowthState)\"=7]")
             ),
             MinecraftStep(name: "Confirm the mature crop block state", action: .assertText("found the block")),
             MinecraftStep(name: "Move within pickup range of the mature crop", action: .chatCommand("/tp @s 98.5 80 95.2")),
             MinecraftStep(name: "Harvest the mature crop and its drops", action: .chatCommand("/setblock 98 80 95 air destroy")),
-            MinecraftStep(name: "Collect one mature crop produce item", action: .chatCommand("/clear @s craftberry:crop_growth_uitest_produce 1")),
+            MinecraftStep(name: "Collect one mature crop produce item", action: .chatCommand("/clear @s craftberry:crop_growth_uitest_produce -1 1")),
             MinecraftStep(name: "Confirm mature crop produced harvest food", action: .assertText("Removed 1")),
             MinecraftStep(name: "Restore the test world's normal random tick speed", action: .chatCommand("/gamerule randomtickspeed 1"))
         ]

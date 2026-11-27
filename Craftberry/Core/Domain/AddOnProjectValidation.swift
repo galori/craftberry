@@ -209,8 +209,12 @@ public enum AddOnProjectValidator {
                 if let seedItemID = block.seedItemID {
                     if !itemIDs.contains(seedItemID) {
                         issues.append(CompilationIssue(severity: .error, code: "missing_crop_seed_item", path: "\(blockPath).seedItemID", message: "Crop references missing seed item \(seedItemID.rawValue)."))
-                    } else if project.items.first(where: { $0.id == seedItemID })?.traits.blockPlacer?.blockID != block.id {
-                        issues.append(CompilationIssue(severity: .error, code: "invalid_crop_seed_placer", path: "content.items.\(seedItemID.rawValue).traits.blockPlacer.blockID", message: "Crop seed must place its matching crop block."))
+                    } else if let placer = project.items.first(where: { $0.id == seedItemID })?.traits.blockPlacer {
+                        if placer.blockID != block.id {
+                            issues.append(CompilationIssue(severity: .error, code: "invalid_crop_seed_placer", path: "content.items.\(seedItemID.rawValue).traits.blockPlacer.blockID", message: "Crop seed must place its matching crop block."))
+                        } else if !placer.useOn.contains("minecraft:farmland") {
+                            issues.append(CompilationIssue(severity: .error, code: "crop_seed_requires_farmland", path: "content.items.\(seedItemID.rawValue).traits.blockPlacer.useOn", message: "Crop seeds must be usable on minecraft:farmland."))
+                        }
                     }
                 } else {
                     issues.append(CompilationIssue(severity: .error, code: "missing_crop_seed_item", path: "\(blockPath).seedItemID", message: "Growing crops must identify the seed item used to plant them."))

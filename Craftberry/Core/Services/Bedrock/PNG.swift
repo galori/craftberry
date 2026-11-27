@@ -464,7 +464,10 @@ public enum PixelArtTextureRenderer {
         var pixels = Array(repeating: RGBA.transparent, count: side*side)
         let palette = SwordPalette.colors(for: color)
         func fill(_ x:Int,_ y:Int,_ w:Int,_ h:Int,_ c:RGBA){for r in max(0,y*scale)..<min(side,(y+h)*scale){for col in max(0,x*scale)..<min(side,(x+w)*scale){pixels[r*side+col]=c}}}
-        let progress = Double(max(0, min(stage, stageCount - 1))) / Double(max(1, stageCount - 1))
+        let safeStageCount = max(1, stageCount)
+        let lastStage = safeStageCount - 1
+        let safeStage = max(0, min(stage, lastStage))
+        let progress = Double(safeStage) / Double(max(1, lastStage))
         let height = max(2, Int((2 + progress * 13).rounded()))
         let top = 15 - height
         fill(7, top, 2, height, palette.shadow)

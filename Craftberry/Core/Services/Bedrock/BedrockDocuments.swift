@@ -607,7 +607,7 @@ struct BlockDocument: Encodable {
         let materialInstances: [String: MaterialInstance]?
         let collisionBox: Bool?
         let placementFilter: PlacementFilter?
-        let tags: Tags?
+        let tags: [String]?
         let cropGrow: CropGrow?
         let cropGrowComponentID: String?
 
@@ -649,8 +649,6 @@ struct BlockDocument: Encodable {
             }
         }
 
-        struct Tags: Encodable { let tags: [String] }
-
         struct CropGrow: Encodable {
             let stageCount: Int
 
@@ -683,88 +681,6 @@ struct BlockDocument: Encodable {
     enum CodingKeys: String, CodingKey {
         case formatVersion = "format_version"
         case block = "minecraft:block"
-    }
-}
-
-struct CropGeometryDocument: Encodable {
-    let formatVersion = "1.21.10"
-    let geometries: [Geometry]
-
-    struct Geometry: Encodable {
-        let description: Description
-        let bones: [Bone]
-    }
-
-    struct Description: Encodable {
-        let identifier: String
-        let textureWidth: Int
-        let textureHeight: Int
-        let visibleBoundsWidth: Int
-        let visibleBoundsHeight: Int
-        let visibleBoundsOffset: [Int]
-
-        enum CodingKeys: String, CodingKey {
-            case identifier
-            case textureWidth = "texture_width"
-            case textureHeight = "texture_height"
-            case visibleBoundsWidth = "visible_bounds_width"
-            case visibleBoundsHeight = "visible_bounds_height"
-            case visibleBoundsOffset = "visible_bounds_offset"
-        }
-    }
-
-    struct Bone: Encodable {
-        let name: String
-        let pivot: [Int]
-        let cubes: [Cube]
-    }
-
-    struct Cube: Encodable {
-        let origin: [Int]
-        let size: [Int]
-        let pivot: [Int]
-        let rotation: [Int]
-        let uv: [Int]
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case formatVersion = "format_version"
-        case geometries = "minecraft:geometry"
-    }
-
-    static func crop(identifier: String) -> CropGeometryDocument {
-        CropGeometryDocument(geometries: [
-            Geometry(
-                description: Description(
-                    identifier: identifier,
-                    textureWidth: 16,
-                    textureHeight: 16,
-                    visibleBoundsWidth: 2,
-                    visibleBoundsHeight: 2,
-                    visibleBoundsOffset: [0, 0, 0]
-                ),
-                bones: [Bone(
-                    name: "world",
-                    pivot: [0, 0, 0],
-                    cubes: [
-                        Cube(
-                            origin: [-8, -1, 0],
-                            size: [16, 16, 0],
-                            pivot: [0, -1, 0],
-                            rotation: [0, 45, 0],
-                            uv: [0, 0]
-                        ),
-                        Cube(
-                            origin: [-8, -1, 0],
-                            size: [16, 16, 0],
-                            pivot: [0, -1, 0],
-                            rotation: [0, -45, 0],
-                            uv: [0, 0]
-                        )
-                    ]
-                )]
-            )
-        ])
     }
 }
 

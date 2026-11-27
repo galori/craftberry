@@ -127,6 +127,67 @@ final class AddOnRevisionTests: XCTestCase {
         XCTAssertNotEqual(result.project.buildVersion, draft.buildVersion)
     }
 
+    func testRevisionFromLegacySwordToCropUsesDraftScriptUUID() async throws {
+        let base = try makeSwordProject()
+        let draft = try AddOnProject.materialCropSet(
+            materialName: "Turnip",
+            originalPrompt: "Turnip crop",
+            identity: testIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await AddOnRevisionService().reviseWithDraft(
+            baseProject: base,
+            draft: draft,
+            newPrompt: "Turn this sword into a crop",
+            outputDirectory: directory
+        )
+
+        XCTAssertEqual(result.project.packUUIDs.behaviorHeader, base.packUUIDs.behaviorHeader)
+        XCTAssertEqual(result.project.packUUIDs.behaviorModule, base.packUUIDs.behaviorModule)
+        XCTAssertEqual(result.project.packUUIDs.resourceHeader, base.packUUIDs.resourceHeader)
+        XCTAssertEqual(result.project.packUUIDs.resourceModule, base.packUUIDs.resourceModule)
+        XCTAssertEqual(result.project.packUUIDs.behaviorScriptModule, draft.packUUIDs.behaviorScriptModule)
+    }
+
+    func testRevisionFromLegacySwordToCropPreservesExistingScriptUUID() async throws {
+        let originalBase = try makeSwordProject()
+        let existingScriptUUID = UUID(uuidString: "20000000-0000-4000-8000-000000000099")!
+        let base = AddOnProject(
+            id: originalBase.id,
+            namespace: originalBase.namespace,
+            displayName: originalBase.displayName,
+            packUUIDs: PackUUIDs(
+                behaviorHeader: originalBase.packUUIDs.behaviorHeader,
+                behaviorModule: originalBase.packUUIDs.behaviorModule,
+                resourceHeader: originalBase.packUUIDs.resourceHeader,
+                resourceModule: originalBase.packUUIDs.resourceModule,
+                behaviorScriptModule: existingScriptUUID
+            ),
+            buildVersion: originalBase.buildVersion,
+            targetProfileID: originalBase.targetProfileID,
+            originalPrompt: originalBase.originalPrompt,
+            content: originalBase.content
+        )
+        let draft = try AddOnProject.materialCropSet(
+            materialName: "Turnip",
+            originalPrompt: "Turnip crop",
+            identity: testIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await AddOnRevisionService().reviseWithDraft(
+            baseProject: base,
+            draft: draft,
+            newPrompt: "Turn this sword into a crop",
+            outputDirectory: directory
+        )
+
+        XCTAssertEqual(result.project.packUUIDs.behaviorScriptModule, existingScriptUUID)
+    }
+
     // MARK: - Change summary
 
     func testChangeSummaryDetectsAddedAndRemoved() {

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 public struct ContentID: RawRepresentable, Codable, Equatable, Hashable, Sendable, CustomStringConvertible {
@@ -27,6 +28,27 @@ public struct PackUUIDs: Codable, Equatable, Sendable {
         self.resourceHeader = resourceHeader
         self.resourceModule = resourceModule
         self.behaviorScriptModule = behaviorScriptModule
+    }
+
+    public func addingDeterministicBehaviorScriptModule() -> PackUUIDs {
+        guard behaviorScriptModule == nil else { return self }
+        let identity = [behaviorHeader, behaviorModule, resourceHeader, resourceModule]
+            .map { $0.uuidString.lowercased() }
+            .joined(separator: ":")
+        var bytes = Array(SHA256.hash(data: Data("craftberry-script-module-v1:\(identity)".utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0f) | 0x80
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        let stableUUID = UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+        return PackUUIDs(
+            behaviorHeader: behaviorHeader,
+            behaviorModule: behaviorModule,
+            resourceHeader: resourceHeader,
+            resourceModule: resourceModule,
+            behaviorScriptModule: stableUUID
+        )
     }
 }
 
@@ -815,49 +837,95 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             if case .block(let block) = node { return block.growthStages != nil }
             return false
         }
-        let migratedUUIDs = PackUUIDs(
-            behaviorHeader: packUUIDs.behaviorHeader,
-            behaviorModule: packUUIDs.behaviorModule,
-            resourceHeader: packUUIDs.resourceHeader,
-            resourceModule: packUUIDs.resourceModule,
-            behaviorScriptModule: packUUIDs.behaviorScriptModule ?? (needsCropScript ? UUID() : nil)
-        )
+        let migratedUUIDs = needsCropScript ? packUUIDs.addingDeterministicBehaviorScriptModule() : packUUIDs
         return AddOnProject(schemaVersion: Self.currentSchemaVersion, id: id, namespace: namespace, displayName: displayName, shortDescription: shortDescription, packUUIDs: migratedUUIDs, buildVersion: buildVersion, targetProfileID: targetProfileID, originalPrompt: originalPrompt, content: migratedContent)
     }
 
     private static func migrateLegacyCropContent(_ content: [AddOnContentNode]) -> [AddOnContentNode] {
         let originalBlocks = content.compactMap { if case .block(let block) = $0 { block } else { nil } }
+        let originalItems = content.compactMap { if case .item(let item) = $0 { item } else { nil } }
+        let originalVisuals = content.compactMap { if case .visualResource(let visual) = $0 { visual } else { nil } }
+        let visualsByID = Dictionary(grouping: originalVisuals, by: \.id)
+        let nonCropTerrainIDs = Set(originalBlocks.filter { $0.growthStages == nil }.map(\.terrainResourceID))
+        let terrainReferenceCounts = Dictionary(grouping: originalBlocks, by: \.terrainResourceID).mapValues(\.count)
+        let reservedVisualIDs = Set(originalVisuals.map(\.id))
+        var allocatedVisualIDs: Set<ContentID> = []
         var replacementBlocks: [ContentID: BlockDefinition] = [:]
         var replacementVisuals: [ContentID: VisualResource] = [:]
         var seedToCrop: [ContentID: ContentID] = [:]
 
+        let recipeOutputs = Set(content.compactMap { node -> ContentID? in
+            let resultItem: ContentReference?
+            switch node {
+            case .shapedRecipe(let recipe): resultItem = recipe.result.item
+            case .shapelessRecipe(let recipe): resultItem = recipe.result.item
+            case .furnaceRecipe(let recipe): resultItem = recipe.result.item
+            case .smithingTransformRecipe(let recipe): resultItem = recipe.result.item
+            case .brewingMixRecipe(let recipe): resultItem = recipe.output
+            case .brewingContainerRecipe(let recipe): resultItem = recipe.output
+            default: resultItem = nil
+            }
+            guard let resultItem, case .generated(let itemID) = resultItem else { return nil }
+            return itemID
+        })
+
         for block in originalBlocks where block.growthStages != nil {
             guard let stageCount = block.growthStages, (2...16).contains(stageCount) else { continue }
-            let inferredSeedID = block.seedItemID ?? {
-                guard block.id.rawValue.hasSuffix("_crop") else { return nil }
-                return ContentID(String(block.id.rawValue.dropLast("_crop".count)) + "_seed")
-            }()
-            let matchingSeedExists = inferredSeedID.map { candidate in
-                content.contains { if case .item(let item) = $0 { item.id == candidate } else { false } }
-            } ?? false
-            let seedID = matchingSeedExists ? inferredSeedID : nil
-            let existingResourceIDs = block.growthStageResourceIDs
-            let resourceIDs: [ContentID] = (0..<stageCount).map { stage in
-                if let existingResourceIDs, existingResourceIDs.indices.contains(stage) { return existingResourceIDs[stage] }
-                if stage == 0 { return block.terrainResourceID }
-                return ContentID("\(block.id.rawValue)_stage_\(stage)")
+            let seedID: ContentID?
+            if let explicitSeedID = block.seedItemID {
+                seedID = originalItems.contains(where: { $0.id == explicitSeedID }) ? explicitSeedID : nil
+            } else {
+                let conventionalSeedID: ContentID? = block.id.rawValue.hasSuffix("_crop")
+                    ? ContentID(String(block.id.rawValue.dropLast("_crop".count)) + "_seed")
+                    : nil
+                if let conventionalSeedID, originalItems.contains(where: { $0.id == conventionalSeedID }) {
+                    seedID = conventionalSeedID
+                } else {
+                    let recipeLinkedSeeds = originalItems.filter { item in
+                        guard recipeOutputs.contains(item.id), item.id != block.lootDropID,
+                              let visual = visualsByID[item.visualResourceID], visual.count == 1 else { return false }
+                        return visual[0].kind == .seedPixelArt
+                    }.map(\.id)
+                    seedID = recipeLinkedSeeds.count == 1 ? recipeLinkedSeeds[0] : nil
+                }
             }
-            let baseVisual = content.compactMap { node -> VisualResource? in
-                if case .visualResource(let resource) = node, resource.id == block.terrainResourceID { return resource }
-                return nil
-            }.first
+            let existingResourceIDs = block.growthStageResourceIDs
+            let baseVisual = visualsByID[block.terrainResourceID]?.first
+            let sharedBase = (terrainReferenceCounts[block.terrainResourceID] ?? 0) > 1
+            var resourceIDs: [ContentID] = []
             for stage in 0..<stageCount {
-                let resourceID = resourceIDs[stage]
-                let color = baseVisual?.color ?? .green
+                let explicitID = existingResourceIDs.flatMap { $0.indices.contains(stage) ? $0[stage] : nil }
+                let candidate: ContentID?
+                let explicitIDIsSafe: Bool = {
+                    guard let explicitID,
+                          !nonCropTerrainIDs.contains(explicitID),
+                          !allocatedVisualIDs.contains(explicitID) else { return false }
+                    guard let existing = visualsByID[explicitID] else { return true }
+                    return existing.allSatisfy { $0.kind == .cropTerrain }
+                }()
+                if let explicitID, explicitIDIsSafe, (stage != 0 || explicitID != block.terrainResourceID || !sharedBase) {
+                    candidate = explicitID
+                } else if stage == 0,
+                          !sharedBase,
+                          !nonCropTerrainIDs.contains(block.terrainResourceID),
+                          !allocatedVisualIDs.contains(block.terrainResourceID) {
+                    candidate = block.terrainResourceID
+                } else {
+                    candidate = nil
+                }
+
+                let resourceID = candidate ?? Self.allocateCropStageResourceID(
+                    blockID: block.id,
+                    stage: stage,
+                    reservedVisualIDs: reservedVisualIDs,
+                    allocatedVisualIDs: &allocatedVisualIDs
+                )
+                allocatedVisualIDs.insert(resourceID)
+                resourceIDs.append(resourceID)
                 replacementVisuals[resourceID] = VisualResource(
                     id: resourceID,
                     kind: .cropTerrain,
-                    color: color,
+                    color: baseVisual?.color ?? .green,
                     growthStage: stage,
                     growthStageCount: stageCount
                 )
@@ -914,6 +982,22 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
             result.append(.visualResource(visual))
         }
         return result
+    }
+
+    private static func allocateCropStageResourceID(
+        blockID: ContentID,
+        stage: Int,
+        reservedVisualIDs: Set<ContentID>,
+        allocatedVisualIDs: inout Set<ContentID>
+    ) -> ContentID {
+        let base = "\(blockID.rawValue)_stage_\(stage)"
+        var candidate = ContentID(base)
+        var suffix = 1
+        while reservedVisualIDs.contains(candidate) || allocatedVisualIDs.contains(candidate) {
+            candidate = ContentID("\(base)_migration_\(suffix)")
+            suffix += 1
+        }
+        return candidate
     }
 
     public static func sword(
@@ -1657,15 +1741,7 @@ extension AddOnProject {
         let seedID = ContentID("\(stem)_seed")
         let cropID = ContentID("\(stem)_crop")
         let produceID = ContentID("\(stem)_produce")
-        let packUUIDs = identity.packUUIDs.behaviorScriptModule == nil
-            ? PackUUIDs(
-                behaviorHeader: identity.packUUIDs.behaviorHeader,
-                behaviorModule: identity.packUUIDs.behaviorModule,
-                resourceHeader: identity.packUUIDs.resourceHeader,
-                resourceModule: identity.packUUIDs.resourceModule,
-                behaviorScriptModule: UUID()
-            )
-            : identity.packUUIDs
+        let packUUIDs = identity.packUUIDs.addingDeterministicBehaviorScriptModule()
         let stageResourceIDs = (0..<8).map { ContentID("\(cropID.rawValue)_stage_\($0)") }
         let seed = ItemDefinition(id: seedID, displayName: "\(material) Seeds", menuCategory: .items, menuGroup: nil, traits: ItemTraits(blockPlacer: BlockPlacerTrait(blockID: cropID)), visualResourceID: seedID)
         let produce = ItemDefinition(id: produceID, displayName: "\(material) Produce", menuCategory: .items, menuGroup: nil, traits: ItemTraits(food: FoodTrait(nutrition: 4, saturationModifier: "0.6")), visualResourceID: produceID)

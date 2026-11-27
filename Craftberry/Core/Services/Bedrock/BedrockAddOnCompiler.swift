@@ -163,6 +163,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
         let hasCrops = project.blocks.contains(where: { $0.growthStages != nil })
+        let cropTextureAliases = cropStageTextureAliases(for: project)
         var modules = [ManifestDocument.Module(
             type: "data",
             uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
@@ -208,6 +209,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         ]
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
+            let isCrop = block.growthStages != nil
+            let stageTextureAliases = cropTextureAliases[block.id] ?? []
             let cropIdentifiers = block.growthStages.map { _ in
                 CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
             }
@@ -220,18 +223,15 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             }()
             let permutations: [BlockDocument.Block.Permutation]? = {
                 guard let stages = block.growthStages, let cropIdentifiers else { return nil }
-                let resourceIDs = block.growthStageResourceIDs ?? Array(repeating: block.terrainResourceID, count: stages)
                 return (0..<stages).map { stage in
-                    let materialInstances = ["*": BlockDocument.MaterialInstance(texture: resourceIDs[stage].rawValue, renderMethod: "alpha_test")]
-                    let loot = stage == stages - 1 ? "loot_tables/blocks/\(block.id.rawValue)_harvest.json" : nil
+                    let materialInstances = ["*": BlockDocument.MaterialInstance(texture: stageTextureAliases[stage], renderMethod: "alpha_test")]
+                    let loot = stage == stages - 1 ? cropLootPath(blockID: block.id, table: .harvest) : nil
                     return .init(
                         condition: "query.block_state('\(cropIdentifiers.growthStateKey)') == \(stage)",
                         components: .init(loot: loot, materialInstances: materialInstances)
                     )
                 }
             }()
-            let isCrop = block.growthStages != nil
-            let stageResourceIDs = block.growthStageResourceIDs ?? [block.terrainResourceID]
             let document = BlockDocument(
                 formatVersion: profile.blockFormatVersion,
                 block: BlockDocument.Block(
@@ -244,12 +244,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         destructibleByMining: BlockDocument.Components.DestructibleByMining(secondsToDestroy: block.destroyTime),
                         mapColor: BlockDocument.MapColor(color: block.mapColor),
                         lightDampening: isCrop ? 0 : 15,
-                        loot: isCrop ? "loot_tables/blocks/\(block.id.rawValue)_seeds.json" : "loot_tables/blocks/\(block.id.rawValue).json",
-                        geometry: cropIdentifiers?.geometryIdentifier,
-                        materialInstances: isCrop ? ["*": BlockDocument.MaterialInstance(texture: stageResourceIDs[0].rawValue, renderMethod: "alpha_test")] : nil,
+                        loot: isCrop ? cropLootPath(blockID: block.id, table: .seeds) : "loot_tables/blocks/\(block.id.rawValue).json",
+                        geometry: isCrop ? "minecraft:geometry.cross" : nil,
+                        materialInstances: isCrop ? ["*": BlockDocument.MaterialInstance(texture: stageTextureAliases[0], renderMethod: "alpha_test")] : nil,
                         collisionBox: isCrop ? false : nil,
                         placementFilter: isCrop ? .init(conditions: [.init(allowedFaces: ["up"], blockFilter: ["minecraft:farmland"])]) : nil,
-                        tags: isCrop ? .init(tags: ["minecraft:crop"]) : nil,
+                        tags: isCrop ? ["minecraft:crop"] : nil,
                         cropGrow: block.growthStages.map { .init(stageCount: $0) },
                         cropGrowComponentID: cropIdentifiers?.componentID
                     ),
@@ -271,8 +271,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)]),
                     LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: seedIdentifier, weight: 1)])
                 ])
-                entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue)_seeds.json", data: try BedrockDocumentEncoder.encode(seedLoot)))
-                entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue)_harvest.json", data: try BedrockDocumentEncoder.encode(harvestLoot)))
+                entries.append(ZipArchiveEntry(path: cropLootPath(blockID: block.id, table: .seeds), data: try BedrockDocumentEncoder.encode(seedLoot)))
+                entries.append(ZipArchiveEntry(path: cropLootPath(blockID: block.id, table: .harvest), data: try BedrockDocumentEncoder.encode(harvestLoot)))
             } else {
                 let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)])])
                 entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
@@ -788,6 +788,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
         let resourcePackDisplayName = "\(project.displayName) Resources"
+        let cropTextureAliases = cropStageTextureAliases(for: project)
         let manifest = ManifestDocument(
             formatVersion: profile.manifestFormatVersion,
             header: ManifestDocument.Header(
@@ -897,7 +898,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         }
         // Block terrain tiles (16×16) — distinct from the 32×32 block-item sprites emitted above.
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
-            let stageResources = block.growthStageResourceIDs ?? [block.terrainResourceID]
+            let stageResources = terrainResourceIDs(for: block)
             for terrainID in stageResources {
                 guard let terrain = project.visualResources.first(where: { $0.id == terrainID }) else { continue }
                 entries.append(
@@ -908,25 +909,19 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 )
             }
         }
-        for block in project.blocks where block.growthStages != nil {
-            let identifiers = CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
-            entries.append(
-                ZipArchiveEntry(
-                    path: identifiers.geometryResourcePath,
-                    data: try BedrockDocumentEncoder.encode(
-                        CropGeometryDocument.crop(identifier: identifiers.geometryIdentifier)
-                    )
-                )
-            )
-        }
         if !project.blocks.isEmpty {
             var terrainData: [String: TerrainTextureDocument.Texture] = [:]
             for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
-                let stageResources = block.growthStageResourceIDs ?? [block.terrainResourceID]
-                for terrainID in stageResources {
-                    terrainData[terrainID.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(terrainID.rawValue)")
+                let stageResources = terrainResourceIDs(for: block)
+                if block.growthStages != nil {
+                    let aliases = cropTextureAliases[block.id] ?? []
+                    for (stage, terrainID) in stageResources.enumerated() {
+                        terrainData[aliases[stage]] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(terrainID.rawValue)")
+                    }
+                    terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(stageResources[0].rawValue)")
+                } else {
+                    terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(block.terrainResourceID.rawValue)")
                 }
-                terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(stageResources[0].rawValue)")
             }
             let terrainTexture = TerrainTextureDocument(
                 resourcePackName: resourcePackDisplayName,
@@ -1166,22 +1161,48 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
     private struct CropRuntimeIdentifiers {
         let growthStateKey: String
         let componentID: String
-        let geometryIdentifier: String
-        let geometryResourcePath: String
 
         init(namespace: String, blockID: ContentID) {
             let blockPath = blockID.rawValue
-            let safeGeometryNamespace = namespace
-                .replacingOccurrences(of: "-", with: "_")
-                .replacingOccurrences(of: ".", with: "_")
-            let safeGeometryBlockPath = blockPath
-                .replacingOccurrences(of: "-", with: "_")
-                .replacingOccurrences(of: ".", with: "_")
             growthStateKey = "\(namespace):growth_\(blockPath)"
             componentID = "\(namespace):crop_grow_\(blockPath)"
-            geometryIdentifier = "geometry.\(safeGeometryNamespace).crop_\(safeGeometryBlockPath)"
-            geometryResourcePath = "models/blocks/\(safeGeometryBlockPath).geo.json"
         }
+    }
+
+    private enum CropLootTable: String {
+        case seeds
+        case harvest
+    }
+
+    private func cropLootPath(blockID: ContentID, table: CropLootTable) -> String {
+        "loot_tables/crops/\(blockID.rawValue)/\(table.rawValue).json"
+    }
+
+    private func terrainResourceIDs(for block: BlockDefinition) -> [ContentID] {
+        guard block.growthStages != nil else { return [block.terrainResourceID] }
+        return block.growthStageResourceIDs ?? [block.terrainResourceID]
+    }
+
+    private func cropStageTextureAliases(for project: AddOnProject) -> [ContentID: [String]] {
+        let blockAliases = Set(project.blocks.map { $0.id.rawValue })
+        var allocatedAliases = blockAliases
+        var result: [ContentID: [String]] = [:]
+        for block in project.blocks.filter({ $0.growthStages != nil }).sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            guard let stageCount = block.growthStages else { continue }
+            let aliases = (0..<stageCount).map { stage -> String in
+                let base = "cropstage_\(block.id.rawValue)_\(stage)"
+                var candidate = base
+                var suffix = 1
+                while allocatedAliases.contains(candidate) {
+                    candidate = "\(base)_\(suffix)"
+                    suffix += 1
+                }
+                allocatedAliases.insert(candidate)
+                return candidate
+            }
+            result[block.id] = aliases
+        }
+        return result
     }
 
     private static func cropGrowthScript(project: AddOnProject) -> String {
