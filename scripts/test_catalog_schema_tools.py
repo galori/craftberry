@@ -212,6 +212,126 @@ class ScriptRegressionTests(unittest.TestCase):
         with self.subTest(component="minecraft:behavior.swoop_attack"):
             self.assertEqual(swoop_errors, [], "the swoop schema must accept its own documented numeric pair example")
 
+    def test_random_hover_accepts_pinned_height_array_and_rejects_malformed_values(self) -> None:
+        schema = json.loads((ROOT / "schemas/blockception/behavior/entities/entities.json").read_text())
+        try:
+            from jsonschema import Draft7Validator
+        except ImportError:
+            self.skipTest("jsonschema is installed by the advisory-schema CI job")
+
+        validator = Draft7Validator(schema)
+
+        def entity(height: object) -> dict[str, object]:
+            return {
+                "format_version": "1.26.30",
+                "minecraft:entity": {
+                    "description": {"identifier": "craftberry:hover_fixture"},
+                    "components": {"minecraft:behavior.random_hover": {"hover_height": height}},
+                },
+            }
+
+        # Mojang/bedrock-samples 1.26.30.5 at 921fafb uses [1, 4] in allay.json.
+        self.assertTrue(
+            validator.is_valid(entity([1, 3])),
+            "random_hover.hover_height must accept the pinned Mojang array form",
+        )
+        for malformed in ([1], [1, "3"], [1, 3, 5], {"min": 1, "max": 3}, None):
+            with self.subTest(hover_height=malformed):
+                self.assertFalse(validator.is_valid(entity(malformed)))
+
+    def test_projectile_duration_accepts_infinite_and_rejects_invalid_values(self) -> None:
+        schema = json.loads((ROOT / "schemas/blockception/behavior/entities/entities.json").read_text())
+        try:
+            from jsonschema import Draft7Validator
+        except ImportError:
+            self.skipTest("jsonschema is installed by the advisory-schema CI job")
+
+        validator = Draft7Validator(schema)
+
+        def entity(duration: object) -> dict[str, object]:
+            return {
+                "format_version": "1.26.30",
+                "minecraft:entity": {
+                    "description": {"identifier": "craftberry:projectile_fixture"},
+                    "components": {
+                        "minecraft:projectile": {
+                            "on_hit": {
+                                "mob_effect": [{"effect": "speed", "durationeasy": duration}]
+                            }
+                        }
+                    },
+                },
+            }
+
+        self.assertTrue(validator.is_valid(entity(30)))
+        self.assertTrue(
+            validator.is_valid(entity("infinite")),
+            "projectile mob-effect duration must accept its schema-declared infinite value",
+        )
+        for malformed in (-1, 1.5, "Infinity", None):
+            with self.subTest(duration=malformed):
+                self.assertFalse(validator.is_valid(entity(malformed)))
+
+    def test_entity_sensor_accepts_legacy_element_and_pinned_subsensor_form(self) -> None:
+        schema = json.loads((ROOT / "schemas/blockception/behavior/entities/entities.json").read_text())
+        try:
+            from jsonschema import Draft7Validator
+        except ImportError:
+            self.skipTest("jsonschema is installed by the advisory-schema CI job")
+
+        validator = Draft7Validator(schema)
+
+        def entity(sensor: dict[str, object]) -> dict[str, object]:
+            return {
+                "format_version": "1.26.30",
+                "minecraft:entity": {
+                    "description": {"identifier": "craftberry:sensor_fixture"},
+                    "components": {"minecraft:entity_sensor": sensor},
+                },
+            }
+
+        # This legacy form is the installed Blockception BHD_sensor_element example.
+        legacy = {
+            "maximum_count": -1,
+            "minimum_count": 1,
+            "require_all": False,
+            "sensor_range": 10,
+            "event": "example",
+        }
+        self.assertTrue(
+            validator.is_valid(entity(legacy)),
+            "the legacy entity-sensor form must match exactly one oneOf branch",
+        )
+
+        # This subsensor shape is pinned in Mojang bedrock-samples 1.26.30.5,
+        # commit 921fafb, behavior_pack/entities/parrot.json.
+        pinned_subsensor = {
+            "relative_range": False,
+            "subsensors": [
+                {
+                    "event": "minecraft:on_riding_player",
+                    "event_filters": {
+                        "all_of": [
+                            {
+                                "test": "is_riding",
+                                "operator": "equals",
+                                "subject": "self",
+                                "value": True,
+                            },
+                            {
+                                "test": "has_component",
+                                "operator": "equals",
+                                "subject": "self",
+                                "value": "minecraft:behavior.look_at_player",
+                            },
+                        ]
+                    },
+                    "range": [2.0, 2.0],
+                }
+            ],
+        }
+        self.assertTrue(validator.is_valid(entity(pinned_subsensor)))
+
     def test_template_exception_matches_only_the_template_property_error(self) -> None:
         with patch.dict(sys.modules, {"jsonschema": SimpleNamespace(Draft7Validator=object)}):
             linter = load_script("lint-bedrock-schemas.py", "schema_linter_template_exception_tested")
