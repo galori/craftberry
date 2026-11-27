@@ -933,7 +933,8 @@ final class BedrockCompilerTests: XCTestCase {
         // Pinned Mojang block schema 1.21.110 (921fafb0) defines minecraft:tags as an array of strings.
         XCTAssertEqual(components["minecraft:tags"] as? [String], ["minecraft:crop"])
         XCTAssertEqual(components["minecraft:loot"] as? String, "loot_tables/crops/azure_a1b2c3_crop/seeds.json")
-        XCTAssertEqual(components[componentID] as? [String: Int], ["stage_count": 8])
+        XCTAssertEqual(components["minecraft:custom_components"] as? [String], [componentID])
+        XCTAssertNil(components[componentID])
         for (stage, permutation) in perms.enumerated() {
             XCTAssertEqual(permutation["condition"] as? String, "query.block_state('\(growthStateKey)') == \(stage)")
             let permutationComponents = try XCTUnwrap(permutation["components"] as? [String: Any])
@@ -964,6 +965,8 @@ final class BedrockCompilerTests: XCTestCase {
         let scriptEntry = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/craftberry.js" }))
         let script = try XCTUnwrap(String(data: scriptEntry.data, encoding: .utf8))
         XCTAssertTrue(script.contains("onRandomTick"))
+        XCTAssertTrue(script.contains("const stageCount = 8;"))
+        XCTAssertFalse(script.contains("component.params"))
         XCTAssertTrue(script.contains("stage + 1"))
         XCTAssertTrue(script.contains("stage >= stageCount - 1"))
         XCTAssertTrue(script.contains(componentID))
@@ -1161,7 +1164,8 @@ final class BedrockCompilerTests: XCTestCase {
             let states = try XCTUnwrap(description["states"] as? [String: Any])
             XCTAssertNotNil(states[identifiers.0])
             let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
-            XCTAssertEqual(components[identifiers.1] as? [String: Int], ["stage_count": 8])
+            XCTAssertEqual(components["minecraft:custom_components"] as? [String], [identifiers.1])
+            XCTAssertNil(components[identifiers.1])
             // Mojang's pinned 1.21.110 block schema accepts this built-in cross geometry,
             // avoiding generated crop geometry names and paths that could collide.
             XCTAssertEqual(components["minecraft:geometry"] as? String, "minecraft:geometry.cross")
@@ -1171,6 +1175,7 @@ final class BedrockCompilerTests: XCTestCase {
             let scriptEntry = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/craftberry.js" }))
             let script = try XCTUnwrap(String(data: scriptEntry.data, encoding: .utf8))
             XCTAssertTrue(script.contains(identifiers.1))
+            XCTAssertTrue(script.contains("const stageCount = 8;"))
             XCTAssertTrue(script.contains(identifiers.0))
 
             XCTAssertFalse(resources.contains { $0.path.hasPrefix("models/blocks/") })

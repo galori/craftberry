@@ -250,8 +250,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         collisionBox: isCrop ? false : nil,
                         placementFilter: isCrop ? .init(conditions: [.init(allowedFaces: ["up"], blockFilter: ["minecraft:farmland"])]) : nil,
                         tags: isCrop ? ["minecraft:crop"] : nil,
-                        cropGrow: block.growthStages.map { .init(stageCount: $0) },
-                        cropGrowComponentID: cropIdentifiers?.componentID
+                        customComponents: cropIdentifiers.map { [$0.componentID] }
                     ),
                     permutations: permutations
                 )
@@ -1210,12 +1209,13 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             .filter { $0.growthStages != nil }
             .map { block -> String in
                 let identifiers = CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
+                let stageCount = block.growthStages ?? 1
                 return """
                   initEvent.blockComponentRegistry.registerCustomComponent("\(identifiers.componentID)", {
-                    onRandomTick(event, component) {
+                    onRandomTick(event) {
                       const stage = event.block.permutation.getState("\(identifiers.growthStateKey)");
-                      const stageCount = component.params?.stage_count;
-                      if (typeof stage !== "number" || typeof stageCount !== "number" || stage >= stageCount - 1) {
+                      const stageCount = \(stageCount);
+                      if (typeof stage !== "number" || stage >= stageCount - 1) {
                         return;
                       }
                       const nextPermutation = event.block.permutation.withState(

@@ -608,8 +608,7 @@ struct BlockDocument: Encodable {
         let collisionBox: Bool?
         let placementFilter: PlacementFilter?
         let tags: [String]?
-        let cropGrow: CropGrow?
-        let cropGrowComponentID: String?
+        let customComponents: [String]?
 
         struct DestructibleByMining: Encodable {
             let secondsToDestroy: Double
@@ -630,9 +629,7 @@ struct BlockDocument: Encodable {
             try container.encodeIfPresent(collisionBox, forKey: DynamicCodingKey("minecraft:collision_box"))
             try container.encodeIfPresent(placementFilter, forKey: DynamicCodingKey("minecraft:placement_filter"))
             try container.encodeIfPresent(tags, forKey: DynamicCodingKey("minecraft:tags"))
-            if let cropGrow, let cropGrowComponentID {
-                try container.encode(cropGrow, forKey: DynamicCodingKey(cropGrowComponentID))
-            }
+            try container.encodeIfPresent(customComponents, forKey: DynamicCodingKey("minecraft:custom_components"))
         }
 
         struct PlacementFilter: Encodable {
@@ -649,11 +646,6 @@ struct BlockDocument: Encodable {
             }
         }
 
-        struct CropGrow: Encodable {
-            let stageCount: Int
-
-            enum CodingKeys: String, CodingKey { case stageCount = "stage_count" }
-        }
     }
 
     private struct DynamicCodingKey: CodingKey {
