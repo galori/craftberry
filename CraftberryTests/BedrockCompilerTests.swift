@@ -895,6 +895,22 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertNotNil((terrain["texture_data"] as? [String: Any])?["azure_a1b2c3_ore"])
     }
 
+    func testCompilerEmitsMaterialBlockSetLootThatDropsTheBlockItself() throws {
+        let project = try AddOnProject.materialBlockSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "block", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let block = try json(named: "blocks/azure_a1b2c3_block.json", in: behavior)
+        let components = try XCTUnwrap((block["minecraft:block"] as? [String: Any])?["components"] as? [String: Any])
+        // The block's loot component must point at the file that is emitted.
+        XCTAssertEqual(components["minecraft:loot"] as? String, "loot_tables/blocks/azure_a1b2c3_block.json")
+        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_block.json", in: behavior)
+        let entry = try XCTUnwrap(((loot["pools"] as? [[String: Any]])?.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_block")
+    }
+
     func testCompilerEmitsMaterialCropSetWithStatesAndPermutations() throws {
         let project = try AddOnProject.materialCropSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "crop", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
