@@ -477,6 +477,12 @@ struct BlockDocument: Encodable {
                 let max: Int
             }
         }
+
+        enum CodingKeys: String, CodingKey {
+            case identifier
+            case menuCategory = "menu_category"
+            case states
+        }
     }
 
     struct MenuCategory: Encodable {
@@ -522,8 +528,14 @@ struct EntityDocument: Encodable {
     struct Entity: Encodable {
         let description: Description
         let componentGroups: [String: ComponentGroup]
+        let events: [String: Event]
         let components: Components
-        enum CodingKeys: String, CodingKey { case description; case componentGroups = "component_groups"; case components }
+        enum CodingKeys: String, CodingKey {
+            case description
+            case componentGroups = "component_groups"
+            case events
+            case components
+        }
     }
     struct Description: Encodable {
         let identifier: String
@@ -540,6 +552,14 @@ struct EntityDocument: Encodable {
         let loot: Loot?
         let breedable: Breedable?
         enum CodingKeys: String, CodingKey { case isBaby = "minecraft:is_baby"; case scale = "minecraft:scale"; case ageable = "minecraft:ageable"; case experienceReward = "minecraft:experience_reward"; case loot = "minecraft:loot"; case breedable = "minecraft:breedable" }
+    }
+    struct Event: Encodable {
+        let add: ComponentGroupChange?
+        let remove: ComponentGroupChange?
+    }
+    struct ComponentGroupChange: Encodable {
+        let componentGroups: [String]
+        enum CodingKeys: String, CodingKey { case componentGroups = "component_groups" }
     }
     struct EmptyComponent: Encodable {}
     struct Scale: Encodable { let value: Double }

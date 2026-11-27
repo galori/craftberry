@@ -68,7 +68,7 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_sword_smithing_recipe.json" })
         XCTAssertTrue(behavior.contains { $0.path == "recipes/azure_a1b2c3_trim_recipe.json" })
 
-        // Pinned to vanilla smithing samples: transform has template/base/addition/result, trim has template/base/addition with tag.
+        // Pinned to vanilla smithing samples: transform has template/base/addition/result; trim has template/base/addition with tags.
         let transform = try json(named: "recipes/azure_a1b2c3_sword_smithing_recipe.json", in: behavior)
         let transformRecipe = try XCTUnwrap(transform["minecraft:recipe_smithing_transform"] as? [String: Any])
         XCTAssertEqual(transformRecipe["tags"] as? [String], ["smithing_table"])

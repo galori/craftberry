@@ -3,29 +3,61 @@
 import io
 import json
 import pathlib
+import re
 import sys
 import zipfile
 
-from jsonschema import Draft7Validator
-
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMAS = {
-    "features/": "features.json",
-    "feature_rules/": "feature_rules.json",
+    "features/": pathlib.Path("features.json"),
+    "feature_rules/": pathlib.Path("feature_rules.json"),
+    "items/": pathlib.Path("items/items.json"),
+    "recipes/": pathlib.Path("recipes/recipes.json"),
+    "blocks/": pathlib.Path("blocks/blocks.json"),
+    "entities/": pathlib.Path("entities/entities.json"),
+    "loot_tables/": pathlib.Path("loot_tables/loot_tables.json"),
+    "spawn_rules/": pathlib.Path("spawn_rules/spawn_rules.json"),
 }
+EXCEPTIONS_PATH = ROOT / "schemas/blockception/exceptions.json"
+
+
+def matches_exception(exception, family, name, error):
+    instance_type = exception.get("instanceType")
+    if instance_type == "string" and not isinstance(error.instance, str):
+        return False
+    if instance_type not in (None, "string"):
+        raise ValueError(f"Unsupported exception instance type: {instance_type}")
+    message_equals = exception.get("messageEquals")
+    if message_equals is not None and error.message != message_equals:
+        return False
+    message_contains = exception.get("messageContains")
+    return (
+        exception["family"] == family
+        and re.fullmatch(exception["pathPattern"], name)
+        and re.fullmatch(exception["jsonPathPattern"], str(error.json_path))
+        and exception["validator"] == error.validator
+        and (message_equals is not None or message_contains in error.message)
+    )
 
 
 def main(archive):
+    from jsonschema import Draft7Validator
+
     validators = {}
-    for prefix, filename in SCHEMAS.items():
-        schema = json.loads((ROOT / "schemas/blockception/behavior" / filename).read_text())
+    for prefix, relative_schema_path in SCHEMAS.items():
+        schema_path = ROOT / "schemas/blockception/behavior" / relative_schema_path
+        schema = json.loads(schema_path.read_text())
         Draft7Validator.check_schema(schema)
         validator = Draft7Validator(schema)
-        if validator.is_valid({}):
-            raise RuntimeError(f"Schema {filename} accepts an empty document")
         validators[prefix] = validator
     seen = set()
     failed = False
+    exceptions = json.loads(EXCEPTIONS_PATH.read_text())
+    exception_counts = {item["id"]: 0 for item in exceptions}
+    allowlist = json.loads((ROOT / "Config/vanilla-catalog-allowlist.json").read_text())
+    pinned_sample_paths = {item["path"] for item in allowlist["recipeFormEvidence"]}
+    if any(item["samplePath"] not in pinned_sample_paths for item in exceptions):
+        raise RuntimeError("Every schema exception must point to a recipe form verified by the pinned sample catalog")
     with zipfile.ZipFile(archive) as addon:
         for pack_name in addon.namelist():
             if not pack_name.endswith(".mcpack"):
@@ -37,13 +69,31 @@ def main(archive):
                             seen.add(prefix)
                             errors = list(validator.iter_errors(json.loads(pack.read(name))))
                             for error in errors:
-                                print(f"{name}: {error.json_path}: {error.message}", file=sys.stderr)
-                                failed = True
+                                exception = next((
+                                    item for item in exceptions
+                                    if matches_exception(item, prefix, name, error)
+                                ), None)
+                                if exception:
+                                    exception_counts[exception["id"]] += 1
+                                else:
+                                    print(f"{name}: {error.json_path}: {error.message}", file=sys.stderr)
+                                    failed = True
     if seen != set(SCHEMAS):
         raise RuntimeError(f"Missing generated document families: {set(SCHEMAS) - seen}")
+    for exception in exceptions:
+        observed = exception_counts[exception["id"]]
+        expected = exception["expectedOccurrences"]
+        if observed != expected:
+            print(
+                f"Schema exception {exception['id']} matched {observed} validation errors; expected {expected}.",
+                file=sys.stderr,
+            )
+            failed = True
     if failed:
         return 1
-    print("Generated feature and feature-rule documents match the pinned advisory schemas.")
+    print(f"All {len(SCHEMAS)} generated document families match the pinned advisory schemas.")
+    for exception in exceptions:
+        print(f"Documented schema exception: {exception['id']} ({exception['samplePath']})")
     return 0
 
 
