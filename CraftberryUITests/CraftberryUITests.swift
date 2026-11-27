@@ -133,6 +133,31 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
     }
 
+    /// Calibration only: proving the picker opens and cancels does not verify Files selection,
+    /// pixel import, project persistence, or the exported add-on. See the manual acceptance
+    /// checkpoint in docs/TEXTURE_IMPORT_ACCEPTANCE.md for the full user-provider flow.
+    func testTextureDocumentPickerPresentsAndCancelsForCalibration() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-open-project"]
+        app.launch()
+
+        XCTAssertTrue(waitForElement("craftberry.state.ready", in: app, timeout: 8))
+        let importButton = app.buttons["craftberry.importItemArt"]
+        XCTAssertTrue(importButton.waitForExistence(timeout: 3))
+        importButton.tap()
+
+        let itemAction = app.buttons["Saved Cyan Sword"]
+        XCTAssertTrue(itemAction.waitForExistence(timeout: 3))
+        itemAction.tap()
+
+        let pickerShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        pickerShot.name = "PNG Files picker calibration (selection not performed)"
+        pickerShot.lifetime = .keepAlways
+        add(pickerShot)
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Cancel"].tap()
+    }
+
     func testDeterministicImportedSidecarCanBeRevised() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--ui-testing-open-project", "--ui-testing-revision-flow"]

@@ -85,8 +85,21 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         )
         try SidecarBuildAccessCoordinator.shared.withExclusiveAccess {
             try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+            // Publish the archive first and the canonical sidecar last.
+            let previousArchive = FileManager.default.fileExists(atPath: outputURL.path)
+                ? try Data(contentsOf: outputURL)
+                : nil
             try archiveData.write(to: outputURL, options: .atomic)
-            try sidecarData.write(to: sidecarURL, options: .atomic)
+            do {
+                try sidecarData.write(to: sidecarURL, options: .atomic)
+            } catch {
+                if let previousArchive {
+                    try previousArchive.write(to: outputURL, options: .atomic)
+                } else if FileManager.default.fileExists(atPath: outputURL.path) {
+                    try FileManager.default.removeItem(at: outputURL)
+                }
+                throw error
+            }
             let createdAtMarker = buildDirectory.appending(path: SidecarRetentionService.createdAtFilename)
             // The artifact is complete. Cleanup metadata and pruning can retry on the next launch/build.
             try? Data(String(buildCreatedAt.timeIntervalSince1970).utf8).write(to: createdAtMarker, options: .atomic)

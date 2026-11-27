@@ -214,6 +214,48 @@ final class CreationViewModelTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: result.artifact.projectSidecarURL.path))
     }
 
+    func testTextureImportFailureKeepsBuiltProjectAndPublishedSidecar() async throws {
+        let project = try makeProject()
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+        let viewModel = CreationViewModel(
+            apiKey: "",
+            client: FakeLLMClient(response: .generation(
+                ProjectGeneration(outcome: .ready, message: "Ready", project: project)
+            )),
+            artifactDirectoryProvider: { outputDirectory }
+        )
+        viewModel.prompt = "A blue diamond sword"
+        await viewModel.generate()
+        let buildResult = await viewModel.buildArtifact(project)
+        let initialResult = try XCTUnwrap(buildResult)
+
+        let nextBuildDirectory = initialResult.artifact.url
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(
+                path: project.buildVersion.nextPatch().components.map(String.init).joined(separator: "."),
+                directoryHint: .isDirectory
+            )
+        let blockedArchiveURL = nextBuildDirectory.appending(path: initialResult.artifact.fileName)
+        try FileManager.default.createDirectory(at: blockedArchiveURL, withIntermediateDirectories: true)
+
+        let visual = try XCTUnwrap(project.visualResources.first { $0.kind == .swordPixelArt })
+        await viewModel.importTexture(
+            fromPNG: PixelArtTextureRenderer.render(visual),
+            visualResourceID: visual.id
+        )
+
+        guard case .built(let restoredProject, let restoredResult) = viewModel.state else {
+            return XCTFail("A failed texture build must restore the existing built project, got \(viewModel.state)")
+        }
+        XCTAssertEqual(restoredProject, project)
+        XCTAssertEqual(restoredResult.artifact.url, initialResult.artifact.url)
+        XCTAssertTrue(viewModel.projectFileError?.contains("Couldn't build imported item art") == true)
+        XCTAssertEqual(try AddOnProjectStore.load(from: initialResult.artifact.projectSidecarURL), project)
+    }
+
     private func makeProject() throws -> AddOnProject {
         try AddOnProject.sword(
             displayName: "Azure Sword",

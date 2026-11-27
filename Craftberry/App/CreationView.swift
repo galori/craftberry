@@ -13,6 +13,8 @@ struct CreationView: View {
     @State private var presentedSheet: PresentedSheet?
     @State private var shareSnapshotURL: URL?
     @State private var isProjectImporterPresented = false
+    @State private var isTextureImporterPresented = false
+    @State private var textureImportResourceID: ContentID?
     @State private var revisionPrompt = ""
     @State private var suggestions = ExamplePromptLibrary.selection()
     @FocusState private var isPromptFocused: Bool
@@ -64,6 +66,25 @@ struct CreationView: View {
                 viewModel.reportProjectFileError(error)
             }
         }
+        .fileImporter(isPresented: $isTextureImporterPresented, allowedContentTypes: [.png]) { result in
+            switch result {
+            case .success(let imageURL):
+                let hasSecurityScope = imageURL.startAccessingSecurityScopedResource()
+                defer {
+                    if hasSecurityScope { imageURL.stopAccessingSecurityScopedResource() }
+                }
+                do {
+                    guard let textureImportResourceID else { throw PixelArtTextureImportError.invalidPNG }
+                    let data = try PixelArtTextureImporter.readPNGData(from: imageURL)
+                    Task { await viewModel.importTexture(fromPNG: data, visualResourceID: textureImportResourceID) }
+                } catch {
+                    viewModel.reportTextureImportError(error)
+                }
+            case .failure(let error):
+                guard (error as NSError).code != NSUserCancelledError else { return }
+                viewModel.reportTextureImportError(error)
+            }
+        }
         .alert(
             "File issue",
             isPresented: Binding(
@@ -73,7 +94,7 @@ struct CreationView: View {
         ) {
             Button("OK", role: .cancel) { viewModel.clearProjectFileError() }
         } message: {
-            Text(viewModel.projectFileError ?? "Choose a valid Craftberry project.json sidecar.")
+            Text(viewModel.projectFileError ?? "Choose a valid project sidecar or 32 by 32 item PNG.")
         }
         .task {
             await viewModel.pruneStoredBuilds()
@@ -322,6 +343,19 @@ struct CreationView: View {
                 }
                 .buttonStyle(CraftberrySecondaryButtonStyle())
                 .accessibilityIdentifier("craftberry.reviseProject")
+
+                Menu {
+                    ForEach(project.items, id: \.id) { item in
+                        Button(item.displayName) {
+                            textureImportResourceID = item.visualResourceID
+                            isTextureImporterPresented = true
+                        }
+                    }
+                } label: {
+                    Label("Import item art", systemImage: "photo")
+                }
+                .buttonStyle(CraftberrySecondaryButtonStyle())
+                .accessibilityIdentifier("craftberry.importItemArt")
 
                 Button {
                     exportAddOn(project: project, existingResult: result)

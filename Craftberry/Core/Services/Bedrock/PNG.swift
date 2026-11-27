@@ -1,4 +1,8 @@
 import Foundation
+#if canImport(CoreGraphics) && canImport(ImageIO)
+import CoreGraphics
+import ImageIO
+#endif
 
 public struct PNGDimensions: Equatable, Sendable {
     public let width: Int
@@ -134,7 +138,11 @@ public enum PixelArtTextureRenderer {
     ]
 
     public static func render(_ resource: VisualResource, pixelScale: Int = 1) -> Data {
-        switch resource.kind {
+        if let customPixels = resource.customPixels, resource.kind.supportsImportedPixels,
+           customPixels.count == 32 * 32 * 4 {
+            return renderImportedPixels(customPixels, pixelScale: pixelScale)
+        }
+        return switch resource.kind {
         case .swordPixelArt: renderSword(color: resource.color, pixelScale: pixelScale)
         case .ingotPixelArt: renderIngot(color: resource.color, pixelScale: pixelScale)
         case .pickaxePixelArt: renderPickaxe(color: resource.color, pixelScale: pixelScale)
@@ -162,6 +170,27 @@ public enum PixelArtTextureRenderer {
         case .entityPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
         case .entityTexture: renderEntityTexture(color: resource.color, pixelScale: pixelScale)
         }
+    }
+
+    private static func renderImportedPixels(_ data: Data, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale)
+        var pixels = [RGBA]()
+        pixels.reserveCapacity(32 * 32 * scale * scale)
+        for y in 0..<32 {
+            for _ in 0..<scale {
+                for x in 0..<32 {
+                    let offset = (y * 32 + x) * 4
+                    let pixel = RGBA(
+                        red: data[offset],
+                        green: data[offset + 1],
+                        blue: data[offset + 2],
+                        alpha: data[offset + 3]
+                    )
+                    pixels.append(contentsOf: repeatElement(pixel, count: scale))
+                }
+            }
+        }
+        return PNGEncoder.encode(width: 32 * scale, height: 32 * scale, pixels: pixels)
     }
 
     /// Renders original pixel art for a vanilla material identifier (e.g. "minecraft:diamond").
@@ -841,5 +870,105 @@ public enum PNGInspector {
         let width = (UInt32(data[16]) << 24) | (UInt32(data[17]) << 16) | (UInt32(data[18]) << 8) | UInt32(data[19])
         let height = (UInt32(data[20]) << 24) | (UInt32(data[21]) << 16) | (UInt32(data[22]) << 8) | UInt32(data[23])
         return PNGDimensions(width: Int(width), height: Int(height))
+    }
+}
+
+public enum PixelArtTextureImportError: LocalizedError, Equatable {
+    case fileTooLarge
+    case invalidPNG
+    case incorrectDimensions
+    case cannotDecode
+    case unsupportedPlatform
+
+    public var errorDescription: String? {
+        switch self {
+        case .fileTooLarge: "Choose a PNG 256 KB or smaller."
+        case .invalidPNG: "Choose a valid PNG image."
+        case .incorrectDimensions: "Inventory art must be exactly 32 by 32 pixels."
+        case .cannotDecode: "Craftberry could not decode this PNG image."
+        case .unsupportedPlatform: "PNG import is unavailable on this platform."
+        }
+    }
+}
+
+public enum PixelArtTextureImporter {
+    public static let maximumFileSize = 256 * 1024
+
+    /// Reads at most one byte beyond the accepted file size, even if the URL's contents grow
+    /// after the picker reports their size.
+    public static func readPNGData(from url: URL) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        var data = Data()
+        data.reserveCapacity(min(maximumFileSize, 64 * 1024))
+        while data.count <= maximumFileSize {
+            let remaining = maximumFileSize + 1 - data.count
+            let chunk = try handle.read(upToCount: min(remaining, 64 * 1024)) ?? Data()
+            guard !chunk.isEmpty else { return data }
+            data.append(chunk)
+        }
+        throw PixelArtTextureImportError.fileTooLarge
+    }
+
+    public static func canonicalPixels(fromPNG data: Data) throws -> Data {
+        guard data.count <= maximumFileSize else { throw PixelArtTextureImportError.fileTooLarge }
+        guard Array(data.prefix(8)) == [137, 80, 78, 71, 13, 10, 26, 10] else {
+            throw PixelArtTextureImportError.invalidPNG
+        }
+        guard let dimensions = PNGInspector.dimensions(of: data) else {
+            throw PixelArtTextureImportError.invalidPNG
+        }
+        guard dimensions == PNGDimensions(width: 32, height: 32) else {
+            throw PixelArtTextureImportError.incorrectDimensions
+        }
+        #if canImport(CoreGraphics) && canImport(ImageIO)
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 32,
+                kCGImageSourceShouldCache: true
+              ] as CFDictionary),
+              image.width == 32,
+              image.height == 32 else {
+            throw PixelArtTextureImportError.cannotDecode
+        }
+
+        var pixels = Data(count: 32 * 32 * 4)
+        let rendered = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress,
+                width: 32,
+                height: 32,
+                bitsPerComponent: 8,
+                bytesPerRow: 32 * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.interpolationQuality = .none
+            context.draw(image, in: CGRect(x: 0, y: 0, width: 32, height: 32))
+            return true
+        }
+        guard rendered else { throw PixelArtTextureImportError.cannotDecode }
+        pixels.withUnsafeMutableBytes { buffer in
+            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else { return }
+            for index in stride(from: 0, to: buffer.count, by: 4) {
+                let alpha = Int(bytes[index + 3])
+                if alpha == 0 {
+                    bytes[index] = 0
+                    bytes[index + 1] = 0
+                    bytes[index + 2] = 0
+                } else if alpha < 255 {
+                    bytes[index] = UInt8(min(255, Int(bytes[index]) * 255 / alpha))
+                    bytes[index + 1] = UInt8(min(255, Int(bytes[index + 1]) * 255 / alpha))
+                    bytes[index + 2] = UInt8(min(255, Int(bytes[index + 2]) * 255 / alpha))
+                }
+            }
+        }
+        return pixels
+        #else
+        throw PixelArtTextureImportError.unsupportedPlatform
+        #endif
     }
 }
