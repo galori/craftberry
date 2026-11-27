@@ -319,7 +319,7 @@ final class GenerationServiceTests: XCTestCase {
         let advancedCounter = try await secondStore.consumeAppAttestAssertion(
             challengeID: nextChallenge.id,
             installationID: installationID,
-            expectedCounter: 0,
+            expectedCounter: 1,
             newCounter: 2,
             now: now
         )
