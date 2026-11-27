@@ -21,6 +21,7 @@ on:
         options:
           - redstone
           - emerald
+          - share
           - weapon
           - armor
           - consumable
@@ -32,8 +33,12 @@ on:
           - ore
           - crop
           - entity
+          - passive
+          - tameable
           - boss
+          - enchant
           - structure
+          - music-record
 
 # Only one E2E run at a time — the single iPhone 13 Pro cannot parallelize.
 concurrency:
@@ -88,6 +93,20 @@ jobs:
             scripts/ios-device.sh minecraft-e2e-all
           else
             scripts/ios-device.sh minecraft-e2e "$E2E_SCENARIO"
+          fi
+
+      - name: Job summary
+        if: always()
+        env:
+          E2E_SUITE: ${{ github.event.inputs.suite || 'full' }}
+          E2E_SCENARIO: ${{ github.event.inputs.scenario || 'redstone' }}
+          RESULT: ${{ job.status == 'success' && 'PASS' || 'FAIL' }}
+        run: |
+          # shortcut: one line per run (the full suite is one line), not per scenario.
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" || "$E2E_SUITE" == "full" ]]; then
+            echo "- $RESULT: full suite" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- $RESULT: $E2E_SCENARIO" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload xcresult bundles
