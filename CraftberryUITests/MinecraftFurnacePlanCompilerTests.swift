@@ -93,7 +93,8 @@ final class MinecraftFurnacePlanCompilerTests: XCTestCase {
         XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_fueltest_fuel"))
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Furnace") })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Glass") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Removed 0 items") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("no items to remove") })
+        XCTAssertFalse(scenario.postCraftingSteps.contains { $0.action == .assertText("Removed 0 items") })
     }
 
     private var testLayout: MinecraftFurnaceLayout {

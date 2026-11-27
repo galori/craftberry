@@ -133,7 +133,7 @@ enum MinecraftFurnaceE2EScenarioFactory {
                     name: "Check generated fuel was consumed by the furnace",
                     action: .chatCommand("/clear @s craftberry:redstone_fueltest_fuel")
                 ),
-                MinecraftStep(name: "Confirm no generated fuel remains in the player's inventory", action: .assertText("Removed 0 items"))
+                MinecraftStep(name: "Confirm Bedrock found no generated fuel to remove", action: .assertText("no items to remove"))
             ]
         )
     }
