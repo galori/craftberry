@@ -172,9 +172,9 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
             }
         } else if !extensionBytes.isEmpty {
             throw AppleAppAttestVerificationError.invalidAssertionExtensions
-        } else if !acceptsBundleVersion(nil) {
-            throw AppleAppAttestVerificationError.invalidAssertionExtensions
         }
+        // Real Apple assertions carry plain 37-byte authenticator data with no extension map, so the
+        // bundle-version allowlist cannot apply here. The build was checked at attestation.
 
         let clientDataHash = Data(SHA256.hash(data: clientData))
         let nonce = Data(SHA256.hash(data: authenticatorData + clientDataHash))
@@ -195,7 +195,7 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         var signatureError: Unmanaged<CFError>?
         guard SecKeyVerifySignature(
             publicKey,
-            .ecdsaSignatureDigestX962SHA256,
+            .ecdsaSignatureMessageX962SHA256,
             nonce as CFData,
             signatureData as CFData,
             &signatureError

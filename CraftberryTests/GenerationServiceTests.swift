@@ -558,6 +558,39 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertEqual(providerCalls, 2, "Provider calls are at least once when the validated result could not be committed.")
     }
 
+    func testTransientCompletionFailureIsRetriedWithoutRunningProviderTwice() async throws {
+        let databaseURL = try testDatabaseURL()
+        defer { removeDatabase(at: databaseURL) }
+        let fixture = try generationFixture()
+        let intent = String(decoding: try fixtureBody("ready", fixture: fixture), as: UTF8.self)
+        let provider = ScriptedIntentProvider(intent: intent)
+        let store = try SQLiteGenerationServiceStore(databaseURL: databaseURL)
+        let clock = ManualGenerationClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let service = makeService(store: store, provider: provider, clock: clock)
+        let token = try await enroll(service)
+        try executeSQLite("""
+        CREATE TABLE completion_failure_budget (remaining INTEGER NOT NULL);
+        INSERT INTO completion_failure_budget VALUES (2);
+        CREATE TRIGGER fail_completion_twice BEFORE UPDATE OF response ON generation_events
+        WHEN (SELECT remaining FROM completion_failure_budget) > 0
+        BEGIN
+            UPDATE completion_failure_budget SET remaining = remaining - 1;
+            SELECT RAISE(FAIL, 'intentional transient completion failure');
+        END;
+        """, at: databaseURL)
+
+        let response = await service.handle(try await generationRequest(
+            from: fixture,
+            service: service,
+            token: token,
+            idempotencyKey: "transient-completion-failure"
+        ))
+
+        XCTAssertEqual(response.statusCode, 200)
+        let providerCalls = await provider.callCount()
+        XCTAssertEqual(providerCalls, 1)
+    }
+
     func testSQLiteReservationOwnershipPreventsLiveReclaimAndRejectsStaleFinalizers() async throws {
         let databaseURL = try testDatabaseURL()
         defer { removeDatabase(at: databaseURL) }

@@ -559,13 +559,22 @@ public struct GenerationService: Sendable {
                     identityGenerator: { .generate() }
                 )
                 let intentData = Data(intent.utf8)
-                let completed = try await store.completeGeneration(
-                    installationID: installationID,
-                    idempotencyKey: idempotencyKey,
-                    reservationID: reservationID,
-                    response: intentData,
-                    now: clock.now()
-                )
+                // A thrown store error here would otherwise mark the row retryable and run the provider again.
+                var completed = false
+                for attempt in 1...3 {
+                    do {
+                        completed = try await store.completeGeneration(
+                            installationID: installationID,
+                            idempotencyKey: idempotencyKey,
+                            reservationID: reservationID,
+                            response: intentData,
+                            now: clock.now()
+                        )
+                        break
+                    } catch {
+                        if attempt == 3 { throw error }
+                    }
+                }
                 guard completed else {
                     return response(status: 409, error: "generation_in_progress", headers: ["Retry-After": "1"])
                 }

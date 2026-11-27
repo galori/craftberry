@@ -356,16 +356,16 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             )
         }
         await assertInvalidAssertion(.invalidAssertionSignature) {
-            let doubleHashed = try self.assertionObject(
+            let digestSigned = try self.assertionObject(
                 signedBy: keyPair.privateKey,
                 clientData: clientData,
                 appIdentifier: appIdentifier,
                 counter: 2,
                 bundleVersion: "1.0",
-                doubleHashNonce: true
+                signNonceAsDigest: true
             )
             return try await verifier.verifyAssertion(
-                object: doubleHashed,
+                object: digestSigned,
                 clientData: clientData,
                 credential: credential,
                 expectedAppIdentifier: appIdentifier,
@@ -448,19 +448,19 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         XCTAssertEqual(result.counter, 1)
     }
 
-    func testConfiguredAllowlistRequiresVersionMetadataUnlessLegacyIsExplicitlyAllowed() async throws {
+    func testPlain37ByteAssertionPassesWhenAllowlistIsConfigured() async throws {
         let appIdentifier = "TESTTEAMID.com.craftberry.app"
         let keyPair = try makeKeyPair()
         let credential = StoredAppAttestCredential(
             installationID: UUID(),
-            keyID: "legacy-fixture-key-id",
+            keyID: "plain-fixture-key-id",
             publicKey: try externalRepresentation(of: keyPair.publicKey),
             appIdentifier: appIdentifier,
             environment: .development,
-            bundleVersion: "",
+            bundleVersion: "1.0",
             assertionCounter: 0
         )
-        let clientData = Data("legacy assertion".utf8)
+        let clientData = Data("plain assertion".utf8)
         let assertion = try assertionObject(
             signedBy: keyPair.privateKey,
             clientData: clientData,
@@ -469,29 +469,15 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             bundleVersion: "1.0",
             includeExtensions: false
         )
-        let strictVerifier = AppleAppAttestVerifier(rootCertificateDER: Data(), allowedBundleVersions: ["1.0"])
-        await assertInvalidAssertion(.invalidAssertionExtensions) {
-            try await strictVerifier.verifyAssertion(
-                object: assertion,
-                clientData: clientData,
-                credential: credential,
-                expectedAppIdentifier: appIdentifier,
-                expectedEnvironment: .development
-            )
-        }
-
-        let legacyVerifier = AppleAppAttestVerifier(
-            rootCertificateDER: Data(),
-            allowedBundleVersions: ["1.0", "legacy-no-bundle-version"]
-        )
-        let legacyResult = try await legacyVerifier.verifyAssertion(
+        let verifier = AppleAppAttestVerifier(rootCertificateDER: Data(), allowedBundleVersions: ["1.0"])
+        let result = try await verifier.verifyAssertion(
             object: assertion,
             clientData: clientData,
             credential: credential,
             expectedAppIdentifier: appIdentifier,
             expectedEnvironment: .development
         )
-        XCTAssertEqual(legacyResult.counter, 1)
+        XCTAssertEqual(result.counter, 1)
     }
 
     private func assertInvalidAssertion(
@@ -526,7 +512,7 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         appIdentifier: String,
         counter: UInt32,
         bundleVersion: String,
-        doubleHashNonce: Bool = false,
+        signNonceAsDigest: Bool = false,
         includeExtensions: Bool = true,
         legacyExtensionMap: Bool = false
     ) throws -> Data {
@@ -550,12 +536,13 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         }
         let clientDataHash = Data(SHA256.hash(data: clientData))
         let nonce = Data(SHA256.hash(data: authenticatorData + clientDataHash))
-        let signedDigest = doubleHashNonce ? Data(SHA256.hash(data: nonce)) : nonce
+        // Apple signs the nonce as a message, so ECDSA-SHA256 hashes it once more.
+        // signNonceAsDigest produces the old, wrong form (nonce used as the digest) for negative tests.
         var signingError: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(
             privateKey,
-            .ecdsaSignatureDigestX962SHA256,
-            signedDigest as CFData,
+            signNonceAsDigest ? .ecdsaSignatureDigestX962SHA256 : .ecdsaSignatureMessageX962SHA256,
+            nonce as CFData,
             &signingError
         ) else {
             if let signingError { throw signingError.takeRetainedValue() }

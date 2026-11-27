@@ -255,7 +255,7 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
                 return false
             }
             try run(
-                "UPDATE installations SET assertion_counter = ? WHERE installation_id = ? AND assertion_counter >= ? AND assertion_counter < ?",
+                "UPDATE installations SET assertion_counter = ? WHERE installation_id = ? AND assertion_counter = ? AND assertion_counter < ?",
                 [
                     .integer(Int64(newCounter)),
                     .text(installationID.uuidString),
