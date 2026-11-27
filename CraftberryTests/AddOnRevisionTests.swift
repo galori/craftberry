@@ -132,6 +132,51 @@ final class AddOnRevisionTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: sidecarURL), originalData)
     }
 
+    func testMigrationAndRevisionKeepImportedPixelsByteForByteWithStableIdentities() async throws {
+        let base = try makeSwordProject()
+        let importedPixels = Data((0..<(32 * 32 * 4)).map { UInt8($0 % 251) })
+        let withTexture = AddOnProject(
+            schemaVersion: 1,
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            shortDescription: base.shortDescription,
+            packUUIDs: base.packUUIDs,
+            buildVersion: base.buildVersion,
+            targetProfileID: "bedrock-stable-1.21.80",
+            originalPrompt: base.originalPrompt,
+            content: base.content.map { node in
+                guard case .visualResource(let visual) = node, visual.kind == .swordPixelArt else { return node }
+                return .visualResource(VisualResource(id: visual.id, kind: visual.kind, color: visual.color, customPixels: importedPixels))
+            }
+        )
+        let directory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sidecarURL = directory.appending(path: "legacy-textured.json")
+        try AddOnProjectStore.save(withTexture, to: sidecarURL)
+        let service = AddOnRevisionService()
+
+        let migrated = try service.loadProject(from: sidecarURL)
+        XCTAssertEqual(migrated.visualResources.first { $0.kind == .swordPixelArt }?.customPixels, importedPixels)
+
+        let ephemeralIdentity = AddOnProjectIdentity(
+            projectID: UUID(),
+            namespace: "generated",
+            contentSuffix: "zz99zz",
+            packUUIDs: PackUUIDs(behaviorHeader: UUID(), behaviorModule: UUID(), resourceHeader: UUID(), resourceModule: UUID())
+        )
+        let draft = try makeSwordProject(identity: ephemeralIdentity)
+        let result = try await service.reviseWithDraft(
+            baseProject: migrated,
+            draft: draft,
+            newPrompt: "keep the same sword",
+            outputDirectory: directory
+        )
+
+        XCTAssertEqual(result.project.content.map(\.contentID), migrated.content.map(\.contentID))
+        XCTAssertEqual(result.project.visualResources.first { $0.kind == .swordPixelArt }?.customPixels, importedPixels)
+    }
+
     func testFailedLegacyMigrationLeavesOriginalSidecarRecoverable() throws {
         let project = try makeSwordProject()
         let invalidLegacy = AddOnProject(

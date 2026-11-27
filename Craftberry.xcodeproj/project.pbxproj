@@ -256,7 +256,7 @@
 		A40000000000000000000013 /* Migration */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000068 /* ProfileMigrationGate.swift */,
+				A20000000000000000000069 /* ProfileMigrationGate.swift */,
 			);
 			path = Migration;
 			sourceTree = "<group>";
