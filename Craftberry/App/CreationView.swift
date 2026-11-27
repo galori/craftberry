@@ -11,6 +11,7 @@ struct CreationView: View {
     let telemetryManager: TelemetryManager
     let privacyDisclosure: PrivacyDisclosure
     @State private var presentedSheet: PresentedSheet?
+    @State private var shareSnapshotURL: URL?
     @State private var isProjectImporterPresented = false
     @State private var revisionPrompt = ""
     @State private var suggestions = ExamplePromptLibrary.selection()
@@ -30,10 +31,10 @@ struct CreationView: View {
                     }
                 }
             }
-            .sheet(item: $presentedSheet) { sheet in
+            .sheet(item: $presentedSheet, onDismiss: cleanupShareSnapshot) { sheet in
                 switch sheet {
                 case .share(let item):
-                    ActivitySheet(url: item.url)
+                    ActivitySheet(url: item.url, onCompletion: cleanupShareSnapshot)
                 case .revision(let project, _):
                     revisionSheet(for: project)
                 case .privacy:
@@ -64,7 +65,7 @@ struct CreationView: View {
             }
         }
         .alert(
-            "Project file issue",
+            "File issue",
             isPresented: Binding(
                 get: { viewModel.projectFileError != nil },
                 set: { if !$0 { viewModel.clearProjectFileError() } }
@@ -349,7 +350,7 @@ struct CreationView: View {
 
                 if result != nil {
                     Button {
-                        presentedSheet = .share(ShareItem(url: result!.artifact.url))
+                        shareArtifact(result!.artifact.url)
                     } label: {
                         Label("Save .mcaddon", systemImage: "square.and.arrow.down")
                     }
@@ -361,7 +362,7 @@ struct CreationView: View {
 
                 Button {
                     if let sidecarURL = viewModel.saveProjectSidecar(for: project) {
-                        presentedSheet = .share(ShareItem(url: sidecarURL))
+                        shareArtifact(sidecarURL)
                     }
                 } label: {
                     Label("Save project.json", systemImage: "doc.text")
@@ -480,7 +481,7 @@ struct CreationView: View {
                 result = await viewModel.buildArtifact(project)
             }
             guard let result else { return }
-            presentedSheet = .share(ShareItem(url: result.artifact.url))
+            shareArtifact(result.artifact.url)
         }
     }
 
@@ -499,8 +500,20 @@ struct CreationView: View {
             guard let addOn,
                   let world = await viewModel.buildWorld(project: project, addOn: addOn, gameMode: gameMode)
             else { return }
-            presentedSheet = .share(ShareItem(url: world.artifact.url))
+            shareArtifact(world.artifact.url)
         }
+    }
+
+    private func shareArtifact(_ artifactURL: URL) {
+        guard let snapshotURL = viewModel.makeShareSnapshot(of: artifactURL) else { return }
+        shareSnapshotURL = snapshotURL
+        presentedSheet = .share(ShareItem(url: snapshotURL))
+    }
+
+    private func cleanupShareSnapshot() {
+        guard let shareSnapshotURL else { return }
+        viewModel.removeShareSnapshot(at: shareSnapshotURL)
+        self.shareSnapshotURL = nil
     }
 
     private func hero(_ visualResource: VisualResource) -> some View {
@@ -1119,8 +1132,17 @@ private extension IngredientSummary {
 
 private struct ActivitySheet: UIViewControllerRepresentable {
     let url: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: [url], applicationActivities: nil) }
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+    let onCompletion: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onCompletion() }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {
+        controller.completionWithItemsHandler = { _, _, _, _ in onCompletion() }
+    }
 }
 
 private struct ShareItem: Identifiable {
@@ -1163,7 +1185,7 @@ private struct PrivacySettingsSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("What is never in telemetry")
+                        Text("Privacy safeguards")
                             .font(.headline)
                             .foregroundStyle(.white)
                         ForEach(disclosure.dataNotCollected, id: \.self) { item in
@@ -1188,7 +1210,7 @@ private struct PrivacySettingsSheet: View {
                             Text("Save anonymous usage events on this device")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)
-                            Text("When enabled, Craftberry stores generation attempts and outcomes plus build outcomes on this device for 30 days. Events are never uploaded and never include prompts, artwork, project names, or files.")
+                            Text("When enabled, Craftberry stores generation attempts and outcomes plus build outcomes on this device. Events older than 30 days are removed the next time the app performs cleanup. Events are never uploaded and never include prompts, artwork, project names, or files.")
                                 .font(.footnote)
                                 .foregroundStyle(Color.craftberryMuted)
                         }

@@ -149,7 +149,8 @@ final class HardeningTests: XCTestCase {
     // MARK: - Privacy
 
     func testPrivacyDisclosureCurrentWithoutContactFailsDistributionValidation() {
-        XCTAssertThrowsError(try PrivacyDisclosure.current.validateForDistributableBuild()) { error in
+        let privacyWithoutContact = PrivacyDisclosure.configured(contactURLString: nil)
+        XCTAssertThrowsError(try privacyWithoutContact.validateForDistributableBuild()) { error in
             XCTAssertEqual(error as? DistributableBuildError, .missingPrivacyContact)
         }
     }
@@ -167,7 +168,8 @@ final class HardeningTests: XCTestCase {
         XCTAssertThrowsError(try validator.validate(backend: .empty, privacy: configuredPrivacy)) { error in
             XCTAssertEqual(error as? DistributableBuildError, .missingBackendConfiguration)
         }
-        XCTAssertThrowsError(try validator.validate(backend: goodBackend, privacy: .current)) { error in
+        let privacyWithoutContact = PrivacyDisclosure.configured(contactURLString: nil)
+        XCTAssertThrowsError(try validator.validate(backend: goodBackend, privacy: privacyWithoutContact)) { error in
             XCTAssertEqual(error as? DistributableBuildError, .missingPrivacyContact)
         }
         let badPrivacy = PrivacyDisclosure(title: "", summary: "", dataCollected: [], dataNotCollected: [], retentionSummary: "", contactURL: nil)

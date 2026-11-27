@@ -123,10 +123,20 @@ final class CreationViewModel: ObservableObject {
         do {
             let directory = try artifactDirectoryProvider()
             let worldExporter = worldExporter
+            let retentionService = SidecarRetentionService()
             let result = try await Task.detached(priority: .userInitiated) {
-                try worldExporter.compileWorld(
+                let snapshotURL = try retentionService.makeShareSnapshot(of: addOn.artifact.url, in: directory)
+                defer { retentionService.removeShareSnapshot(at: snapshotURL, in: directory) }
+                let snapshotArtifact = BedrockAddOnArtifact(
+                    url: snapshotURL,
+                    identifier: addOn.artifact.identifier,
+                    fileName: addOn.artifact.fileName,
+                    projectSidecarURL: addOn.artifact.projectSidecarURL
+                )
+                let snapshotAddOn = BedrockCompilationResult(artifact: snapshotArtifact, report: addOn.report)
+                return try worldExporter.compileWorld(
                     project: project,
-                    addOn: addOn,
+                    addOn: snapshotAddOn,
                     gameMode: gameMode,
                     outputDirectory: directory
                 )
@@ -162,13 +172,32 @@ final class CreationViewModel: ObservableObject {
         do {
             let outputDirectory = try artifactDirectoryProvider()
             let sidecarURL = AddOnProjectStore.sidecarURL(for: project.id, in: outputDirectory)
-            try AddOnProjectStore.save(project, to: sidecarURL)
+            try SidecarBuildAccessCoordinator.shared.withExclusiveAccess {
+                try AddOnProjectStore.save(project, to: sidecarURL)
+            }
             projectFileError = nil
             return sidecarURL
         } catch {
             reportProjectFileError(error)
             return nil
         }
+    }
+
+    func makeShareSnapshot(of artifactURL: URL) -> URL? {
+        do {
+            let outputDirectory = try artifactDirectoryProvider()
+            let snapshotURL = try SidecarRetentionService().makeShareSnapshot(of: artifactURL, in: outputDirectory)
+            projectFileError = nil
+            return snapshotURL
+        } catch {
+            projectFileError = "Couldn't prepare the generated file for sharing. \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func removeShareSnapshot(at snapshotURL: URL) {
+        guard let outputDirectory = try? artifactDirectoryProvider() else { return }
+        SidecarRetentionService().removeShareSnapshot(at: snapshotURL, in: outputDirectory)
     }
 
     func clearProjectFileError() {

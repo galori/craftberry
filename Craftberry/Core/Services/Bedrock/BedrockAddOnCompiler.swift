@@ -77,14 +77,25 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         )
         let outputURL = buildDirectory.appending(path: "\(identifier.pathComponent).mcaddon")
 
-        try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
-        try sidecarData.write(to: sidecarURL, options: .atomic)
-        try archiveData.write(to: outputURL, options: .atomic)
         let buildCreatedAt = Date()
-        let createdAtMarker = buildDirectory.appending(path: SidecarRetentionService.createdAtFilename)
-        // The artifact is complete. Cleanup metadata and pruning can retry on the next launch/build.
-        try? Data(String(buildCreatedAt.timeIntervalSince1970).utf8).write(to: createdAtMarker, options: .atomic)
-        _ = try? retentionPruner.prune(in: outputDirectory, now: buildCreatedAt)
+        let currentBuild = SidecarBuildMetadata(
+            projectID: project.id,
+            version: project.buildVersion,
+            createdAt: buildCreatedAt
+        )
+        try SidecarBuildAccessCoordinator.shared.withExclusiveAccess {
+            try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+            try archiveData.write(to: outputURL, options: .atomic)
+            try sidecarData.write(to: sidecarURL, options: .atomic)
+            let createdAtMarker = buildDirectory.appending(path: SidecarRetentionService.createdAtFilename)
+            // The artifact is complete. Cleanup metadata and pruning can retry on the next launch/build.
+            try? Data(String(buildCreatedAt.timeIntervalSince1970).utf8).write(to: createdAtMarker, options: .atomic)
+            _ = try? retentionPruner.prune(
+                in: outputDirectory,
+                now: buildCreatedAt,
+                preserving: [currentBuild]
+            )
+        }
 
         let report = CompilationReport(
             profileID: profile.id,
@@ -1019,6 +1030,17 @@ public final class BedrockWorldExporter: AddOnWorldExporting, Sendable {
         gameMode: BedrockWorldGameMode,
         outputDirectory: URL
     ) throws -> BedrockWorldCompilationResult {
+        try SidecarBuildAccessCoordinator.shared.withExclusiveAccess {
+            try compileWorldUnderLock(project: project, addOn: addOn, gameMode: gameMode, outputDirectory: outputDirectory)
+        }
+    }
+
+    private func compileWorldUnderLock(
+        project: AddOnProject,
+        addOn: BedrockCompilationResult,
+        gameMode: BedrockWorldGameMode,
+        outputDirectory: URL
+    ) throws -> BedrockWorldCompilationResult {
         let outerArchive = try ZipArchiveReader.readEntries(at: addOn.artifact.url)
         let behaviorArchive = try requirePack(named: "behavior", in: outerArchive)
         let resourceArchive = try requirePack(named: "resource", in: outerArchive)
@@ -1052,9 +1074,15 @@ public final class BedrockWorldExporter: AddOnWorldExporting, Sendable {
         }
 
         let archiveData = try ZipArchiveWriter.archive(entries: worldEntries)
-        let worldURL = addOn.artifact.url.deletingPathExtension()
-            .deletingLastPathComponent()
-            .appending(path: "\(addOn.artifact.url.deletingPathExtension().lastPathComponent)_\(gameMode.rawValue).mcworld")
+        let version = project.buildVersion.components.map(String.init).joined(separator: ".")
+        let worldDirectory = outputDirectory
+            .appending(path: project.id.uuidString.lowercased(), directoryHint: .isDirectory)
+            .appending(path: "builds/\(version)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: worldDirectory, withIntermediateDirectories: true)
+        let addOnBaseName = URL(fileURLWithPath: addOn.artifact.fileName)
+            .deletingPathExtension()
+            .lastPathComponent
+        let worldURL = worldDirectory.appending(path: "\(addOnBaseName)_\(gameMode.rawValue).mcworld")
         try archiveData.write(to: worldURL, options: .atomic)
 
         return BedrockWorldCompilationResult(

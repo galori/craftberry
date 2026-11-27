@@ -22,6 +22,53 @@ final class PrivacyTelemetryRetentionTests: XCTestCase {
         XCTAssertNoThrow(try privacy.validateForDistributableBuild())
     }
 
+    #if os(macOS)
+    func testReleasePrivacyContactBuildGateRejectsPlaceholderAndAcceptsConfiguredURL() throws {
+        XCTAssertNotEqual(
+            try privacyContactBuildGateStatus("https://craftberry.example.com/privacy"),
+            0
+        )
+        XCTAssertEqual(
+            try privacyContactBuildGateStatus("https://privacy-contact.craftberry.com/contact"),
+            0
+        )
+        XCTAssertEqual(
+            try privacyContactBuildGateStatus("$(CRAFTBERRY_PRIVACY_CONTACT_URL)", configuration: "Debug"),
+            0
+        )
+    }
+    #endif
+
+    func testPrivacyDisclosureQualifiesTelemetryExpiryCleanupTiming() {
+        let disclosure = PrivacyDisclosure.configured(contactURLString: nil)
+
+        XCTAssertTrue(disclosure.retentionSummary.contains("next time the app performs cleanup"))
+    }
+
+    func testProtectedBuildIdentityIgnoresRefreshedCreationDate() {
+        let policy = SidecarRetentionPolicy(maxBuildsPerProject: 1, maxAgeDays: 1)
+        let projectID = UUID()
+        let version = VersionTriplet(major: 1, minor: 0, patch: 1)
+        let storedBuild = SidecarBuildMetadata(
+            projectID: projectID,
+            version: version,
+            createdAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+        let rebuiltBuild = SidecarBuildMetadata(
+            projectID: projectID,
+            version: version,
+            createdAt: Date(timeIntervalSince1970: 2_000_000)
+        )
+
+        let toPrune = policy.buildsToPrune(
+            builds: [storedBuild],
+            now: Date(timeIntervalSince1970: 2_000_000),
+            preserving: [rebuiltBuild]
+        )
+
+        XCTAssertTrue(toPrune.isEmpty)
+    }
+
     func testTelemetryDropsPromptArtworkAndUnrecognizedFields() {
         let sink = InMemoryTelemetrySink()
         let manager = TelemetryManager(storage: InMemoryTelemetryStorage(optedIn: true), sink: sink)
@@ -139,6 +186,29 @@ final class PrivacyTelemetryRetentionTests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: unrelatedExport.path))
     }
 
+    func testShareSnapshotSurvivesRetentionPruneAndCanBeCleaned() throws {
+        let root = try makeFixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let projectID = UUID()
+        let buildDirectory = root
+            .appending(path: projectID.uuidString.lowercased(), directoryHint: .isDirectory)
+            .appending(path: "builds/1.0.0", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+        let artifactURL = buildDirectory.appending(path: "fixture.mcaddon")
+        let artifactContents = Data("addon bytes".utf8)
+        try artifactContents.write(to: artifactURL)
+        try writeBuildDate(Date(timeIntervalSince1970: 1_000_000), to: buildDirectory)
+
+        let retentionService = SidecarRetentionService()
+        let snapshotURL = try retentionService.makeShareSnapshot(of: artifactURL, in: root)
+        _ = try retentionService.prune(in: root, now: Date(timeIntervalSince1970: 4_000_000))
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: artifactURL.path))
+        XCTAssertEqual(try Data(contentsOf: snapshotURL), artifactContents)
+        retentionService.removeShareSnapshot(at: snapshotURL, in: root)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: snapshotURL.path))
+    }
+
     func testCompilerAutomaticallyAppliesFiveBuildLimit() throws {
         let root = try makeFixtureDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -174,6 +244,29 @@ final class PrivacyTelemetryRetentionTests: XCTestCase {
         }
     }
 
+    func testCompilerPreservesArtifactWhenRebuildingAnOlderVersion() throws {
+        let root = try makeFixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let identity = AddOnProjectIdentity.generate()
+        let base = try AddOnProject.sword(
+            displayName: "Rebuilt Old Version Sword",
+            originalPrompt: "A test sword",
+            identity: identity
+        )
+        let compiler = BedrockAddOnCompiler()
+
+        for patch in 1...6 {
+            let project = project(base, version: VersionTriplet(major: 1, minor: 0, patch: patch))
+            _ = try compiler.compile(project: project, profile: .current, outputDirectory: root)
+        }
+
+        let rebuiltProject = project(base, version: VersionTriplet(major: 1, minor: 0, patch: 1))
+        let result = try compiler.compile(project: rebuiltProject, profile: .current, outputDirectory: root)
+        _ = try SidecarRetentionService().prune(in: root)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: result.artifact.url.path))
+    }
+
     func testRetentionCleanupFailureDoesNotFailCompletedCompilation() throws {
         let root = try makeFixtureDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -201,6 +294,56 @@ final class PrivacyTelemetryRetentionTests: XCTestCase {
         return fixture
     }
 
+    #if os(macOS)
+    private func privacyContactBuildGateStatus(
+        _ contactURL: String,
+        configuration: String = "Release"
+    ) throws -> Int32 {
+        let root = try makeFixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let appDirectory = root.appending(path: "Craftberry.app", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
+        let plist = try PropertyListSerialization.data(
+            fromPropertyList: ["PrivacyContactURL": contactURL],
+            format: .xml,
+            options: 0
+        )
+        try plist.write(to: appDirectory.appending(path: "Info.plist"))
+
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let script = repositoryRoot.appending(path: "scripts/validate-distribution-privacy-contact.sh")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [script.path]
+        var environment = ProcessInfo.processInfo.environment
+        environment["CONFIGURATION"] = configuration
+        environment["BUILT_PRODUCTS_DIR"] = root.path
+        environment["INFOPLIST_PATH"] = "Craftberry.app/Info.plist"
+        process.environment = environment
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        return process.terminationStatus
+    }
+    #endif
+
+    private func project(_ base: AddOnProject, version: VersionTriplet) -> AddOnProject {
+        AddOnProject(
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            shortDescription: base.shortDescription,
+            packUUIDs: base.packUUIDs,
+            buildVersion: version,
+            targetProfileID: base.targetProfileID,
+            originalPrompt: base.originalPrompt,
+            content: base.content
+        )
+    }
+
     private func writeBuildDate(_ date: Date, to buildDirectory: URL) throws {
         let marker = buildDirectory.appending(path: SidecarRetentionService.createdAtFilename)
         try Data(String(date.timeIntervalSince1970).utf8).write(to: marker)
@@ -216,7 +359,11 @@ private final class FailingSidecarRetentionPruner: SidecarRetentionPruning, @unc
         return called
     }
 
-    func prune(in outputDirectory: URL, now: Date) throws -> [URL] {
+    func prune(
+        in outputDirectory: URL,
+        now: Date,
+        preserving protectedBuilds: Set<SidecarBuildMetadata>
+    ) throws -> [URL] {
         lock.lock()
         called = true
         lock.unlock()
