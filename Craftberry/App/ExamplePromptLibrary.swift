@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + bossEntitySets + structureSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + tameableEntitySets + hostileEntitySets + bossEntitySets + structureSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -186,6 +186,13 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🪙", text: "A gold entity set named Gilded with a golden creature"),
         ExamplePrompt(emoji: "💜", text: "An amethyst entity set named Geode with a crystal creature"),
         ExamplePrompt(emoji: "🗿", text: "A netherite entity set named Warden with a sturdy creature")
+    ]
+
+    private static let tameableEntitySets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🦴", text: "A diamond tameable companion, tamed with bone, follows its owner"),
+        ExamplePrompt(emoji: "🐾", text: "An emerald tameable creature that follows its owner after bone taming"),
+        ExamplePrompt(emoji: "🔥", text: "Make a blaze rod tameable companion that follows me when tamed with bone"),
+        ExamplePrompt(emoji: "❄️", text: "Create a quartz tameable pet that follows its owner with bone")
     ]
 
     private static let hostileEntitySets: [ExamplePrompt] = [

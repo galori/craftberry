@@ -131,6 +131,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryRedstoneTameableCompanionTamesWithBoneAndFollowsOwner() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneTameableEntitySet, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneSwordCanBeEnchanted() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -602,6 +610,54 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot 0 0")),
             MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("has 1 items that match the criteria")),
             MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot"))
+        ]
+    )
+
+    static let redstoneTameableEntitySet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-tameable-entity-set",
+        prompt: "Generate a redstone companion tamed with bone that follows its owner",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Spawn Egg",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Spawn Egg",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleLeft, .middleRight, .bottomCenter]),
+                        .init(searchText: "egg", resultColumn: 1, destinations: [.middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Spawn"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for a controlled tameable test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Clear weather for a controlled tameable test", action: .chatCommand("/weather clear")),
+            MinecraftStep(name: "Disable natural mob spawning for a deterministic tameable test", action: .chatCommand("/gamerule domobspawning false")),
+            MinecraftStep(name: "Clear prior tameable test creatures", action: .chatCommand("/kill @e[family=tameable_companion]")),
+            MinecraftStep(name: "Build a safe path from the spawn point to the owner destination", action: .chatCommand("/fill 98 79 94 114 79 96 stone")),
+            MinecraftStep(name: "Place a solid, non-interactable spawn-egg target block", action: .chatCommand("/setblock 98 80 95 stone")),
+            MinecraftStep(name: "Return to the calibrated spawn-egg position", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Select the crafted Redstone Spawn Egg", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
+            MinecraftStep(name: "Use the spawn egg on the nearby block", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Wait for the tameable companion to spawn", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Query for the spawned tameable companion", action: .chatCommand("/testfor @e[family=tameable_companion,r=5]")),
+            MinecraftStep(name: "Confirm a tameable companion spawned", action: .assertText("Found")),
+            MinecraftStep(name: "Replace the spawn-egg slot with a bone for guaranteed taming", action: .chatCommand("/replaceitem entity @s slot.hotbar 0 bone 1")),
+            MinecraftStep(name: "Select the bone", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
+            MinecraftStep(name: "Confirm the selected item is a bone", action: .assertText("Bone")),
+            MinecraftStep(name: "Tame the spawned companion with bone", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Wait for bone taming and follow behavior to activate", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Move the owner beyond the follow start distance", action: .chatCommand("/tp @s 112 80 95 270 0")),
+            MinecraftStep(name: "Allow the tamed companion time to follow", action: .wait(seconds: 15)),
+            MinecraftStep(name: "Query for the companion near its distant owner", action: .chatCommand("/execute if entity @e[family=tameable_companion,r=4] run time query daytime")),
+            MinecraftStep(name: "Confirm the companion followed its owner", action: .assertText("The time is"))
         ]
     )
 

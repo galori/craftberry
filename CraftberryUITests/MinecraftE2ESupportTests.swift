@@ -115,6 +115,49 @@ final class MinecraftE2ESupportTests: XCTestCase {
         })
     }
 
+    func testTameableAcceptanceScenarioUsesBoneAndVerifiesFollowOwner() throws {
+        let scenario = MinecraftE2EScenario.redstoneTameableEntitySet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-tameable-entity-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Spawn Egg")
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[0].destinations, [.topCenter, .middleLeft, .middleRight, .bottomCenter])
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[1].searchText, "egg")
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[1].destinations, [.middleCenter])
+
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.contains("/replaceitem entity @s slot.hotbar 0 bone 1"))
+        XCTAssertFalse(commands.contains("/give @s bone 1"), "Giving a bone does not replace the occupied spawn-egg hotbar slot.")
+        XCTAssertTrue(commands.contains("/testfor @e[family=tameable_companion,r=5]"))
+        XCTAssertTrue(commands.contains("/execute if entity @e[family=tameable_companion,r=4] run time query daytime"))
+        XCTAssertFalse(commands.contains("/testfor @e[family=tameable_companion,r=4]"), "The follow assertion needs output text unique to its own query.")
+        // The asserted text is printed only by the executed command; it never appears in the typed input.
+        XCTAssertFalse(commands.contains { $0.lowercased().contains("the time is") })
+        XCTAssertTrue(commands.contains("/tp @s 112 80 95 270 0"))
+        XCTAssertTrue(commands.contains("/fill 98 79 94 114 79 96 stone"))
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Tameable commands must stay on the calibrated lowercase keyboard plane.")
+
+        let names = scenario.postCraftingSteps.map(\.name)
+        let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm a tameable companion spawned") })
+        let giveBone = try XCTUnwrap(names.firstIndex { $0.contains("Replace the spawn-egg slot with a bone") })
+        let selectBone = try XCTUnwrap(names.firstIndex { $0.contains("Select the bone") })
+        let tame = try XCTUnwrap(names.firstIndex { $0.contains("Tame the spawned companion") })
+        let moveOwner = try XCTUnwrap(names.firstIndex { $0.contains("Move the owner beyond") })
+        let queryNearOwner = try XCTUnwrap(names.firstIndex { $0.contains("Query for the companion near") })
+        let confirmFollow = try XCTUnwrap(names.firstIndex { $0.contains("Confirm the companion followed") })
+        XCTAssertLessThan(confirmSpawn, giveBone)
+        XCTAssertLessThan(giveBone, tame)
+        XCTAssertLessThan(giveBone, selectBone)
+        XCTAssertLessThan(selectBone, tame)
+        XCTAssertLessThan(tame, moveOwner)
+        XCTAssertLessThan(moveOwner, queryNearOwner)
+        XCTAssertLessThan(queryNearOwner, confirmFollow)
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Found") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("The time is") })
+    }
+
     func testPostCraftingStepsUseTheirOwnStablePhase() {
         let steps = MinecraftE2EScenario.redstoneHostileEntitySet.postCraftingSteps
         let phased = steps.phased(as: .behavior)

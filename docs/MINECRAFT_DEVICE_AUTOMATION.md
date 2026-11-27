@@ -135,14 +135,16 @@ in-game acceptance checks.
 `scripts/ios-device.sh minecraft-e2e redstone` exercises `.mcaddon` import,
 pack activation, and crafting in the reusable `craftberry test` world. The
 other scenarios export and import a prepared `.mcworld` with packs active, then
-check one named output in Minecraft. This avoids repeating activation menus
-for unrelated feature checks.
+check their named behavior in Minecraft. This avoids repeating activation menus
+for unrelated feature checks. `minecraft-e2e tameable` crafts and spawns a companion,
+tames it with bone, moves its owner beyond the follow threshold, and checks that the
+companion is near the owner again.
 
 Run the focused scenario for changed behavior. Run
 `scripts/ios-device.sh minecraft-e2e-all` for a roadmap milestone, a broad
 compiler or packaging change, a Minecraft profile upgrade, or a release. It
-runs the sixteen stable scenarios, including the boss health phase, Survival
-attack, and deterministic reward check. The focused music-record scenario is blocked
+runs the seventeen stable scenarios, including the boss health phase, Survival
+attack, and deterministic reward check, plus tameable bone taming and owner follow. The focused music-record scenario is blocked
 because custom `minecraft:record` sound-event names require the Beta APIs
 experiment, which the stable profile keeps off; it is excluded from this suite
 and has not passed device acceptance. GitHub Actions runs the stable suite

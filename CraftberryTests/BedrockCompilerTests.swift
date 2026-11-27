@@ -1001,6 +1001,64 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(placer["entity"] as? String, "craftberry:azure_a1b2c3_creature")
     }
 
+    func testCompilerEmitsPinnedBoneTamingAndFollowOwnerComponents() throws {
+        let project = try AddOnProject.materialTameableEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 24,
+            originalPrompt: "bone-tamed Azure companion",
+            identity: makeIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        addTeardownBlock { _ = try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let entity = try json(named: "entities/azure_a1b2c3_creature.json", in: behavior)
+        let entityBody = try XCTUnwrap(entity["minecraft:entity"] as? [String: Any])
+        let identifier = "craftberry:azure_a1b2c3_creature"
+        let wildGroupName = "craftberry:azure_a1b2c3_creature_wild"
+        let tamedGroupName = "craftberry:azure_a1b2c3_creature_tamed"
+        let tameEventName = "craftberry:azure_a1b2c3_creature_on_tame"
+
+        let components = try XCTUnwrap(entityBody["components"] as? [String: Any])
+        let typeFamily = try XCTUnwrap(components["minecraft:type_family"] as? [String: Any])
+        XCTAssertTrue((typeFamily["family"] as? [String])?.contains("tameable_companion") == true)
+        XCTAssertNotNil(components["minecraft:movement.basic"] as? [String: Any])
+        XCTAssertNotNil(components["minecraft:navigation.walk"] as? [String: Any])
+        XCTAssertNotNil(components["minecraft:jump.static"] as? [String: Any])
+
+        let groups = try XCTUnwrap(entityBody["component_groups"] as? [String: Any])
+        let wild = try XCTUnwrap(groups[wildGroupName] as? [String: Any])
+        let tameable = try XCTUnwrap(wild["minecraft:tameable"] as? [String: Any])
+        XCTAssertEqual(tameable["probability"] as? Double, 1.0)
+        XCTAssertEqual(tameable["tame_items"] as? String, "bone")
+        let tameEvent = try XCTUnwrap(tameable["tame_event"] as? [String: String])
+        XCTAssertEqual(tameEvent["event"], tameEventName)
+        XCTAssertEqual(tameEvent["target"], "self")
+
+        let tamed = try XCTUnwrap(groups[tamedGroupName] as? [String: Any])
+        XCTAssertNotNil(tamed["minecraft:is_tamed"] as? [String: Any])
+        let follow = try XCTUnwrap(tamed["minecraft:behavior.follow_owner"] as? [String: Any])
+        XCTAssertEqual(follow["priority"] as? Int, 6)
+        XCTAssertEqual(follow["speed_multiplier"] as? Double, 1.0)
+        XCTAssertEqual(follow["start_distance"] as? Int, 10)
+        XCTAssertEqual(follow["stop_distance"] as? Int, 2)
+
+        let events = try XCTUnwrap(entityBody["events"] as? [String: Any])
+        let spawned = try XCTUnwrap(events["minecraft:entity_spawned"] as? [String: Any])
+        let spawnedAdd = try XCTUnwrap(spawned["add"] as? [String: Any])
+        XCTAssertEqual(spawnedAdd["component_groups"] as? [String], ["azure_a1b2c3_creature_adult", wildGroupName])
+        let onTame = try XCTUnwrap(events[tameEventName] as? [String: Any])
+        let removed = try XCTUnwrap(onTame["remove"] as? [String: Any])
+        XCTAssertEqual(removed["component_groups"] as? [String], [wildGroupName])
+        let added = try XCTUnwrap(onTame["add"] as? [String: Any])
+        XCTAssertEqual(added["component_groups"] as? [String], [tamedGroupName])
+
+        XCTAssertEqual((entityBody["description"] as? [String: Any])?["identifier"] as? String, identifier)
+    }
+
     func testCompilerEmitsHostilePlayerTargetingBehaviorPinnedToZombieSample() throws {
         let project = try AddOnProject.materialHostileEntitySet(
             materialName: "Azure",

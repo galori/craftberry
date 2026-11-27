@@ -103,6 +103,36 @@ enum ExamplePromptResponseCache {
             )
 
         // MARK: - Material sword sets
+        case "An enchantable Glacier sword and matching ingot from diamonds":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Glacier",
+                color: .cyan,
+                sourceItem: "minecraft:diamond",
+                sourceCount: 4,
+                shortDescription: "A Glacier ingot and enchantable matching sword from diamonds.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An enchantable amethyst Duskshard sword with its matching ingot":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Duskshard",
+                color: .purple,
+                sourceItem: "minecraft:amethyst_shard",
+                sourceCount: 4,
+                shortDescription: "An amethyst Duskshard ingot and enchantable matching sword.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
+        case "An enchantable iron Ironheart sword and matching ingot":
+            project = try AddOnProject.materialSwordSet(
+                materialName: "Ironheart",
+                color: .gray,
+                sourceItem: "minecraft:iron_ingot",
+                sourceCount: 4,
+                shortDescription: "An Ironheart ingot and enchantable matching sword.",
+                originalPrompt: originalPrompt,
+                identity: identity
+            )
         case "A Glacier ingot and matching sword, from 4 diamonds":
             project = try AddOnProject.materialSwordSet(
                 materialName: "Glacier",
@@ -1337,6 +1367,14 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialBossEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 40, shortDescription: "An emerald boss that changes phase below half health and drops a verdant ingot.", originalPrompt: originalPrompt, identity: identity)
         case "A diamond boss encounter that grows stronger below half health":
             project = try AddOnProject.materialBossEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 40, shortDescription: "A diamond boss that gains size, speed, and attack damage below half health.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond tameable companion, tamed with bone, follows its owner":
+            project = try AddOnProject.materialTameableEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 20, shortDescription: "A diamond Azure companion tamed with bone that follows its owner.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald tameable creature that follows its owner after bone taming":
+            project = try AddOnProject.materialTameableEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 20, shortDescription: "An emerald Verdant companion tamed with bone that follows its owner.", originalPrompt: originalPrompt, identity: identity)
+        case "Make a blaze rod tameable companion that follows me when tamed with bone":
+            project = try AddOnProject.materialTameableEntitySet(materialName: "Ember", color: .orange, sourceItem: "minecraft:blaze_rod", sourceCount: 4, health: 20, shortDescription: "A blaze rod Ember companion tamed with bone that follows its owner.", originalPrompt: originalPrompt, identity: identity)
+        case "Create a quartz tameable pet that follows its owner with bone":
+            project = try AddOnProject.materialTameableEntitySet(materialName: "Frostbite", color: .white, sourceItem: "minecraft:quartz", sourceCount: 4, health: 20, shortDescription: "A quartz Frostbite pet tamed with bone that follows its owner.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1353,6 +1391,9 @@ enum ExamplePromptResponseCache {
             "A deep blue lapis sword named Tidecaller, 11 damage",
             "A netherite sword named Ashfang with 28 damage",
             "A pale quartz sword named Moonsliver, 9 damage",
+            "An enchantable Glacier sword and matching ingot from diamonds",
+            "An enchantable amethyst Duskshard sword with its matching ingot",
+            "An enchantable iron Ironheart sword and matching ingot",
             "A Glacier ingot and matching sword, from 4 diamonds",
             "A golden Sunforge ingot plus its matching sword",
             "An iron Ironheart ingot and sword with 14 damage",
@@ -1455,6 +1496,10 @@ enum ExamplePromptResponseCache {
             "A gold entity set named Gilded with a golden creature",
             "An amethyst entity set named Geode with a crystal creature",
             "A netherite entity set named Warden with a sturdy creature",
+            "A diamond tameable companion, tamed with bone, follows its owner",
+            "An emerald tameable creature that follows its owner after bone taming",
+            "Make a blaze rod tameable companion that follows me when tamed with bone",
+            "Create a quartz tameable pet that follows its owner with bone",
             "A diamond hostile creature set with a player-attacking Azure mob",
             "An emerald hostile entity set named Verdant that attacks players",
             "A quartz hostile mob set named Frostbite that attacks the player",

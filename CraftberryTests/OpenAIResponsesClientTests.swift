@@ -573,7 +573,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
         """
         let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
         URLProtocolStub.store.setHandler { request in
-            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+            return (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
         }
         defer { URLProtocolStub.store.setHandler(nil) }
         let configuration = URLSessionConfiguration.ephemeral
@@ -650,6 +650,44 @@ final class OpenAIResponsesClientTests: XCTestCase {
         let healthSchema = try XCTUnwrap(intentProperties["health"] as? [String: Any])
         XCTAssertEqual(healthSchema["minimum"] as? Int, 20)
         XCTAssertEqual(healthSchema["maximum"] as? Int, 40)
+    }
+
+    func testClientRoutesBoneTameableCompanionIntentToTameableEntitySet() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A bone-tameable Azure companion.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":null,"materialArmorSet":null,"materialConsumableSet":null,"materialBlockSet":null,"materialFurnaceSet":null,"materialSmithingSet":null,"materialBrewingSet":null,"materialOreSet":null,"materialCropSet":null,"materialStructureSet":null,"materialHostileEntitySet":null,"materialTameableEntitySet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"health":24}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            return (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        let generation = try await client.generateProject(from: "Create a bone-tameable Azure companion that follows me")
+
+        XCTAssertEqual(generation.project?.entities.first?.archetype, .tameable)
+        XCTAssertEqual(generation.project?.entities.first?.health, 24)
+        XCTAssertEqual(generation.project?.items.first(where: { $0.id.rawValue.hasSuffix("_spawn_egg") })?.displayName, "Azure Spawn Egg")
+
+        let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let request = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let text = try XCTUnwrap(request["text"] as? [String: Any])
+        let format = try XCTUnwrap(text["format"] as? [String: Any])
+        let schema = try XCTUnwrap(format["schema"] as? [String: Any])
+        let required = try XCTUnwrap(schema["required"] as? [String])
+        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
+        XCTAssertTrue(required.contains("materialTameableEntitySet"))
+        XCTAssertNotNil(properties["materialTameableEntitySet"])
+        let input = try XCTUnwrap(request["input"] as? [[String: Any]])
+        let developerMessage = try XCTUnwrap(input.first?["content"] as? [[String: Any]])
+        let instructions = try XCTUnwrap(developerMessage.first?["text"] as? String)
+        XCTAssertTrue(instructions.contains("tameable companion"))
+        XCTAssertTrue(instructions.contains("Bone is the only supported tame item"))
     }
 
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {

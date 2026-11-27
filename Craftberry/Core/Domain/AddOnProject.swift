@@ -469,8 +469,9 @@ public enum EntityArchetype: String, Codable, Equatable, Sendable {
     case passive
     case hostile
     case boss
+    case tameable
 
-    var isHostile: Bool { self != .passive }
+    var isHostile: Bool { self == .hostile || self == .boss }
 }
 
 public struct EntityDefinition: Codable, Equatable, Sendable {
@@ -1674,6 +1675,31 @@ extension AddOnProject {
             targetProfileID: project.targetProfileID,
             originalPrompt: project.originalPrompt,
             content: content
+        )
+    }
+
+    public static func materialTameableEntitySet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        health: Int = 20,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        try materialEntitySet(
+            materialName: materialName,
+            color: color,
+            sourceItem: sourceItem,
+            sourceCount: sourceCount,
+            health: health,
+            archetype: .tameable,
+            shortDescription: shortDescription,
+            originalPrompt: originalPrompt,
+            identity: identity,
+            profile: profile
         )
     }
 

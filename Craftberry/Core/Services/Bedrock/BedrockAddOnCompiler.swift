@@ -239,6 +239,9 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let bossPhaseTwoGroupName = "\(entity.id.rawValue)_boss_phase_two"
             let bossPhaseTwoEventName = "\(project.namespace):\(entity.id.rawValue)_boss_phase_two"
             let isHostile = entity.archetype.isHostile
+            let wildGroupName = "\(project.namespace):\(entity.id.rawValue)_wild"
+            let tamedGroupName = "\(project.namespace):\(entity.id.rawValue)_tamed"
+            let tameEventName = "\(project.namespace):\(entity.id.rawValue)_on_tame"
             let lootTablePath = "loot_tables/entities/\(entity.id.rawValue).json"
             let babyGroup = EntityDocument.ComponentGroup(
                 isBaby: EntityDocument.EmptyComponent(),
@@ -250,7 +253,10 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 ),
                 experienceReward: nil,
                 loot: nil,
-                breedable: nil
+                breedable: nil,
+                tameable: nil,
+                isTamed: nil,
+                behaviorFollowOwner: nil
             )
             let adultGroup = EntityDocument.ComponentGroup(
                 isBaby: nil,
@@ -264,7 +270,10 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         breedsWith: [identifier: EntityDocument.EmptyComponent()],
                         breedItems: ["wheat"]
                     )
-                    : nil
+                    : nil,
+                tameable: nil,
+                isTamed: nil,
+                behaviorFollowOwner: nil
             )
             var componentGroups = [adultGroupName: adultGroup]
             var spawnComponentGroups = [adultGroupName]
@@ -311,6 +320,43 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     remove: EntityDocument.ComponentGroupChange(componentGroups: [bossPhaseOneGroupName])
                 )
             }
+            // Bedrock wolf sample at Mojang bedrock-samples commit 921fafb0 uses this tame_event,
+            // minecraft:is_tamed, and follow_owner shape. Probability 1.0 keeps the supported bone
+            // taming route deterministic for the focused in-game acceptance scenario.
+            if entity.archetype == .tameable {
+                spawnComponentGroups.append(wildGroupName)
+                componentGroups[wildGroupName] = EntityDocument.ComponentGroup(
+                    isBaby: nil,
+                    scale: nil,
+                    ageable: nil,
+                    experienceReward: nil,
+                    loot: nil,
+                    breedable: nil,
+                    tameable: EntityDocument.Tameable(
+                        probability: 1.0,
+                        tameItems: "bone",
+                        tameEvent: EntityDocument.EventTrigger(event: tameEventName, target: "self")
+                    ),
+                    isTamed: nil,
+                    behaviorFollowOwner: nil
+                )
+                componentGroups[tamedGroupName] = EntityDocument.ComponentGroup(
+                    isBaby: nil,
+                    scale: nil,
+                    ageable: nil,
+                    experienceReward: nil,
+                    loot: nil,
+                    breedable: nil,
+                    tameable: nil,
+                    isTamed: EntityDocument.EmptyComponent(),
+                    behaviorFollowOwner: EntityDocument.BehaviorFollowOwner(
+                        priority: 6,
+                        speedMultiplier: 1.0,
+                        startDistance: 10,
+                        stopDistance: 2
+                    )
+                )
+            }
             // The pinned cow entity has an entity_spawned event that activates its adult group;
             // ageable grow-up and birth events activate/swap the corresponding passive groups.
             events["minecraft:entity_spawned"] = EntityDocument.Event(
@@ -328,6 +374,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     remove: EntityDocument.ComponentGroupChange(componentGroups: [babyGroupName])
                 )
             }
+            if entity.archetype == .tameable {
+                events[tameEventName] = EntityDocument.Event(
+                    add: EntityDocument.ComponentGroupChange(componentGroups: [tamedGroupName]),
+                    remove: EntityDocument.ComponentGroupChange(componentGroups: [wildGroupName])
+                )
+            }
             let entityDocument = EntityDocument(
                 formatVersion: profile.entityFormatVersion,
                 entity: EntityDocument.Entity(
@@ -340,7 +392,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     componentGroups: componentGroups,
                     events: events,
                     components: EntityDocument.Components(
-                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, isHostile ? "monster" : "animal", "mob"]),
+                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, isHostile ? "monster" : "animal", "mob"] + (entity.archetype == .tameable ? ["tameable_companion"] : [])),
                         breathable: EntityDocument.Breathable(totalSupply: 15, suffocateTime: 0),
                         collisionBox: EntityDocument.CollisionBox(width: 0.6, height: 0.8),
                         nameable: EntityDocument.EmptyComponent(),
@@ -370,9 +422,9 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                                 priority: 2
                             )
                             : nil,
-                        jumpStatic: isHostile ? EntityDocument.EmptyComponent() : nil,
-                        movementBasic: isHostile ? EntityDocument.EmptyComponent() : nil,
-                        navigationWalk: isHostile
+                        jumpStatic: isHostile || entity.archetype == .tameable ? EntityDocument.EmptyComponent() : nil,
+                        movementBasic: isHostile || entity.archetype == .tameable ? EntityDocument.EmptyComponent() : nil,
+                        navigationWalk: isHostile || entity.archetype == .tameable
                             ? EntityDocument.NavigationWalk(canPassDoors: true, canWalk: true)
                             : nil,
                         boss: entity.archetype == .boss ? EntityDocument.Boss(hudRange: 55, shouldDarkenSky: false) : nil
