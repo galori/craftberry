@@ -459,7 +459,18 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                             useDuration: 1.6,
                             movementModifier: 0.35
                         ),
-                        tags: item.traits.armor == nil ? nil : ItemDocument.Tags(tags: ["minecraft:is_armor"])
+                        tags: item.traits.armor == nil ? nil : ItemDocument.Tags(tags: ["minecraft:is_armor"]),
+                        // shortcut: soundEvent omitted on profiles without musicRecord support,
+                        // when to upgrade: add to supportedItemTraits once sound_event no longer requires Beta APIs.
+                        record: item.traits.musicRecord.map { _ in
+                            ItemDocument.Record(
+                                comparatorSignal: 12,
+                                duration: MusicRecordAudioRenderer.duration,
+                                soundEvent: profile.supportedItemTraits.contains(.musicRecord)
+                                    ? MusicRecordAudioRenderer.soundEventIdentifier(for: item.id)
+                                    : nil
+                            )
+                        }
                     )
                 )
             )
@@ -727,6 +738,39 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     )
                 )
             }
+        }
+        let musicRecords = project.items.filter { $0.traits.musicRecord != nil }
+        if !musicRecords.isEmpty && profile.supportedItemTraits.contains(.musicRecord) {
+            var soundDefinitions: [String: SoundDefinitionsDocument.SoundDefinition] = [:]
+            for item in musicRecords.sorted(by: contentOrder) {
+                let record = try require(
+                    item.traits.musicRecord,
+                    profile: profile,
+                    code: "missing_music_record_style",
+                    path: "content.items.\(item.id.rawValue).traits.musicRecord",
+                    message: "Music record \(item.id.rawValue) is missing its track style."
+                )
+                let track = MusicRecordAudioRenderer.trackIdentifier(for: item.id)
+                let soundEvent = MusicRecordAudioRenderer.soundEventIdentifier(for: item.id)
+                soundDefinitions[soundEvent] = SoundDefinitionsDocument.SoundDefinition(
+                    category: "record",
+                    maxDistance: 64,
+                    sounds: [SoundDefinitionsDocument.Sound(
+                        name: "sounds/music/craftberry/\(track)",
+                        stream: true,
+                        volume: 0.5
+                    )]
+                )
+                entries.append(ZipArchiveEntry(
+                    path: "sounds/music/craftberry/\(track).wav",
+                    data: MusicRecordAudioRenderer.render(style: record.style)
+                ))
+            }
+            let definitions = SoundDefinitionsDocument(formatVersion: "1.20.20", soundDefinitions: soundDefinitions)
+            entries.append(ZipArchiveEntry(
+                path: "sounds/sound_definitions.json",
+                data: try BedrockDocumentEncoder.encode(definitions)
+            ))
         }
         for layer in project.visualResources.filter({ $0.kind == .armorLayerOne || $0.kind == .armorLayerTwo }).sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             entries.append(

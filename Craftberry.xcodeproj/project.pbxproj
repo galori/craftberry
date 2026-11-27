@@ -14,6 +14,8 @@
 		A10000000000000000000064 /* Telemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000064 /* Telemetry.swift */; };
 		A10000000000000000000065 /* SidecarRetentionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000065 /* SidecarRetentionPolicy.swift */; };
 		A10000000000000000000066 /* PrivacyTelemetryRetentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */; };
+		A10000000000000000000067 /* MusicRecordAudioRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000067 /* MusicRecordAudioRenderer.swift */; };
+		A10000000000000000000068 /* MusicRecordProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000068 /* MusicRecordProject.swift */; };
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
@@ -96,6 +98,8 @@
 		A20000000000000000000064 /* Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/Telemetry/Telemetry.swift; sourceTree = "<group>"; };
 		A20000000000000000000065 /* SidecarRetentionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/Retention/SidecarRetentionPolicy.swift; sourceTree = "<group>"; };
 		A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTelemetryRetentionTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000067 /* MusicRecordAudioRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicRecordAudioRenderer.swift; sourceTree = "<group>"; };
+		A20000000000000000000068 /* MusicRecordProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicRecordProject.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
@@ -232,6 +236,7 @@
 				A20000000000000000000025 /* GeneratedVanillaItemCatalog.swift */,
 				A20000000000000000000041 /* RecipeBook.swift */,
 				A20000000000000000000056 /* AddOnRevision.swift */,
+				A20000000000000000000068 /* MusicRecordProject.swift */,
 			);
 			path = Core/Domain;
 			sourceTree = "<group>";
@@ -340,6 +345,7 @@
 				A20000000000000000000010 /* BedrockAddOnCompiler.swift */,
 				A20000000000000000000060 /* MCStructure.swift */,
 				A20000000000000000000021 /* BedrockDocuments.swift */,
+				A20000000000000000000067 /* MusicRecordAudioRenderer.swift */,
 			);
 			path = Bedrock;
 			sourceTree = "<group>";
@@ -513,6 +519,8 @@
 				A10000000000000000000063 /* PrivacyDisclosure.swift in Sources */,
 				A10000000000000000000064 /* Telemetry.swift in Sources */,
 				A10000000000000000000065 /* SidecarRetentionPolicy.swift in Sources */,
+				A10000000000000000000067 /* MusicRecordAudioRenderer.swift in Sources */,
+				A10000000000000000000068 /* MusicRecordProject.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

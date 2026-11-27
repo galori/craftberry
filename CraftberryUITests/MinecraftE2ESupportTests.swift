@@ -7,6 +7,21 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(MinecraftWorldGameMode.creative.worldTitle(projectName: "Azure"), "Azure (Creative)")
     }
 
+    func testMusicRecordAcceptanceCraftsPlaysAndEjectsTheDisc() throws {
+        let scenario = MinecraftE2EScenario.musicRecord
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-music-record-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "First Light")
+        XCTAssertEqual(scenario.craftingPlan.recipes.count, 1)
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients.map(\.searchText), ["diamond", "redstone"])
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[0].destinations.count, 8)
+        XCTAssertEqual(scenario.craftingPlan.recipes[0].ingredients[1].destinations, [.middleCenter])
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Now Playing") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/testfor @e[type=item]") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Found") })
+        XCTAssertEqual(scenario.postCraftingSteps.filter { $0.name.contains("jukebox") && $0.action == .tap(x: 0.5075, y: 0.265) }.count, 2)
+    }
+
     func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() throws {
         let scenario = MinecraftE2EScenario.redstoneHostileEntitySet
 

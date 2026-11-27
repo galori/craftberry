@@ -207,4 +207,5 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "⛩️", text: "An amethyst hut structure named Geode with shelter"),
         ExamplePrompt(emoji: "🗼", text: "A netherite hut structure named Warden with 3x3 hut")
     ]
+
 }

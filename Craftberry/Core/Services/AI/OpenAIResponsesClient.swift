@@ -69,42 +69,48 @@ public struct OpenAIResponsesClient: LLMClient {
 
         switch intent.outcome {
         case .unsupported:
-            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil, intent.materialConsumableSet == nil, intent.materialBlockSet == nil, intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil, intent.materialBrewingSet == nil, intent.materialOreSet == nil, intent.materialCropSet == nil, intent.materialStructureSet == nil, intent.materialHostileEntitySet == nil else { throw LLMClientError.invalidResponse }
+            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil, intent.materialConsumableSet == nil, intent.materialBlockSet == nil, intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil, intent.materialBrewingSet == nil, intent.materialOreSet == nil, intent.materialCropSet == nil, intent.materialStructureSet == nil, intent.materialHostileEntitySet == nil, intent.musicRecordSet == nil else { throw LLMClientError.invalidResponse }
             return ProjectGeneration(outcome: .unsupported, message: intent.message, project: nil)
         case .ready:
             let shortDescription = intent.shortDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !shortDescription.isEmpty else { throw LLMClientError.invalidResponse }
             let identity = identityGenerator()
             let project: AddOnProject
-            switch (intent.sword, intent.materialSwordSet, intent.materialToolSet, intent.materialWeaponSet, intent.materialArmorSet, intent.materialConsumableSet, intent.materialBlockSet, intent.materialFurnaceSet, intent.materialSmithingSet, intent.materialBrewingSet, intent.materialOreSet, intent.materialCropSet, intent.materialStructureSet, intent.materialHostileEntitySet) {
-            case let (.some(sword), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            switch (intent.sword, intent.materialSwordSet, intent.materialToolSet, intent.materialWeaponSet, intent.materialArmorSet, intent.materialConsumableSet, intent.materialBlockSet, intent.materialFurnaceSet, intent.materialSmithingSet, intent.materialBrewingSet, intent.materialOreSet, intent.materialCropSet, intent.materialStructureSet, intent.materialHostileEntitySet, intent.musicRecordSet) {
+            case let (.some(sword), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.sword(displayName: sword.displayName, color: sword.color, attackBonus: sword.attackBonus, durability: sword.durability, craftingIngredient: sword.craftingIngredient.bedrockIdentifier, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialSwordSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, swordDisplayName: material.swordDisplayName, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialToolSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialWeaponSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialArmorSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, protection: material.protection, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialConsumableSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, nutrition: material.nutrition, saturationModifier: material.saturationModifier, canAlwaysEat: material.canAlwaysEat, fuelDuration: material.fuelDuration, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialBlockSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialFurnaceSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialSmithingSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, attackBonus: material.attackBonus, durability: material.durability, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil, nil):
                 project = try AddOnProject.materialBrewingSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil, nil):
                 project = try AddOnProject.materialOreSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil, nil):
                 project = try AddOnProject.materialCropSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil, nil):
                 project = try AddOnProject.materialStructureSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material)):
+            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil):
                 project = try AddOnProject.materialHostileEntitySet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, health: material.health, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
+            case (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(_)):
+                return ProjectGeneration(
+                    outcome: .unsupported,
+                    message: "Custom music records require the Beta APIs experiment, which is unavailable in Craftberry's stable profile.",
+                    project: nil
+                )
             default: throw LLMClientError.invalidResponse
             }
             let report = AddOnProjectValidator.validate(project, profile: .current)
@@ -313,6 +319,13 @@ private struct ProjectIntentGeneration: Decodable {
     let materialCropSet: MaterialCropSetIntent?
     let materialStructureSet: MaterialStructureSetIntent?
     let materialHostileEntitySet: MaterialHostileEntitySetIntent?
+    let musicRecordSet: MusicRecordSetIntent?
+}
+
+private struct MusicRecordSetIntent: Decodable {
+    let title: String
+    let color: PixelArtColor
+    let style: MusicRecordStyle
 }
 
 private struct MaterialSwordSetIntent: Decodable {
@@ -688,6 +701,10 @@ private struct OpenAIRequestDocument: Encodable {
         ])])
     ])])
 
+    // 1.26.30 requires Beta APIs for custom `minecraft:record` sound-event names.
+    // Keep the model intent disabled while Craftberry's stable profile remains experiments-off.
+    private static let musicRecordSetProperty: JSONValue = .object(["type": .string("null")])
+
     private static let materialCropSetProperty: JSONValue = .object(["anyOf": .array([
         .object(["type": .string("null")]),
         .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["materialName", "color", "sourceItem", "sourceCount"].map(JSONValue.string)), "properties": .object([
@@ -701,7 +718,7 @@ private struct OpenAIRequestDocument: Encodable {
     private static let schema: JSONValue = .object([
         "type": .string("object"),
         "additionalProperties": .bool(false),
-        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet", "materialConsumableSet", "materialBlockSet", "materialFurnaceSet", "materialSmithingSet", "materialBrewingSet", "materialOreSet", "materialCropSet", "materialStructureSet", "materialHostileEntitySet"].map(JSONValue.string)),
+        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet", "materialConsumableSet", "materialBlockSet", "materialFurnaceSet", "materialSmithingSet", "materialBrewingSet", "materialOreSet", "materialCropSet", "materialStructureSet", "materialHostileEntitySet", "musicRecordSet"].map(JSONValue.string)),
         "properties": .object([
             "schemaVersion": .object(["type": .string("integer"), "const": .integer(1)]),
             "outcome": .object([
@@ -736,7 +753,8 @@ private struct OpenAIRequestDocument: Encodable {
             "materialOreSet": materialOreSetProperty,
             "materialCropSet": materialCropSetProperty,
             "materialStructureSet": materialStructureSetProperty,
-            "materialHostileEntitySet": materialHostileEntitySetProperty
+            "materialHostileEntitySet": materialHostileEntitySetProperty,
+            "musicRecordSet": musicRecordSetProperty
         ])
     ])
 }

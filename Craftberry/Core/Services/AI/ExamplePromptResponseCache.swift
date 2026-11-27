@@ -1462,7 +1462,7 @@ enum ExamplePromptResponseCache {
             "A lapis hut structure named Deepsea with block hut",
             "A gold hut structure named Gilded with 3x3 hut",
             "An amethyst hut structure named Geode with shelter",
-            "A netherite hut structure named Warden with 3x3 hut"
+            "A netherite hut structure named Warden with 3x3 hut",
         ]
     }
 }

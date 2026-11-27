@@ -141,9 +141,12 @@ for unrelated feature checks.
 Run the focused scenario for changed behavior. Run
 `scripts/ios-device.sh minecraft-e2e-all` for a roadmap milestone, a broad
 compiler or packaging change, a Minecraft profile upgrade, or a release. It
-runs fourteen scenarios in sequence. GitHub Actions runs this full suite
-nightly; the workflow also supports a manual focused or full run. Pull
-requests use the faster Swift unit-test and lint checks.
+runs the fifteen stable scenarios. The focused music-record scenario is blocked
+because custom `minecraft:record` sound-event names require the Beta APIs
+experiment, which the stable profile keeps off; it is excluded from this suite
+and has not passed device acceptance. GitHub Actions runs the stable suite
+nightly; the workflow also supports a manual focused or full run. Pull requests
+use the faster Swift unit-test and lint checks.
 
 Scenario names describe the behavior that the current steps check. For
 example, crafting the intermediate ingot does not verify brewing or smithing.

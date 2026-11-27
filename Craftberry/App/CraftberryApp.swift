@@ -122,6 +122,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
+        let usesMusicRecordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-music-record-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let usesStableFuelIdentifier = ProcessInfo.processInfo.arguments.contains("--ui-testing-stable-fuel-identifier")
         let usesRevisionFlow = ProcessInfo.processInfo.arguments.contains("--ui-testing-revision-flow")
@@ -135,7 +136,16 @@ private struct UITestingLLMClient: LLMClient {
             identity = fixedUITestingIdentity
         }
         let project: AddOnProject
-        if usesRedstoneHostileEntitySet {
+        if usesMusicRecordSet {
+            project = try AddOnProject.musicRecordSet(
+                title: "First Light",
+                color: .cyan,
+                style: .dreamy,
+                shortDescription: "A dreamy cyan music record called First Light.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneHostileEntitySet {
             project = try AddOnProject.materialHostileEntitySet(
                 materialName: "Redstone",
                 color: .red,

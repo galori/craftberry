@@ -58,6 +58,13 @@ final class ExamplePromptLibraryTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(ingotSets.count, 4)
     }
 
+    func testExperimentsOffWelcomePromptsDoNotOfferBetaGatedMusicRecords() {
+        XCTAssertFalse(ExamplePromptLibrary.all.contains { prompt in
+            let text = prompt.text.lowercased()
+            return text.contains("music record") || text.contains("music disc")
+        })
+    }
+
     func testSelectionReturnsTheRequestedNumberOfDistinctPrompts() {
         var generator = SeededGenerator(seed: 7)
         let selection = ExamplePromptLibrary.selection(count: 3, using: &generator)

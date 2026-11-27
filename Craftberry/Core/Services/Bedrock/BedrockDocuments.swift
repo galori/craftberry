@@ -75,6 +75,7 @@ struct ItemDocument: Encodable {
         let useAnimation: UseAnimation?
         let useModifiers: UseModifiers?
         let tags: Tags?
+        let record: Record?
 
         enum CodingKeys: String, CodingKey {
             case displayName = "minecraft:display_name"
@@ -91,6 +92,7 @@ struct ItemDocument: Encodable {
             case useAnimation = "minecraft:use_animation"
             case useModifiers = "minecraft:use_modifiers"
             case tags = "minecraft:tags"
+            case record = "minecraft:record"
         }
     }
 
@@ -121,6 +123,18 @@ struct ItemDocument: Encodable {
     struct EntityPlacer: Encodable { let entity: String }
 
     struct Tags: Encodable { let tags: [String] }
+
+    struct Record: Encodable {
+        let comparatorSignal: Int
+        let duration: Double
+        let soundEvent: String?
+
+        enum CodingKeys: String, CodingKey {
+            case comparatorSignal = "comparator_signal"
+            case duration
+            case soundEvent = "sound_event"
+        }
+    }
 
     struct UseAnimation: Encodable { let value: String }
 
@@ -156,6 +170,43 @@ struct ItemDocument: Encodable {
     enum CodingKeys: String, CodingKey {
         case formatVersion = "format_version"
         case item = "minecraft:item"
+    }
+}
+
+struct SoundDefinitionsDocument: Encodable {
+    let formatVersion: String
+    let soundDefinitions: [String: SoundDefinition]
+
+    struct SoundDefinition: Encodable {
+        let category: String
+        let maxDistance: Double
+        let sounds: [Sound]
+
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(category, forKey: .category)
+            try values.encode(maxDistance, forKey: .maxDistance)
+            try values.encodeNil(forKey: .minDistance)
+            try values.encode(sounds, forKey: .sounds)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case category
+            case maxDistance = "max_distance"
+            case minDistance = "min_distance"
+            case sounds
+        }
+    }
+
+    struct Sound: Encodable {
+        let name: String
+        let stream: Bool
+        let volume: Double
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case soundDefinitions = "sound_definitions"
     }
 }
 

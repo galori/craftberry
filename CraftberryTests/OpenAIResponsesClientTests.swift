@@ -114,6 +114,27 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertEqual(generation.project?.entities.first?.health, 24)
     }
 
+    func testClientReturnsUnsupportedForMusicRecordIntentInStableProfile() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A dreamy music record.","musicRecordSet":{"title":"First Light","color":"cyan","style":"dreamy"}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let identity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { identity })
+
+        let generation = try await client.generateProject(from: "Make a dreamy cyan record called First Light")
+
+        XCTAssertEqual(generation.outcome, .unsupported)
+        XCTAssertTrue(generation.message.contains("Beta APIs experiment"))
+        XCTAssertNil(generation.project)
+    }
+
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500}}

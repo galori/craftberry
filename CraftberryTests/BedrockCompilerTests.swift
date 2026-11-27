@@ -7,6 +7,55 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerRejectsMusicRecordsInTheExperimentsOffStableProfile() throws {
+        let project = try AddOnProject.musicRecordSet(
+            title: "First Light",
+            color: .cyan,
+            style: .dreamy,
+            originalPrompt: "First Light record",
+            identity: makeIdentity()
+        )
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+
+        XCTAssertThrowsError(
+            try BedrockAddOnCompiler().compile(
+                project: project,
+                profile: .current,
+                outputDirectory: outputDirectory
+            )
+        ) { error in
+            guard case BedrockCompilationError.invalidProject(let report) = error else {
+                return XCTFail("Expected the stable profile to reject custom music records, got \(error)")
+            }
+            XCTAssertTrue(report.errors.contains { $0.code == "unsupported_item_trait" })
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outputDirectory.path))
+    }
+
+    func testMusicRecordAudioRendererCreatesDistinctEightSecondPCMTracks() {
+        let tracks = MusicRecordStyle.allCases.map(MusicRecordAudioRenderer.render(style:))
+
+        XCTAssertEqual(MusicRecordAudioRenderer.duration, 8)
+        XCTAssertEqual(tracks.count, 4)
+        XCTAssertEqual(Set(tracks).count, tracks.count, "Each supported style should synthesize a distinct original track.")
+        for track in tracks {
+            XCTAssertEqual(String(decoding: track.prefix(4), as: UTF8.self), "RIFF")
+            XCTAssertEqual(String(decoding: track[8..<12], as: UTF8.self), "WAVE")
+            XCTAssertEqual(track.count, 44 + Int(MusicRecordAudioRenderer.sampleRate) * 2 * 8)
+        }
+
+        let plainID = ContentID("dawn")
+        let suffixedID = ContentID("dawn_disc")
+        XCTAssertEqual(MusicRecordAudioRenderer.trackIdentifier(for: plainID), "dawn")
+        XCTAssertEqual(MusicRecordAudioRenderer.trackIdentifier(for: suffixedID), "dawn_disc")
+        XCTAssertNotEqual(
+            MusicRecordAudioRenderer.soundEventIdentifier(for: plainID),
+            MusicRecordAudioRenderer.soundEventIdentifier(for: suffixedID)
+        )
+    }
+
     func testCompilerEmitsImportedInventoryPixelsForSelectedItem() throws {
         let base = try AddOnProject.materialSwordSet(
             materialName: "Azure",
