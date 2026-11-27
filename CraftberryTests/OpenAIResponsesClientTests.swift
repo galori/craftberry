@@ -135,6 +135,50 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertNil(generation.project)
     }
 
+    func testClientAssemblesBossEntitySetFromStructuredIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A phased boss encounter.","materialBossEntitySet":{"materialName":"Azure","color":"red","sourceItem":"diamond","sourceCount":4,"health":40}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            return (
+                try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)),
+                responseData
+            )
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        let generation = try await client.generateProject(from: "A two-phase Azure boss that drops its ingot")
+
+        let project = try XCTUnwrap(generation.project)
+        XCTAssertEqual(project.entities.first?.archetype, .boss)
+        XCTAssertEqual(project.entities.first?.health, 40)
+        XCTAssertEqual(project.entityLootTables.first?.item, .generated(ContentID("azure_a1b2c3_ingot")))
+        XCTAssertTrue(project.spawnRules.isEmpty)
+
+        let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let requestDocument = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let textConfiguration = try XCTUnwrap(requestDocument["text"] as? [String: Any])
+        let format = try XCTUnwrap(textConfiguration["format"] as? [String: Any])
+        let schema = try XCTUnwrap(format["schema"] as? [String: Any])
+        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
+        let bossIntent = try XCTUnwrap(properties["materialBossEntitySet"] as? [String: Any])
+        let variants = try XCTUnwrap(bossIntent["anyOf"] as? [[String: Any]])
+        let objectSchema = try XCTUnwrap(variants.first { $0["type"] as? String == "object" })
+        let required = try XCTUnwrap(objectSchema["required"] as? [String])
+        XCTAssertTrue(required.contains("health"))
+        let intentProperties = try XCTUnwrap(objectSchema["properties"] as? [String: Any])
+        let healthSchema = try XCTUnwrap(intentProperties["health"] as? [String: Any])
+        XCTAssertEqual(healthSchema["minimum"] as? Int, 20)
+        XCTAssertEqual(healthSchema["maximum"] as? Int, 40)
+    }
+
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500}}

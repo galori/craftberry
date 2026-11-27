@@ -9,6 +9,7 @@ let samples = try [
     AddOnProject.materialSmithingSet(materialName: "Schema Smithing", originalPrompt: "Schema fixture"),
     AddOnProject.materialBrewingSet(materialName: "Schema Brewing", originalPrompt: "Schema fixture"),
     AddOnProject.materialHostileEntitySet(materialName: "Schema Hostile", originalPrompt: "Schema fixture"),
+    AddOnProject.materialBossEntitySet(materialName: "Schema Boss", originalPrompt: "Schema fixture"),
     AddOnProject.materialCropSet(materialName: "Schema Crop", originalPrompt: "Schema fixture"),
     AddOnProject.materialConsumableSet(materialName: "Schema Food", originalPrompt: "Schema fixture"),
     AddOnProject.materialArmorSet(materialName: "Schema Armor", originalPrompt: "Schema fixture"),

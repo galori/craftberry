@@ -602,7 +602,32 @@ struct EntityDocument: Encodable {
         let experienceReward: ExperienceReward?
         let loot: Loot?
         let breedable: Breedable?
-        enum CodingKeys: String, CodingKey { case isBaby = "minecraft:is_baby"; case scale = "minecraft:scale"; case ageable = "minecraft:ageable"; case experienceReward = "minecraft:experience_reward"; case loot = "minecraft:loot"; case breedable = "minecraft:breedable" }
+        let attack: Attack?
+        let movement: Movement?
+        let environmentSensor: EnvironmentSensor?
+        enum CodingKeys: String, CodingKey { case isBaby = "minecraft:is_baby"; case scale = "minecraft:scale"; case ageable = "minecraft:ageable"; case experienceReward = "minecraft:experience_reward"; case loot = "minecraft:loot"; case breedable = "minecraft:breedable"; case attack = "minecraft:attack"; case movement = "minecraft:movement"; case environmentSensor = "minecraft:environment_sensor" }
+
+        init(
+            isBaby: EmptyComponent?,
+            scale: Scale?,
+            ageable: Ageable?,
+            experienceReward: ExperienceReward?,
+            loot: Loot?,
+            breedable: Breedable?,
+            attack: Attack? = nil,
+            movement: Movement? = nil,
+            environmentSensor: EnvironmentSensor? = nil
+        ) {
+            self.isBaby = isBaby
+            self.scale = scale
+            self.ageable = ageable
+            self.experienceReward = experienceReward
+            self.loot = loot
+            self.breedable = breedable
+            self.attack = attack
+            self.movement = movement
+            self.environmentSensor = environmentSensor
+        }
     }
     struct Event: Encodable {
         let add: ComponentGroupChange?
@@ -614,6 +639,7 @@ struct EntityDocument: Encodable {
     }
     struct EmptyComponent: Encodable {}
     struct Scale: Encodable { let value: Double }
+    struct Boss: Encodable { let hudRange: Int; let shouldDarkenSky: Bool; enum CodingKeys: String, CodingKey { case hudRange = "hud_range"; case shouldDarkenSky = "should_darken_sky" } }
     struct Ageable: Encodable { let duration: Int; let feedItems: [String]; let growUp: GrowUp; enum CodingKeys: String, CodingKey { case duration; case feedItems = "feed_items"; case growUp = "grow_up" } }
     struct GrowUp: Encodable { let event: String; let target: String }
     struct ExperienceReward: Encodable { let onDeath: String; enum CodingKeys: String, CodingKey { case onDeath = "on_death" } }
@@ -636,6 +662,7 @@ struct EntityDocument: Encodable {
         let jumpStatic: EmptyComponent?
         let movementBasic: EmptyComponent?
         let navigationWalk: NavigationWalk?
+        let boss: Boss?
         enum CodingKeys: String, CodingKey {
             case typeFamily = "minecraft:type_family"
             case breathable = "minecraft:breathable"
@@ -653,6 +680,7 @@ struct EntityDocument: Encodable {
             case jumpStatic = "minecraft:jump.static"
             case movementBasic = "minecraft:movement.basic"
             case navigationWalk = "minecraft:navigation.walk"
+            case boss = "minecraft:boss"
         }
     }
     struct TypeFamily: Encodable { let family: [String] }
@@ -661,6 +689,14 @@ struct EntityDocument: Encodable {
     struct Health: Encodable { let value: Int; let max: Int }
     struct Movement: Encodable { let value: Double }
     struct Attack: Encodable { let damage: Int }
+    struct EnvironmentSensor: Encodable { let triggers: [Trigger] }
+    struct Trigger: Encodable { let filters: Filter; let event: String }
+    struct Filter: Encodable {
+        let test: String
+        let subject: String
+        let `operator`: String
+        let value: Int
+    }
     struct BehaviorMeleeBoxAttack: Encodable { let trackTarget: Bool; let priority: Int; enum CodingKeys: String, CodingKey { case trackTarget = "track_target"; case priority } }
     struct BehaviorNearestAttackableTarget: Encodable {
         let mustSee: Bool

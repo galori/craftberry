@@ -235,6 +235,71 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertTrue(report.errors.contains { $0.code == "unsupported_item_trait" })
     }
 
+    func testMaterialBossEntitySetHasBoundedHealthPhaseAndDeterministicIngotReward() throws {
+        let project = try AddOnProject.materialBossEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 40,
+            originalPrompt: "a two-phase Azure boss",
+            identity: testIdentity()
+        )
+
+        let entity = try XCTUnwrap(project.entities.first)
+        XCTAssertEqual(entity.archetype, .boss)
+        XCTAssertEqual(entity.displayName, "Azure Boss")
+        XCTAssertEqual(entity.health, 40)
+        let reward = try XCTUnwrap(project.entityLootTables.first)
+        XCTAssertEqual(reward.entityID, entity.id)
+        XCTAssertEqual(reward.item, .generated(ContentID("azure_a1b2c3_ingot")))
+        XCTAssertEqual(reward.minCount, 1)
+        XCTAssertEqual(reward.maxCount, 1)
+        XCTAssertTrue(project.spawnRules.isEmpty, "A boss is summoned from its egg instead of appearing as a natural spawn.")
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
+    func testMaterialBossEntitySetRejectsHealthOutsideSupportedPhaseRange() {
+        XCTAssertThrowsError(try AddOnProject.materialBossEntitySet(health: 19, originalPrompt: "boss")) {
+            XCTAssertEqual($0 as? AddOnProjectError, .invalidBossHealth)
+        }
+        XCTAssertThrowsError(try AddOnProject.materialBossEntitySet(health: 41, originalPrompt: "boss")) {
+            XCTAssertEqual($0 as? AddOnProjectError, .invalidBossHealth)
+        }
+    }
+
+    func testMaterialEntitySetBossArchetypeUsesTheCompleteBossTemplate() throws {
+        let project = try AddOnProject.materialEntitySet(
+            materialName: "Azure",
+            archetype: .boss,
+            originalPrompt: "Azure boss",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(project.entities.first?.archetype, .boss)
+        XCTAssertEqual(project.entities.first?.displayName, "Azure Boss")
+        XCTAssertEqual(project.entities.first?.health, 40)
+        XCTAssertTrue(project.spawnRules.isEmpty)
+        XCTAssertEqual(project.entityLootTables.first?.item, .generated(ContentID("azure_a1b2c3_ingot")))
+        XCTAssertEqual(project.entityLootTables.first?.minCount, 1)
+        XCTAssertEqual(project.entityLootTables.first?.maxCount, 1)
+    }
+
+    func testMaterialEntitySetPreservesPassiveDefaultHealthAndRejectsInvalidBossOverrides() throws {
+        let passive = try AddOnProject.materialEntitySet(originalPrompt: "passive", identity: testIdentity())
+        XCTAssertEqual(passive.entities.first?.health, 10)
+
+        for health in [19, 41] {
+            XCTAssertThrowsError(try AddOnProject.materialEntitySet(
+                health: health,
+                archetype: .boss,
+                originalPrompt: "boss",
+                identity: testIdentity()
+            )) {
+                XCTAssertEqual($0 as? AddOnProjectError, .invalidBossHealth)
+            }
+        }
+    }
+
     func testMaterialEntitySetLinksBodyTextureResource() throws {
         let project = try AddOnProject.materialEntitySet(
             materialName: "Azure",

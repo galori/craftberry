@@ -56,6 +56,53 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(enterSurvival, verifyDamage)
     }
 
+    func testBossAcceptanceScenarioExercisesPhaseTransitionAndReward() throws {
+        let scenario = MinecraftE2EScenario.redstoneBossEntitySet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-boss-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Spawn Egg")
+        XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Spawn Egg"])
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
+        XCTAssertTrue(commands.contains("/damage @e[family=monster] 21 magic"))
+        XCTAssertTrue(commands.contains("/gamemode survival @s"))
+        XCTAssertTrue(commands.contains("/damage @e[family=monster] 100 entity_attack entity @s"))
+        XCTAssertTrue(commands.contains("/kill @e[type=item]"))
+        XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_uitest_ingot"))
+        XCTAssertTrue(commands.contains("/tp @s @e[type=item]"))
+        XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_uitest_ingot 0 0"))
+        XCTAssertFalse(commands.contains("/testfor @e[type=item]"), "The reward check must verify the generated ingot ID and item count.")
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Boss scenario chat commands must stay on the calibrated lowercase keyboard plane.")
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Redstone Boss") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("You died") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("has 1 items that match the criteria") })
+
+        let names = scenario.postCraftingSteps.map(\.name)
+        let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm exactly one hostile boss spawned") })
+        let triggerPhase = try XCTUnwrap(names.firstIndex { $0.contains("below half health") })
+        let enterSurvival = try XCTUnwrap(names.firstIndex { $0.contains("Enter Survival") })
+        let confirmDeath = try XCTUnwrap(names.firstIndex { $0.contains("Verify the phase-two attack") })
+        let clearRewardInventory = try XCTUnwrap(names.firstIndex { $0.contains("Remove any earlier generated ingot") })
+        let clearRewardBaseline = try XCTUnwrap(names.firstIndex { $0.contains("Clear item drops before defeating the boss") })
+        let spawnReward = try XCTUnwrap(names.firstIndex { $0.contains("Defeat the boss with player-attributed damage") })
+        let collectReward = try XCTUnwrap(names.firstIndex { $0.contains("Collect the isolated boss reward") })
+        let countReward = try XCTUnwrap(names.firstIndex { $0.contains("Count the generated redstone ingot") })
+        let confirmReward = try XCTUnwrap(names.firstIndex { $0.contains("Confirm exactly one generated redstone ingot") })
+        XCTAssertLessThan(confirmSpawn, triggerPhase)
+        XCTAssertLessThan(triggerPhase, enterSurvival)
+        XCTAssertLessThan(enterSurvival, confirmDeath)
+        XCTAssertLessThan(confirmDeath, spawnReward)
+        XCTAssertLessThan(clearRewardInventory, spawnReward)
+        XCTAssertLessThan(clearRewardBaseline, spawnReward)
+        XCTAssertLessThan(spawnReward, confirmReward)
+        XCTAssertLessThan(spawnReward, collectReward)
+        XCTAssertLessThan(collectReward, countReward)
+        XCTAssertLessThan(countReward, confirmReward)
+    }
+
     func testEnchantTableOpenRetriesAcrossTheTableBody() {
         let steps = MinecraftE2EScenario.redstoneEnchantableSwordSet.postCraftingSteps
         // A single tap point misses the table's narrow upper body on some runs, so the

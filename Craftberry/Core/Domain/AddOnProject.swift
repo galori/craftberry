@@ -468,6 +468,9 @@ public struct BlockDefinition: Codable, Equatable, Sendable {
 public enum EntityArchetype: String, Codable, Equatable, Sendable {
     case passive
     case hostile
+    case boss
+
+    var isHostile: Bool { self != .passive }
 }
 
 public struct EntityDefinition: Codable, Equatable, Sendable {
@@ -1535,18 +1538,32 @@ extension AddOnProject {
         color: PixelArtColor = .blue,
         sourceItem: String = "minecraft:diamond",
         sourceCount: Int = 4,
-        health: Int = 10,
+        health: Int? = nil,
         archetype: EntityArchetype = .passive,
         shortDescription: String? = nil,
         originalPrompt: String,
         identity: AddOnProjectIdentity = .generate(),
         profile: BedrockContentProfile = .current
     ) throws -> AddOnProject {
+        let resolvedHealth = health ?? (archetype == .boss ? 40 : 10)
+        if archetype == .boss {
+            return try materialBossEntitySet(
+                materialName: materialName,
+                color: color,
+                sourceItem: sourceItem,
+                sourceCount: sourceCount,
+                health: resolvedHealth,
+                shortDescription: shortDescription,
+                originalPrompt: originalPrompt,
+                identity: identity,
+                profile: profile
+            )
+        }
         let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
         guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
         guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
-        guard (4...40).contains(health) else { throw AddOnProjectError.invalidEntityHealth }
+        guard (4...40).contains(resolvedHealth) else { throw AddOnProjectError.invalidEntityHealth }
         guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
 
         let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
@@ -1555,7 +1572,7 @@ extension AddOnProject {
         let spawnEggID = ContentID("\(stem)_spawn_egg")
         let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
         let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 16, entityPlacer: EntityPlacerTrait(entityID: entityID)), visualResourceID: spawnEggID)
-        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: health, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID, textureResourceID: entityID, archetype: archetype)
+        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: resolvedHealth, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID, textureResourceID: entityID, archetype: archetype)
         let spawnRule = SpawnDefinition(id: ContentID("\(stem)_spawn_rule"), entityID: entityID)
         let loot = LootDefinition(id: ContentID("\(stem)_loot"), entityID: entityID, item: .vanilla("minecraft:feather"), minCount: 0, maxCount: 2)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])
@@ -1590,6 +1607,73 @@ extension AddOnProject {
             originalPrompt: originalPrompt,
             identity: identity,
             profile: profile
+        )
+    }
+
+    public static func materialBossEntitySet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .red,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        health: Int = 40,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        guard (20...40).contains(health) else { throw AddOnProjectError.invalidBossHealth }
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let project = try materialEntitySet(
+            materialName: material,
+            color: color,
+            sourceItem: sourceItem,
+            sourceCount: sourceCount,
+            health: health,
+            archetype: .hostile,
+            shortDescription: shortDescription,
+            originalPrompt: originalPrompt,
+            identity: identity,
+            profile: profile
+        )
+        let ingotID = ContentID("\(BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent)_ingot")
+        let bossEntity = project.entities[0]
+        let content = project.content.compactMap { node -> AddOnContentNode? in
+            switch node {
+            case .spawnRule:
+                return nil
+            case .entity(let entity) where entity.id == bossEntity.id:
+                return .entity(EntityDefinition(
+                    id: entity.id,
+                    displayName: "\(material) Boss",
+                    health: entity.health,
+                    movement: entity.movement,
+                    scale: entity.scale,
+                    spawnEggResourceID: entity.spawnEggResourceID,
+                    textureResourceID: entity.textureResourceID,
+                    archetype: .boss
+                ))
+            case .entityLoot(let loot):
+                return .entityLoot(LootDefinition(
+                    id: loot.id,
+                    entityID: loot.entityID,
+                    item: .generated(ingotID),
+                    minCount: 1,
+                    maxCount: 1
+                ))
+            default:
+                return node
+            }
+        }
+        return AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: content
         )
     }
 
@@ -1648,6 +1732,7 @@ public enum AddOnProjectError: LocalizedError, Equatable {
     case invalidBlockDestroyTime
     case invalidBlockMapColor
     case invalidEntityHealth
+    case invalidBossHealth
     case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
@@ -1665,6 +1750,7 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .invalidBlockDestroyTime: "Block destroy time must be between 0.5 and 10.0."
         case .invalidBlockMapColor: "Block map color must be a supported vanilla palette hex."
         case .invalidEntityHealth: "Entity health must be between 4 and 40."
+        case .invalidBossHealth: "Boss health must be between 20 and 40."
         case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."

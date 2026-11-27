@@ -48,6 +48,7 @@ final class ExamplePromptLibraryTests: XCTestCase {
         let consumableSets = corpus.filter { $0.contains("consumable set") }
         let blockSets = corpus.filter { $0.contains("block set") }
         let hostileEntitySets = corpus.filter { $0.contains("hostile") && ($0.contains("entity set") || $0.contains("mob set") || $0.contains("creature set")) }
+        let bossEntitySets = corpus.filter { $0.contains("boss") && ($0.contains("phase") || $0.contains("encounter")) }
         let ingotSets = corpus.filter { $0.contains("ingot") }
         XCTAssertGreaterThanOrEqual(toolSets.count, 4)
         XCTAssertGreaterThanOrEqual(weaponSets.count, 4)
@@ -55,6 +56,7 @@ final class ExamplePromptLibraryTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(consumableSets.count, 4)
         XCTAssertGreaterThanOrEqual(blockSets.count, 4)
         XCTAssertGreaterThanOrEqual(hostileEntitySets.count, 4)
+        XCTAssertGreaterThanOrEqual(bossEntitySets.count, 3)
         XCTAssertGreaterThanOrEqual(ingotSets.count, 4)
     }
 
