@@ -13,6 +13,7 @@ struct MinecraftStep: Equatable {
         case pressAndHold(x: CGFloat, y: CGFloat, seconds: TimeInterval)
         case tapIfText(x: CGFloat, y: CGFloat, text: String)
         case tapTextRow(x: CGFloat, text: String)
+        case tapTextRowWithContext(x: CGFloat, title: String, context: String)
         case tapUntilText(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, text: String)
         case drag(x: CGFloat, y: CGFloat, endX: CGFloat, endY: CGFloat)
         case swipeUp

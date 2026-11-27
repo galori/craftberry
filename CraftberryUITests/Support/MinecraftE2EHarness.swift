@@ -188,6 +188,10 @@ final class MinecraftE2EHarness {
         try dismissKeyboard(in: craftberry)
         craftberry.buttons["craftberry.generate"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+        XCTAssertTrue(
+            craftberry.staticTexts[scenario.projectName].waitForExistence(timeout: 2),
+            "The deterministic fixture did not generate the expected project for \(scenario.projectName)."
+        )
 
         craftberry.buttons["craftberry.exportWorld"].tap()
         let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
@@ -232,6 +236,10 @@ final class MinecraftE2EHarness {
         try dismissKeyboard(in: craftberry)
         craftberry.buttons["craftberry.generate"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+        XCTAssertTrue(
+            craftberry.staticTexts[scenario.projectName].waitForExistence(timeout: 2),
+            "The deterministic fixture did not generate the expected project for \(scenario.projectName)."
+        )
 
         craftberry.buttons["craftberry.exportWorld"].tap()
         let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]

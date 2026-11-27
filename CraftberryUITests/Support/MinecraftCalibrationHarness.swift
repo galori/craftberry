@@ -169,6 +169,10 @@ final class MinecraftCalibrationHarness {
         try dismissKeyboard(in: craftberry)
         craftberry.buttons["craftberry.generate"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+        XCTAssertTrue(
+            craftberry.staticTexts[scenario.projectName].waitForExistence(timeout: 2),
+            "The deterministic fixture did not generate the expected project for \(scenario.projectName)."
+        )
 
         craftberry.buttons["craftberry.exportWorld"].tap()
         let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
@@ -219,7 +223,7 @@ final class MinecraftCalibrationHarness {
             resolve: { self.resolved($0, scenario: scenario) }
         )
 
-        for step in slices.prefix.phased(as: .config) {
+        for _ in slices.prefix.phased(as: .config) {
             let response = controller.handle(MinecraftCalibrationRequest(command: "step"))
             guard response.success else {
                 XCTFail("World calibration failed while opening the world list: \(response.error ?? "unknown error")")

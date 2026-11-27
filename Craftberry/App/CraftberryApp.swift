@@ -117,6 +117,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneSmithingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-smithing-set")
         let usesRedstoneFurnaceSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-furnace-set")
         let usesRedstoneBrewingSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-brewing-set")
+        let usesBrewingVerificationSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-brewing-verification-set")
         let usesRedstoneStructureSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-structure-set")
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
@@ -221,6 +222,16 @@ private struct UITestingLLMClient: LLMClient {
                 sourceItem: "minecraft:redstone",
                 sourceCount: 4,
                 shortDescription: "A redstone brewing kit with a custom ingot and brewing-stand elixir.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesBrewingVerificationSet {
+            project = try AddOnProject.materialBrewingSet(
+                materialName: "Craftberry Brewing E2E",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                shortDescription: "A uniquely named brewing acceptance fixture for the elixir and splash-potion flow.",
                 originalPrompt: prompt,
                 identity: identity
             )

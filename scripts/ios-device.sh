@@ -320,9 +320,9 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Survival)"
             ;;
         brewing)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneBrewingSetCanCraftIngotInImportedCreativeWorld"
-            result_name="MinecraftRedstoneBrewingSetE2EUITests"
-            prepared_world_name="Redstone (Creative)"
+            test_selector="CraftberryUITests/MinecraftBrewingE2EUITests/testCraftberryBrewingFixtureBrewsElixirAndConvertsToSplashPotion"
+            result_name="MinecraftBrewingFixtureGameplayE2EUITests"
+            prepared_world_name="Craftberry Brewing E2E (Creative)"
             ;;
         ore)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneOreSetCanCraftOreInImportedCreativeWorld"

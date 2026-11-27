@@ -154,6 +154,7 @@ extension MinecraftStep.Action {
         case .pressAndHold(let x, let y, let s): "pressAndHold(\(x), \(y); \(s)s)"
         case .tapIfText(let x, let y, let text): "tapIfText(\(x), \(y); \(text))"
         case .tapTextRow(let x, let text): "tapTextRow(\(x); \(text))"
+        case .tapTextRowWithContext(let x, let title, let context): "tapTextRowWithContext(\(x); \(title); \(context))"
         case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let text):
             "tapUntilText(\(x), \(y); fallback \(fallbackX), \(fallbackY); \(text))"
         case .drag(let x, let y, let endX, let endY): "drag(\(x), \(y) -> \(endX), \(endY))"

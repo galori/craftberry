@@ -70,6 +70,11 @@
 		A10000000000000000000050 /* MinecraftCalibrationHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000050 /* MinecraftCalibrationHarness.swift */; };
 		A10000000000000000000051 /* MinecraftCalibrationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000051 /* MinecraftCalibrationUITests.swift */; };
 		A10000000000000000000052 /* MinecraftE2EStepSlices.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000052 /* MinecraftE2EStepSlices.swift */; };
+		A10000000000000000000067 /* MinecraftBrewingAcceptancePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000067 /* MinecraftBrewingAcceptancePlan.swift */; };
+		A10000000000000000000068 /* MinecraftBrewingE2ESupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000068 /* MinecraftBrewingE2ESupportTests.swift */; };
+		A10000000000000000000069 /* MinecraftBrewingE2EUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000069 /* MinecraftBrewingE2EUITests.swift */; };
+		A10000000000000000000070 /* MinecraftBrewingCalibrationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000070 /* MinecraftBrewingCalibrationUITests.swift */; };
+		A10000000000000000000071 /* MinecraftE2EWorldNaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000071 /* MinecraftE2EWorldNaming.swift */; };
 		A10000000000000000000036 /* RecipeBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* RecipeBook.swift */; };
 /* End PBXBuildFile section */
 
@@ -159,6 +164,11 @@
 		A20000000000000000000050 /* MinecraftCalibrationHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationHarness.swift; sourceTree = "<group>"; };
 		A20000000000000000000051 /* MinecraftCalibrationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCalibrationUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000052 /* MinecraftE2EStepSlices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftE2EStepSlices.swift; sourceTree = "<group>"; };
+		A20000000000000000000067 /* MinecraftBrewingAcceptancePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftBrewingAcceptancePlan.swift; sourceTree = "<group>"; };
+		A20000000000000000000068 /* MinecraftBrewingE2ESupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftBrewingE2ESupportTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000069 /* MinecraftBrewingE2EUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftBrewingE2EUITests.swift; sourceTree = "<group>"; };
+		A20000000000000000000070 /* MinecraftBrewingCalibrationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftBrewingCalibrationUITests.swift; sourceTree = "<group>"; };
+		A20000000000000000000071 /* MinecraftE2EWorldNaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftE2EWorldNaming.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* RecipeBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeBook.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -277,6 +287,9 @@
 				A20000000000000000000033 /* MinecraftE2ESupportTests.swift */,
 				B2B54F7B973E45A9BF1618A5 /* MinecraftFurnacePlanCompilerTests.swift */,
 				8A746230871F4BCD830FABEA /* MinecraftFurnaceFuelE2ETests.swift */,
+				A20000000000000000000068 /* MinecraftBrewingE2ESupportTests.swift */,
+				A20000000000000000000069 /* MinecraftBrewingE2EUITests.swift */,
+				A20000000000000000000070 /* MinecraftBrewingCalibrationUITests.swift */,
 				A20000000000000000000051 /* MinecraftCalibrationUITests.swift */,
 				A40000000000000000000012 /* Support */,
 				A20000000000000000000029 /* MinecraftImportConfig.json */,
@@ -303,6 +316,8 @@
 				A20000000000000000000049 /* MinecraftCalibrationServer.swift */,
 				A20000000000000000000050 /* MinecraftCalibrationHarness.swift */,
 				A20000000000000000000052 /* MinecraftE2EStepSlices.swift */,
+				A20000000000000000000067 /* MinecraftBrewingAcceptancePlan.swift */,
+				A20000000000000000000071 /* MinecraftE2EWorldNaming.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -550,6 +565,9 @@
 				A10000000000000000000025 /* MinecraftCoordinateTouchUITests.swift in Sources */,
 				A10000000000000000000026 /* MinecraftDeviceE2EUITests.swift in Sources */,
 				A10000000000000000000028 /* MinecraftE2ESupportTests.swift in Sources */,
+				A10000000000000000000068 /* MinecraftBrewingE2ESupportTests.swift in Sources */,
+				A10000000000000000000069 /* MinecraftBrewingE2EUITests.swift in Sources */,
+				A10000000000000000000070 /* MinecraftBrewingCalibrationUITests.swift in Sources */,
 				A10000000000000000000051 /* MinecraftCalibrationUITests.swift in Sources */,
 				FE63C29E57D149A59A239B6B /* MinecraftFurnacePlanCompilerTests.swift in Sources */,
 				D22C0CF412D7479B819FEB74 /* MinecraftFurnaceFuelE2ETests.swift in Sources */,
@@ -568,6 +586,8 @@
 				A10000000000000000000049 /* MinecraftCalibrationServer.swift in Sources */,
 				A10000000000000000000050 /* MinecraftCalibrationHarness.swift in Sources */,
 				A10000000000000000000052 /* MinecraftE2EStepSlices.swift in Sources */,
+				A10000000000000000000067 /* MinecraftBrewingAcceptancePlan.swift in Sources */,
+				A10000000000000000000071 /* MinecraftE2EWorldNaming.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
