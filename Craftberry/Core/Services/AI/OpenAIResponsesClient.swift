@@ -188,6 +188,11 @@ public protocol GenerationSessionCredentialStore: Sendable {
     func appAttestKeyID() async throws -> String?
     func saveBearerToken(_ token: String) async throws
     func saveAppAttestKeyID(_ keyID: String) async throws
+    func clearSession() async throws
+}
+
+public enum GenerationAppAttestError: Error, Equatable {
+    case invalidKey
 }
 
 public protocol GenerationAppAttestService: Sendable {
@@ -238,6 +243,22 @@ public struct KeychainGenerationCredentialStore: GenerationSessionCredentialStor
 
     public func saveAppAttestKeyID(_ keyID: String) async throws {
         try save(Data(keyID.utf8), account: "app-attest-key-id")
+    }
+
+    public func clearSession() async throws {
+        #if canImport(Security)
+        for account in [Self.defaultAccount, "app-attest-key-id"] {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account
+            ]
+            let status = SecItemDelete(query as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw BackendGenerationClientError.missingCredential
+            }
+        }
+        #endif
     }
 
     private func read(account: String) throws -> Data? {
@@ -314,7 +335,11 @@ public struct SystemGenerationAppAttestService: GenerationAppAttestService {
 
     public func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
         #if canImport(DeviceCheck)
-        try await DCAppAttestService.shared.generateAssertion(keyID, clientDataHash: clientDataHash)
+        do {
+            return try await DCAppAttestService.shared.generateAssertion(keyID, clientDataHash: clientDataHash)
+        } catch let error as DCError where error.code == .invalidKey {
+            throw GenerationAppAttestError.invalidKey
+        }
         #else
         throw BackendGenerationClientError.missingCredential
         #endif
@@ -403,6 +428,8 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
     private let appAttestService: any GenerationAppAttestService
     private let enrollmentTransport: any GenerationSessionEnrollmentTransport
     private var enrollmentTask: Task<String, Error>?
+    private var credentialResetTask: (id: UUID, task: Task<Void, Error>)?
+    private var requiresEnrollmentAfterInvalidKey = false
 
     public init(
         baseURL: URL?,
@@ -420,18 +447,30 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
     }
 
     public func bearerToken() async throws -> String {
-        if let token = try await credentialStore.bearerToken(),
+        try await awaitCredentialResetIfNeeded()
+        if !requiresEnrollmentAfterInvalidKey,
+           let token = try await credentialStore.bearerToken(),
            !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return token
         }
-        if let enrollmentTask { return try await enrollmentTask.value }
+        if let enrollmentTask {
+            let token = try await enrollmentTask.value
+            requiresEnrollmentAfterInvalidKey = false
+            return token
+        }
         let task = Task { try await self.enrollInstallation() }
         enrollmentTask = task
         defer { enrollmentTask = nil }
-        return try await task.value
+        let token = try await task.value
+        requiresEnrollmentAfterInvalidKey = false
+        return token
     }
 
     public func assertionHeaders(for requestBody: Data, idempotencyKey: String) async throws -> GenerationAssertionHeaders {
+        try await awaitCredentialResetIfNeeded()
+        guard !requiresEnrollmentAfterInvalidKey else {
+            throw BackendGenerationClientError.appAttestKeyInvalid
+        }
         guard appAttestService.isSupported,
               let keyID = try await credentialStore.appAttestKeyID(),
               !keyID.isEmpty else {
@@ -449,7 +488,18 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
         )
         let encodedClientData = try clientData.canonicalData()
         let clientDataHash = Data(SHA256.hash(data: encodedClientData))
-        let assertion = try await appAttestService.generateAssertion(keyID, clientDataHash: clientDataHash)
+        let assertion: Data
+        do {
+            assertion = try await appAttestService.generateAssertion(keyID, clientDataHash: clientDataHash)
+        } catch GenerationAppAttestError.invalidKey {
+            requiresEnrollmentAfterInvalidKey = true
+            if credentialResetTask == nil {
+                let store = credentialStore
+                credentialResetTask = (UUID(), Task { try await store.clearSession() })
+            }
+            try await awaitCredentialResetIfNeeded()
+            throw BackendGenerationClientError.appAttestKeyInvalid
+        }
         return GenerationAssertionHeaders(
             challengeID: challenge.challengeID,
             clientData: encodedClientData.base64EncodedString(),
@@ -480,6 +530,14 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
         return token
     }
 
+    private func awaitCredentialResetIfNeeded() async throws {
+        guard let reset = credentialResetTask else { return }
+        try await reset.task.value
+        if credentialResetTask?.id == reset.id {
+            credentialResetTask = nil
+        }
+    }
+
     private static func base64URL(_ data: Data) -> String {
         data.base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
@@ -493,6 +551,7 @@ public enum BackendGenerationClientError: LocalizedError, Equatable {
     case invalidEndpoint
     case missingCredential
     case unauthorized
+    case appAttestKeyInvalid
     case quotaExceeded
     case serviceUnavailable
     case transportUnavailable
@@ -509,6 +568,8 @@ public enum BackendGenerationClientError: LocalizedError, Equatable {
             "A generation session is not available. Reconnect and try again."
         case .unauthorized:
             "Your generation session has expired. Reconnect and try again."
+        case .appAttestKeyInvalid:
+            "This device's generation key has expired. Reconnecting and retrying."
         case .quotaExceeded:
             "The generation limit has been reached. Try again later."
         case .serviceUnavailable:
@@ -552,19 +613,26 @@ public struct BackendGenerationClient: LLMClient {
             throw BackendGenerationClientError.invalidEndpoint
         }
 
-        let token = try await credentialProvider.bearerToken()
-        guard !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw BackendGenerationClientError.missingCredential
-        }
-
         let idempotencyKey = UUID().uuidString.lowercased()
         let requestBody = try JSONEncoder().encode(GenerationRequest(prompt: prompt))
-        var didRetry = false
+        var didRetryTransientFailure = false
+        var didRepairInvalidKey = false
+        var processingPolls = 0
         while true {
-            let assertionHeaders = try await credentialProvider.assertionHeaders(
-                for: requestBody,
-                idempotencyKey: idempotencyKey
-            )
+            let token = try await credentialProvider.bearerToken()
+            guard !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw BackendGenerationClientError.missingCredential
+            }
+            let assertionHeaders: GenerationAssertionHeaders
+            do {
+                assertionHeaders = try await credentialProvider.assertionHeaders(
+                    for: requestBody,
+                    idempotencyKey: idempotencyKey
+                )
+            } catch BackendGenerationClientError.appAttestKeyInvalid where !didRepairInvalidKey {
+                didRepairInvalidKey = true
+                continue
+            }
             var request = URLRequest(url: baseURL.appending(path: "v1/generate"))
             request.httpMethod = "POST"
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -585,17 +653,28 @@ public struct BackendGenerationClient: LLMClient {
             } catch let error as URLError where error.code == .cancelled {
                 throw error
             } catch {
-                guard !didRetry else { throw BackendGenerationClientError.transportUnavailable }
-                didRetry = true
+                guard !didRetryTransientFailure else { throw BackendGenerationClientError.transportUnavailable }
+                didRetryTransientFailure = true
                 continue
             }
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw BackendGenerationClientError.invalidResponse
             }
-            if (500...599).contains(httpResponse.statusCode), !didRetry {
-                didRetry = true
+            if (500...599).contains(httpResponse.statusCode), !didRetryTransientFailure {
+                didRetryTransientFailure = true
                 continue
+            }
+            if httpResponse.statusCode == 409 {
+                let errorCode = (try? JSONDecoder().decode(BackendErrorResponse.self, from: data))?.error
+                if errorCode == "generation_in_progress", processingPolls < 3 {
+                    processingPolls += 1
+                    try await Self.waitBeforeProcessingRetry(response: httpResponse)
+                    continue
+                }
+                if errorCode == "idempotency_conflict" {
+                    throw BackendGenerationClientError.requestFailed(statusCode: 409)
+                }
             }
             guard (200..<300).contains(httpResponse.statusCode) else {
                 switch httpResponse.statusCode {
@@ -624,6 +703,18 @@ public struct BackendGenerationClient: LLMClient {
             }
         }
     }
+
+    private static func waitBeforeProcessingRetry(response: HTTPURLResponse) async throws {
+        let retryAfter = response.value(forHTTPHeaderField: "Retry-After")
+            .flatMap(TimeInterval.init)
+            .map { min(max($0, 0), 2) } ?? 1
+        guard retryAfter > 0 else { return }
+        try await Task.sleep(nanoseconds: UInt64(retryAfter * 1_000_000_000))
+    }
+}
+
+private struct BackendErrorResponse: Decodable {
+    let error: String
 }
 
 private struct GenerationRequest: Encodable {

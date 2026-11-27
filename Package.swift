@@ -13,7 +13,7 @@ let package = Package(
         .target(name: "CraftberryCore", dependencies: ["CSQLite"], path: "Craftberry/Core"),
         .testTarget(
             name: "CraftberryTests",
-            dependencies: ["CraftberryCore"],
+            dependencies: ["CraftberryCore", "CSQLite"],
             path: "CraftberryTests",
             resources: [.copy("Fixtures/GenerationV1.json"), .copy("Fixtures/AppAttest")]
         ),

@@ -5,15 +5,17 @@ import Foundation
 /// decisions across service instances, and committed reservations survive restarts.
 public actor SQLiteGenerationServiceStore: GenerationServiceStore {
     private let connection: SQLiteConnection
+    private let processID: String
     private var database: OpaquePointer { connection.handle }
 
-    public init(databaseURL: URL) throws {
+    public init(databaseURL: URL, processID: String? = nil) throws {
         try FileManager.default.createDirectory(
             at: databaseURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
         let connection = try SQLiteConnection(url: databaseURL)
         self.connection = connection
+        self.processID = processID ?? GenerationStoreProcessIdentity.current
         let handle = connection.handle
         try Self.execute("PRAGMA journal_mode=WAL", on: handle)
         try Self.execute("PRAGMA synchronous=FULL", on: handle)
@@ -64,9 +66,17 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
             updated_at REAL NOT NULL,
             state TEXT NOT NULL,
             response BLOB,
+            reservation_id TEXT,
+            owner_id TEXT,
             PRIMARY KEY (installation_id, idempotency_key)
         )
         """, on: handle)
+        if try !Self.tableHasColumn("reservation_id", table: "generation_events", on: handle) {
+            try Self.execute("ALTER TABLE generation_events ADD COLUMN reservation_id TEXT", on: handle)
+        }
+        if try !Self.tableHasColumn("owner_id", table: "generation_events", on: handle) {
+            try Self.execute("ALTER TABLE generation_events ADD COLUMN owner_id TEXT", on: handle)
+        }
         try Self.execute("CREATE INDEX IF NOT EXISTS generation_events_install_time ON generation_events(installation_id, occurred_at)", on: handle)
         let quotaEventsTableExisted = try Self.tableExists("generation_quota_events", on: handle)
         try Self.execute("""
@@ -89,11 +99,19 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
         }
     }
 
-    public func createEnrollmentChallenge(_ challenge: StoredEnrollmentChallenge) async throws {
-        try run(
-            "INSERT INTO enrollment_challenges(challenge_id, challenge, expires_at) VALUES(?, ?, ?)",
-            [.text(challenge.id), .blob(challenge.challenge), .double(challenge.expiresAt.timeIntervalSince1970)]
-        )
+    public func createEnrollmentChallenge(_ challenge: StoredEnrollmentChallenge, now: Date) async throws {
+        try execute("BEGIN IMMEDIATE")
+        do {
+            try run("DELETE FROM enrollment_challenges WHERE expires_at <= ?", [.double(now.timeIntervalSince1970)])
+            try run(
+                "INSERT INTO enrollment_challenges(challenge_id, challenge, expires_at) VALUES(?, ?, ?)",
+                [.text(challenge.id), .blob(challenge.challenge), .double(challenge.expiresAt.timeIntervalSince1970)]
+            )
+            try execute("COMMIT")
+        } catch {
+            try? execute("ROLLBACK")
+            throw error
+        }
     }
 
     public func enrollmentChallenge(id: String, now: Date) async throws -> StoredEnrollmentChallenge? {
@@ -268,6 +286,10 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
         try execute("BEGIN IMMEDIATE")
         do {
             let id = installationID.uuidString
+            try run(
+                "DELETE FROM generation_events WHERE installation_id = ? AND updated_at <= ? AND (state <> 'processing' OR owner_id IS NULL OR owner_id <> ?)",
+                [.text(id), .double(now.timeIntervalSince1970 - 86_400), .text(processID)]
+            )
             let existing = try idempotencyRecord(installationID: id, key: idempotencyKey)
             var isRetry = false
             if let existing {
@@ -279,7 +301,7 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
                 case .completed(let response, _):
                     try execute("COMMIT")
                     return .replay(response)
-                case .processing(let updatedAt) where now.timeIntervalSince(updatedAt) < 30:
+                case .processing(_, _, let ownerID) where ownerID == processID:
                     try execute("COMMIT")
                     return .inProgress
                 case .processing, .retryable:
@@ -290,11 +312,6 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
             try run("DELETE FROM generation_quota_events WHERE installation_id = ? AND occurred_at <= ?", [
                 .text(id), .double(now.timeIntervalSince1970 - 86_400)
             ])
-            if !isRetry {
-                try run("DELETE FROM generation_events WHERE installation_id = ? AND occurred_at <= ?", [
-                    .text(id), .double(now.timeIntervalSince1970 - 86_400)
-                ])
-            }
             if try countEvents(installationID: id, after: now.addingTimeInterval(-60)) >= quota.perMinute {
                 try execute("COMMIT")
                 return .limited(.minute)
@@ -308,20 +325,23 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
                 return .limited(.day)
             }
 
+            let reservationID = UUID()
             if isRetry {
                 try run(
-                    "UPDATE generation_events SET state = 'processing', updated_at = ? WHERE installation_id = ? AND idempotency_key = ?",
-                    [.double(now.timeIntervalSince1970), .text(id), .text(idempotencyKey)]
+                    "UPDATE generation_events SET state = 'processing', updated_at = ?, reservation_id = ?, owner_id = ? WHERE installation_id = ? AND idempotency_key = ?",
+                    [.double(now.timeIntervalSince1970), .text(reservationID.uuidString), .text(processID), .text(id), .text(idempotencyKey)]
                 )
             } else {
                 try run(
-                    "INSERT INTO generation_events(installation_id, idempotency_key, request_fingerprint, occurred_at, updated_at, state, response) VALUES(?, ?, ?, ?, ?, 'processing', NULL)",
+                    "INSERT INTO generation_events(installation_id, idempotency_key, request_fingerprint, occurred_at, updated_at, state, response, reservation_id, owner_id) VALUES(?, ?, ?, ?, ?, 'processing', NULL, ?, ?)",
                     [
                         .text(id),
                         .text(idempotencyKey),
                         .blob(requestFingerprint),
                         .double(now.timeIntervalSince1970),
-                        .double(now.timeIntervalSince1970)
+                        .double(now.timeIntervalSince1970),
+                        .text(reservationID.uuidString),
+                        .text(processID)
                     ]
                 )
             }
@@ -330,7 +350,7 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
                 [.text(id), .text(idempotencyKey), .double(now.timeIntervalSince1970)]
             )
             try execute("COMMIT")
-            return .reserved
+            return .reserved(reservationID)
         } catch {
             try? execute("ROLLBACK")
             throw error
@@ -340,31 +360,33 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
     public func completeGeneration(
         installationID: UUID,
         idempotencyKey: String,
+        reservationID: UUID,
         response: Data,
         now: Date
-    ) async throws {
+    ) async throws -> Bool {
         try run(
-            "UPDATE generation_events SET state = 'completed', response = ?, updated_at = ? WHERE installation_id = ? AND idempotency_key = ?",
-            [.blob(response), .double(now.timeIntervalSince1970), .text(installationID.uuidString), .text(idempotencyKey)]
+            "UPDATE generation_events SET state = 'completed', response = ?, updated_at = ? WHERE installation_id = ? AND idempotency_key = ? AND reservation_id = ? AND state = 'processing'",
+            [.blob(response), .double(now.timeIntervalSince1970), .text(installationID.uuidString), .text(idempotencyKey), .text(reservationID.uuidString)]
         )
-        guard sqlite3_changes(database) == 1 else { throw SQLiteGenerationServiceStoreError.missingReservation }
+        return sqlite3_changes(database) == 1
     }
 
     public func markGenerationRetryable(
         installationID: UUID,
         idempotencyKey: String,
+        reservationID: UUID,
         now: Date
-    ) async throws {
+    ) async throws -> Bool {
         try run(
-            "UPDATE generation_events SET state = 'retryable', updated_at = ? WHERE installation_id = ? AND idempotency_key = ?",
-            [.double(now.timeIntervalSince1970), .text(installationID.uuidString), .text(idempotencyKey)]
+            "UPDATE generation_events SET state = 'retryable', updated_at = ?, reservation_id = NULL, owner_id = NULL WHERE installation_id = ? AND idempotency_key = ? AND reservation_id = ? AND state = 'processing'",
+            [.double(now.timeIntervalSince1970), .text(installationID.uuidString), .text(idempotencyKey), .text(reservationID.uuidString)]
         )
-        guard sqlite3_changes(database) == 1 else { throw SQLiteGenerationServiceStoreError.missingReservation }
+        return sqlite3_changes(database) == 1
     }
 
     private func idempotencyRecord(installationID: String, key: String) throws -> IdempotencyRecord? {
         let statement = try prepare(
-            "SELECT request_fingerprint, state, response, updated_at FROM generation_events WHERE installation_id = ? AND idempotency_key = ?",
+            "SELECT request_fingerprint, state, response, updated_at, reservation_id, owner_id FROM generation_events WHERE installation_id = ? AND idempotency_key = ?",
             [.text(installationID), .text(key)]
         )
         defer { sqlite3_finalize(statement) }
@@ -375,7 +397,12 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
         let updatedAt = Date(timeIntervalSince1970: sqlite3_column_double(statement, 3))
         let state: IdempotencyState
         switch stateText {
-        case "processing": state = .processing(updatedAt: updatedAt)
+        case "processing":
+            state = .processing(
+                updatedAt: updatedAt,
+                reservationID: columnText(statement, 4).flatMap(UUID.init(uuidString:)),
+                ownerID: columnText(statement, 5)
+            )
         case "retryable": state = .retryable(updatedAt: updatedAt)
         case "completed": state = .completed(response: columnData(statement, 2) ?? Data(), updatedAt: updatedAt)
         default: throw SQLiteGenerationServiceStoreError.database("Unknown generation reservation state.")
@@ -548,9 +575,13 @@ private enum SQLiteValue {
 }
 
 private enum IdempotencyState {
-    case processing(updatedAt: Date)
+    case processing(updatedAt: Date, reservationID: UUID?, ownerID: String?)
     case retryable(updatedAt: Date)
     case completed(response: Data, updatedAt: Date)
+}
+
+private enum GenerationStoreProcessIdentity {
+    static let current = UUID().uuidString.lowercased()
 }
 
 private struct IdempotencyRecord {

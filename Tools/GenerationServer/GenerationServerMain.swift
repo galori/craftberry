@@ -103,21 +103,55 @@ private struct GenerationHTTPServer {
     let port: UInt16
     private let maximumHeaderBytes = 16_384
     private let maximumBodyBytes = 65_536
+    private let socketDeadlineNanoseconds: UInt64 = 10_000_000_000
+    private let blockingIOQueue = DispatchQueue(
+        label: "com.craftberry.generation-server.blocking-io",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
+    private let connectionSlots = DispatchSemaphore(value: 32)
 
-    func run(service: GenerationService) async throws -> Never {
+    func run(service: GenerationService) async throws {
         signal(SIGPIPE, SIG_IGN)
         let listener = try makeListener()
         defer { _ = close(listener) }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let acceptThread = Thread { [self] in
+                do {
+                    try acceptLoop(listener: listener, service: service)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            acceptThread.name = "com.craftberry.generation-server.accept"
+            acceptThread.start()
+        }
+    }
+
+    private func acceptLoop(listener: Int32, service: GenerationService) throws {
         while true {
             let client = accept(listener, nil, nil)
             guard client >= 0 else {
                 if errno == EINTR { continue }
                 throw SocketServerError.systemCall("accept", errno)
             }
-            Task.detached {
-                await handle(client: client, service: service)
+            connectionSlots.wait()
+            guard configureClientSocket(client) else {
+                _ = close(client)
+                connectionSlots.signal()
+                continue
+            }
+            blockingIOQueue.async { [self] in
+                receiveAndDispatch(client: client, service: service)
             }
         }
+    }
+
+    private func configureClientSocket(_ descriptor: Int32) -> Bool {
+        let flags = fcntl(descriptor, F_GETFL, 0)
+        guard flags >= 0 else { return false }
+        return fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) == 0
     }
 
     private func makeListener() throws -> Int32 {
@@ -163,12 +197,16 @@ private struct GenerationHTTPServer {
         return descriptor
     }
 
-    private func handle(client: Int32, service: GenerationService) async {
-        defer { _ = close(client) }
+    private func receiveAndDispatch(client: Int32, service: GenerationService) {
         do {
             let request = try readRequest(client)
-            let response = await service.handle(request)
-            try writeResponse(response, to: client)
+            Task {
+                let response = await service.handle(request)
+                blockingIOQueue.async { [self] in
+                    defer { finish(client) }
+                    try? writeResponse(response, to: client)
+                }
+            }
         } catch let error as HTTPParseError {
             let status = error == .bodyTooLarge ? 413 : 400
             let payload = Data((status == 413 ? "{\"error\":\"request_too_large\"}" : "{\"error\":\"invalid_request\"}").utf8)
@@ -176,21 +214,29 @@ private struct GenerationHTTPServer {
                 GenerationServiceResponse(statusCode: status, headers: ["Content-Type": "application/json"], body: payload),
                 to: client
             )
+            finish(client)
         } catch {
             let payload = Data("{\"error\":\"service_unavailable\"}".utf8)
             try? writeResponse(
                 GenerationServiceResponse(statusCode: 503, headers: ["Content-Type": "application/json"], body: payload),
                 to: client
             )
+            finish(client)
         }
     }
 
+    private func finish(_ descriptor: Int32) {
+        _ = close(descriptor)
+        connectionSlots.signal()
+    }
+
     private func readRequest(_ descriptor: Int32) throws -> GenerationServiceRequest {
+        let deadline = DispatchTime.now().uptimeNanoseconds + socketDeadlineNanoseconds
         var accumulated = Data()
         let headerDelimiter = Data([13, 10, 13, 10])
         var headerRange: Range<Data.Index>?
         while headerRange == nil {
-            let chunk = try receive(descriptor, maximum: 4_096)
+            let chunk = try receive(descriptor, maximum: 4_096, deadline: deadline)
             guard !chunk.isEmpty else { throw HTTPParseError.invalid }
             accumulated.append(chunk)
             guard accumulated.count <= maximumHeaderBytes + maximumBodyBytes else { throw HTTPParseError.bodyTooLarge }
@@ -227,7 +273,7 @@ private struct GenerationHTTPServer {
         guard contentLength >= 0, contentLength <= maximumBodyBytes else { throw HTTPParseError.bodyTooLarge }
         var body = Data(accumulated[headerRange.upperBound...])
         while body.count < contentLength {
-            let chunk = try receive(descriptor, maximum: min(4_096, contentLength - body.count))
+            let chunk = try receive(descriptor, maximum: min(4_096, contentLength - body.count), deadline: deadline)
             guard !chunk.isEmpty else { throw HTTPParseError.invalid }
             body.append(chunk)
         }
@@ -241,14 +287,15 @@ private struct GenerationHTTPServer {
         )
     }
 
-    private func receive(_ descriptor: Int32, maximum: Int) throws -> Data {
+    private func receive(_ descriptor: Int32, maximum: Int, deadline: UInt64) throws -> Data {
         while true {
+            try waitUntilReady(descriptor, for: Int16(POLLIN), deadline: deadline, operation: "read")
             var buffer = [UInt8](repeating: 0, count: maximum)
             let received = buffer.withUnsafeMutableBytes { rawBuffer in
                 recv(descriptor, rawBuffer.baseAddress, maximum, 0)
             }
             if received < 0 {
-                if errno == EINTR { continue }
+                if errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK { continue }
                 throw SocketServerError.systemCall("recv", errno)
             }
             return Data(buffer.prefix(Int(received)))
@@ -256,6 +303,7 @@ private struct GenerationHTTPServer {
     }
 
     private func writeResponse(_ response: GenerationServiceResponse, to descriptor: Int32) throws {
+        let deadline = DispatchTime.now().uptimeNanoseconds + socketDeadlineNanoseconds
         let reason: String
         switch response.statusCode {
         case 200: reason = "OK"
@@ -277,6 +325,7 @@ private struct GenerationHTTPServer {
         output.append(response.body)
         var offset = 0
         while offset < output.count {
+            try waitUntilReady(descriptor, for: Int16(POLLOUT), deadline: deadline, operation: "write")
             let sent = output.withUnsafeBytes { rawBuffer -> Int in
                 let base = rawBuffer.baseAddress!.advanced(by: offset)
                 #if canImport(Darwin)
@@ -286,11 +335,31 @@ private struct GenerationHTTPServer {
                 #endif
             }
             if sent < 0 {
-                if errno == EINTR { continue }
+                if errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK { continue }
                 throw SocketServerError.systemCall("send", errno)
             }
             guard sent > 0 else { throw SocketServerError.systemCall("send", EPIPE) }
             offset += sent
+        }
+    }
+
+    private func waitUntilReady(
+        _ descriptor: Int32,
+        for events: Int16,
+        deadline: UInt64,
+        operation: String
+    ) throws {
+        while true {
+            let now = DispatchTime.now().uptimeNanoseconds
+            guard now < deadline else { throw SocketServerError.deadlineExceeded(operation) }
+            let remainingNanoseconds = deadline - now
+            let remainingMilliseconds = min((remainingNanoseconds + 999_999) / 1_000_000, UInt64(Int32.max))
+            var state = pollfd(fd: descriptor, events: events, revents: 0)
+            let result = poll(&state, 1, Int32(remainingMilliseconds))
+            if result > 0 { return }
+            if result == 0 { throw SocketServerError.deadlineExceeded(operation) }
+            if errno == EINTR { continue }
+            throw SocketServerError.systemCall("poll", errno)
         }
     }
 }
@@ -303,11 +372,13 @@ private enum HTTPParseError: Error, Equatable {
 private enum SocketServerError: LocalizedError {
     case systemCall(String, Int32)
     case invalidBindAddress(String)
+    case deadlineExceeded(String)
 
     var errorDescription: String? {
         switch self {
         case .systemCall(let name, let code): "Socket \(name) failed with errno \(code)."
         case .invalidBindAddress(let host): "Bind host must be an IPv4 address, got \(host)."
+        case .deadlineExceeded(let operation): "Socket \(operation) deadline expired."
         }
     }
 }

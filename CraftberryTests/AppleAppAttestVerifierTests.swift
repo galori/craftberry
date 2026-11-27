@@ -116,6 +116,43 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         }
     }
 
+    func testApplePublishedNonceExtensionUnwrapsExplicitOctetStringWithoutTrustEvaluation() throws {
+        // Apple's published leaf expired before this test date; isolate DER parsing from trust evaluation.
+        // Source sample: https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide
+        let directory = try XCTUnwrap(Bundle.module.resourceURL?.appending(path: "AppAttest", directoryHint: .isDirectory))
+        let appleSampleLeaf = try Data(contentsOf: directory.appending(path: "apple-sample-leaf.der"))
+        let expectedNonce = Data([
+            0x87, 0xB7, 0xD0, 0x6D, 0x93, 0xA4, 0x29, 0x4E,
+            0x46, 0xF0, 0x11, 0xE6, 0x6B, 0x6C, 0xC4, 0x00,
+            0xF0, 0xBA, 0xB2, 0x07, 0x29, 0x97, 0x6C, 0x61,
+            0x95, 0x80, 0xB4, 0x2A, 0xE6, 0x0B, 0xFF, 0x6E
+        ])
+
+        XCTAssertEqual(try AppleAppAttestVerifier.appAttestNonceExtension(in: appleSampleLeaf), expectedNonce)
+    }
+
+    func testLegacyAuthenticatorDataWithoutNewExtensionsRemainsValid() throws {
+        var authenticatorData = Data(repeating: 0x11, count: 32)
+        authenticatorData.append(0x40)
+        authenticatorData.append(contentsOf: [0, 0, 0, 0])
+        authenticatorData.append(Data(repeating: 0x22, count: 16))
+        authenticatorData.append(contentsOf: [0, 32])
+        authenticatorData.append(Data(repeating: 0x33, count: 32))
+        authenticatorData.append(0xA0)
+
+        let parsed = try AppleAppAttestVerifier(rootCertificateDER: Data()).parseAuthenticatorData(authenticatorData)
+
+        XCTAssertNil(parsed.validationCategory)
+        XCTAssertNil(parsed.bundleVersion)
+
+        var olderOSData = authenticatorData
+        olderOSData[32] |= 0x80
+        olderOSData.append(Data([0xA1]) + cborText("older_extension") + cborText("legacy"))
+        let olderOSParsed = try AppleAppAttestVerifier(rootCertificateDER: Data()).parseAuthenticatorData(olderOSData)
+        XCTAssertNil(olderOSParsed.validationCategory)
+        XCTAssertNil(olderOSParsed.bundleVersion)
+    }
+
     func testCBORRejectsLengthThatWouldOverflowOffsetAddition() {
         let hostileLength = Data([0x5B, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
         XCTAssertThrowsError(try CBORReader(data: hostileLength).decodeComplete()) {
@@ -160,6 +197,49 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             expectedEnvironment: .development
         )
         XCTAssertEqual(result.counter, 1)
+
+        let legacyCredential = StoredAppAttestCredential(
+            installationID: UUID(),
+            keyID: "legacy-fixture-key-id",
+            publicKey: try externalRepresentation(of: keyPair.publicKey),
+            appIdentifier: appIdentifier,
+            environment: .development,
+            bundleVersion: "",
+            assertionCounter: 0
+        )
+        let legacyAssertion = try assertionObject(
+            signedBy: keyPair.privateKey,
+            clientData: clientData,
+            appIdentifier: appIdentifier,
+            counter: 1,
+            bundleVersion: "1.0",
+            includeExtensions: false
+        )
+        let legacyResult = try await verifier.verifyAssertion(
+            object: legacyAssertion,
+            clientData: clientData,
+            credential: legacyCredential,
+            expectedAppIdentifier: appIdentifier,
+            expectedEnvironment: .development
+        )
+        XCTAssertEqual(legacyResult.counter, 1)
+        let legacyExtensionsAssertion = try assertionObject(
+            signedBy: keyPair.privateKey,
+            clientData: clientData,
+            appIdentifier: appIdentifier,
+            counter: 1,
+            bundleVersion: "1.0",
+            includeExtensions: false,
+            legacyExtensionMap: true
+        )
+        let legacyExtensionsResult = try await verifier.verifyAssertion(
+            object: legacyExtensionsAssertion,
+            clientData: clientData,
+            credential: legacyCredential,
+            expectedAppIdentifier: appIdentifier,
+            expectedEnvironment: .development
+        )
+        XCTAssertEqual(legacyExtensionsResult.counter, 1)
 
         await assertInvalidAssertion(.invalidAssertionSignature) {
             return try await verifier.verifyAssertion(
@@ -268,22 +348,28 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         appIdentifier: String,
         counter: UInt32,
         bundleVersion: String,
-        doubleHashNonce: Bool = false
+        doubleHashNonce: Bool = false,
+        includeExtensions: Bool = true,
+        legacyExtensionMap: Bool = false
     ) throws -> Data {
         var authenticatorData = Data(SHA256.hash(data: Data(appIdentifier.utf8)))
-        authenticatorData.append(0x80)
+        authenticatorData.append(includeExtensions || legacyExtensionMap ? 0x80 : 0)
         authenticatorData.append(contentsOf: [
             UInt8((counter >> 24) & 0xFF),
             UInt8((counter >> 16) & 0xFF),
             UInt8((counter >> 8) & 0xFF),
             UInt8(counter & 0xFF)
         ])
-        var extensions = Data([0xA2])
-        extensions.append(cborText("apple_validation_category_01"))
-        extensions.append(cborUnsigned(3))
-        extensions.append(cborText("apple_bundle_version_01"))
-        extensions.append(cborText(bundleVersion))
-        authenticatorData.append(extensions)
+        if legacyExtensionMap {
+            authenticatorData.append(Data([0xA1]) + cborText("older_extension") + cborText("legacy"))
+        } else if includeExtensions {
+            var extensions = Data([0xA2])
+            extensions.append(cborText("apple_validation_category_01"))
+            extensions.append(cborUnsigned(3))
+            extensions.append(cborText("apple_bundle_version_01"))
+            extensions.append(cborText(bundleVersion))
+            authenticatorData.append(extensions)
+        }
         let clientDataHash = Data(SHA256.hash(data: clientData))
         let nonce = Data(SHA256.hash(data: authenticatorData + clientDataHash))
         let signedDigest = doubleHashNonce ? Data(SHA256.hash(data: nonce)) : nonce
@@ -294,7 +380,8 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             signedDigest as CFData,
             &signingError
         ) else {
-            throw signingError?.takeRetainedValue() ?? AppleAppAttestVerificationError.invalidAssertionSignature as CFError
+            if let signingError { throw signingError.takeRetainedValue() }
+            throw NSError(domain: "AppleAppAttestVerifierTests", code: 1)
         }
         var encoded = Data([0xA2])
         encoded.append(cborText("signature"))
@@ -310,7 +397,8 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrKeySizeInBits as String: 256
         ] as CFDictionary, &error), let publicKey = SecKeyCopyPublicKey(privateKey) else {
-            throw error?.takeRetainedValue() ?? AppleAppAttestVerificationError.invalidAssertionSignature as CFError
+            if let error { throw error.takeRetainedValue() }
+            throw NSError(domain: "AppleAppAttestVerifierTests", code: 2)
         }
         return (privateKey, publicKey)
     }
@@ -318,7 +406,8 @@ final class AppleAppAttestVerifierTests: XCTestCase {
     private func externalRepresentation(of key: SecKey) throws -> Data {
         var error: Unmanaged<CFError>?
         guard let data = SecKeyCopyExternalRepresentation(key, &error) else {
-            throw error?.takeRetainedValue() ?? AppleAppAttestVerificationError.invalidAssertionSignature as CFError
+            if let error { throw error.takeRetainedValue() }
+            throw NSError(domain: "AppleAppAttestVerifierTests", code: 3)
         }
         return data as Data
     }

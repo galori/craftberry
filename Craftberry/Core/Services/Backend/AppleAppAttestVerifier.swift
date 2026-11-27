@@ -72,12 +72,17 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         let clientDataHash = Data(SHA256.hash(data: challenge))
         let nonce = Data(SHA256.hash(data: authenticatorData + clientDataHash))
         guard let leafCertificate = chain.first,
-              try certificateExtension(oid: "1.2.840.113635.100.8.2", in: leafCertificate) == nonce else {
+              try Self.certificateExtension(oid: "1.2.840.113635.100.8.2", in: leafCertificate) == nonce else {
             throw AppleAppAttestVerificationError.invalidChallenge
         }
-        guard authenticator.validationCategoryIsAllowed(expectedEnvironment),
-              !authenticator.bundleVersion.isEmpty,
-              allowedBundleVersions.map({ $0.contains(authenticator.bundleVersion) }) ?? true else {
+        if let validationCategory = authenticator.validationCategory,
+           let bundleVersion = authenticator.bundleVersion {
+            guard Self.validationCategory(validationCategory, isAllowedIn: expectedEnvironment),
+                  !bundleVersion.isEmpty,
+                  allowedBundleVersions.map({ $0.contains(bundleVersion) }) ?? true else {
+                throw AppleAppAttestVerificationError.invalidExtensions
+            }
+        } else if authenticator.validationCategory != nil || authenticator.bundleVersion != nil {
             throw AppleAppAttestVerificationError.invalidExtensions
         }
 
@@ -86,7 +91,7 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
             publicKey: publicPoint,
             appIdentifier: expectedAppIdentifier,
             environment: expectedEnvironment,
-            bundleVersion: authenticator.bundleVersion,
+            bundleVersion: authenticator.bundleVersion ?? "",
             receipt: receipt
         )
     }
@@ -115,7 +120,7 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
             throw AppleAppAttestVerificationError.invalidAssertionAppIdentifier
         }
         let flags = authenticatorData[32]
-        guard flags & 0x40 == 0, flags & 0x80 != 0 else {
+        guard flags & 0x40 == 0 else {
             throw AppleAppAttestVerificationError.invalidAuthenticatorFlags
         }
         let counter = authenticatorData[33..<37].reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
@@ -123,12 +128,22 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
             throw AppleAppAttestVerificationError.invalidAssertionCounter
         }
         let extensionBytes = Data(authenticatorData.dropFirst(37))
-        guard let extensions = try? CBORReader(data: extensionBytes).decodeComplete().stringKeyedMap,
-              let validationCategory = extensions["apple_validation_category_01"].flatMap(Self.uint32),
-              let bundleVersion = extensions["apple_bundle_version_01"]?.text,
-              bundleVersion == credential.bundleVersion,
-              allowedBundleVersions.map({ $0.contains(bundleVersion) }) ?? true,
-              Self.validationCategory(validationCategory, isAllowedIn: expectedEnvironment) else {
+        if flags & 0x80 != 0 {
+            guard let extensions = try? CBORReader(data: extensionBytes).decodeComplete().stringKeyedMap else {
+                throw AppleAppAttestVerificationError.invalidAssertionExtensions
+            }
+            if extensions["apple_validation_category_01"] != nil || extensions["apple_bundle_version_01"] != nil {
+                guard let category = extensions["apple_validation_category_01"].flatMap(Self.uint32),
+                      let version = extensions["apple_bundle_version_01"]?.text else {
+                    throw AppleAppAttestVerificationError.invalidAssertionExtensions
+                }
+                guard (credential.bundleVersion.isEmpty || version == credential.bundleVersion),
+                      allowedBundleVersions.map({ $0.contains(version) }) ?? true,
+                      Self.validationCategory(category, isAllowedIn: expectedEnvironment) else {
+                    throw AppleAppAttestVerificationError.invalidAssertionExtensions
+                }
+            }
+        } else if !extensionBytes.isEmpty {
             throw AppleAppAttestVerificationError.invalidAssertionExtensions
         }
 
@@ -216,7 +231,11 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         return Data(bitString.dropFirst())
     }
 
-    private func certificateExtension(oid: String, in certificate: Data) throws -> Data? {
+    static func appAttestNonceExtension(in certificate: Data) throws -> Data? {
+        try certificateExtension(oid: "1.2.840.113635.100.8.2", in: certificate)
+    }
+
+    private static func certificateExtension(oid: String, in certificate: Data) throws -> Data? {
         let reader = DERReader(data: certificate)
         let certificateFields = try reader.children(of: reader.read(at: 0))
         guard let tbs = certificateFields.first else { throw AppleAppAttestVerificationError.malformedObject }
@@ -231,19 +250,26 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
             let extensionContents = try reader.content(of: octet)
             let nested = DERReader(data: extensionContents)
             let sequence = try nested.read(at: 0)
-            guard sequence.tag == 0x30,
-                  let value = try nested.children(of: sequence).first,
-                  value.tag == 0x04 else { continue }
-            return try nested.content(of: value)
+            guard sequence.tag == 0x30 else { continue }
+            let sequenceFields = try nested.children(of: sequence)
+            guard sequenceFields.count == 1 else { continue }
+            let value = sequenceFields[0]
+            if value.tag == 0x04 {
+                return try nested.content(of: value)
+            }
+            guard value.tag == 0xA1 else { continue }
+            let explicitFields = try nested.children(of: value)
+            guard explicitFields.count == 1, explicitFields[0].tag == 0x04 else { continue }
+            return try nested.content(of: explicitFields[0])
         }
         return nil
     }
 
-    private func parseAuthenticatorData(_ data: Data) throws -> ParsedAuthenticatorData {
+    func parseAuthenticatorData(_ data: Data) throws -> ParsedAuthenticatorData {
         guard data.count >= 55 else { throw AppleAppAttestVerificationError.malformedObject }
         let rpIDHash = Data(data[0..<32])
         let flags = data[32]
-        guard flags & 0x40 != 0, flags & 0x80 != 0 else {
+        guard flags & 0x40 != 0 else {
             throw AppleAppAttestVerificationError.invalidAuthenticatorFlags
         }
         let counter = data[33..<37].reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
@@ -259,18 +285,30 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         let (coseKey, coseBytesUsed) = try coseReader.decodeOne()
         guard coseKey.map != nil else { throw AppleAppAttestVerificationError.malformedObject }
         let extensionData = Data(data[(credentialEnd + coseBytesUsed)...])
-        let extensions = try CBORReader(data: extensionData).decodeComplete()
-        guard let values = extensions.stringKeyedMap,
-              let category = values["apple_validation_category_01"].flatMap(Self.uint32),
-              let bundleVersion = values["apple_bundle_version_01"]?.text else {
-            throw AppleAppAttestVerificationError.invalidExtensions
+        var validationCategory: UInt32?
+        var bundleVersion: String?
+        if flags & 0x80 != 0 {
+            let extensions = try CBORReader(data: extensionData).decodeComplete()
+            guard let values = extensions.stringKeyedMap else {
+                throw AppleAppAttestVerificationError.invalidExtensions
+            }
+            if values["apple_validation_category_01"] != nil || values["apple_bundle_version_01"] != nil {
+                guard let category = values["apple_validation_category_01"].flatMap(Self.uint32),
+                      let version = values["apple_bundle_version_01"]?.text else {
+                    throw AppleAppAttestVerificationError.invalidExtensions
+                }
+                validationCategory = category
+                bundleVersion = version
+            }
+        } else if !extensionData.isEmpty {
+            throw AppleAppAttestVerificationError.invalidAuthenticatorFlags
         }
         return ParsedAuthenticatorData(
             rpIDHash: rpIDHash,
             counter: counter,
             aaguid: aaguid,
             credentialID: credentialID,
-            validationCategory: category,
+            validationCategory: validationCategory,
             bundleVersion: bundleVersion
         )
     }
@@ -293,13 +331,13 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
     }
 }
 
-private struct ParsedAuthenticatorData {
+struct ParsedAuthenticatorData {
     let rpIDHash: Data
     let counter: UInt32
     let aaguid: Data
     let credentialID: Data
-    let validationCategory: UInt32
-    let bundleVersion: String
+    let validationCategory: UInt32?
+    let bundleVersion: String?
 
     func aaguidMatches(_ environment: AppAttestEnvironment) -> Bool {
         switch environment {
@@ -310,14 +348,6 @@ private struct ParsedAuthenticatorData {
         }
     }
 
-    func validationCategoryIsAllowed(_ environment: AppAttestEnvironment) -> Bool {
-        switch environment {
-        case .development:
-            validationCategory == 3
-        case .production:
-            [2, 4, 5].contains(validationCategory)
-        }
-    }
 }
 
 enum CBORValue {

@@ -111,6 +111,80 @@ final class OpenAIResponsesClientTests: XCTestCase {
         )
     }
 
+    func testBackendClientPollsGenerationInProgressWithSameKeyAndFreshAssertion() async throws {
+        let fixture = try generationFixture()
+        let (status, body) = try fixtureScenario("ready", in: fixture)
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            let requestNumber = recorder.record(request)
+            let response = try XCTUnwrap(HTTPURLResponse(
+                url: try XCTUnwrap(request.url),
+                statusCode: requestNumber == 1 ? 409 : status,
+                httpVersion: nil,
+                headerFields: requestNumber == 1 ? ["Retry-After": "0"] : nil
+            ))
+            return (response, requestNumber == 1 ? Data(#"{"error":"generation_in_progress"}"#.utf8) : body)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+
+        let generation = try await backendClient().generateProject(from: "Craft a cyan sword named Harbor.")
+
+        XCTAssertEqual(generation.outcome, .ready)
+        XCTAssertEqual(recorder.count, 2)
+        XCTAssertEqual(
+            recorder.request(at: 0)?.value(forHTTPHeaderField: "Idempotency-Key"),
+            recorder.request(at: 1)?.value(forHTTPHeaderField: "Idempotency-Key")
+        )
+        XCTAssertNotEqual(
+            recorder.request(at: 0)?.value(forHTTPHeaderField: "App-Attest-Challenge-ID"),
+            recorder.request(at: 1)?.value(forHTTPHeaderField: "App-Attest-Challenge-ID")
+        )
+        XCTAssertEqual(recorder.body(at: 0), recorder.body(at: 1))
+    }
+
+    func testBackendClientReenrollsAfterAppAttestKeyIsInvalidated() async throws {
+        let fixture = try generationFixture()
+        let (status, body) = try fixtureScenario("ready", in: fixture)
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            return (try XCTUnwrap(HTTPURLResponse(
+                url: try XCTUnwrap(request.url),
+                statusCode: status,
+                httpVersion: nil,
+                headerFields: nil
+            )), body)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+
+        let store = SessionCredentialStoreSpy(token: "stale-session", keyID: "restored-key-without-secure-enclave-key")
+        let transportState = EnrollmentTransportStateSpy(challenge: Data("recovery-challenge".utf8))
+        let provider = KeychainGenerationCredentialProvider(
+            baseURL: URL(string: "https://generation.test"),
+            credentialStore: store,
+            appAttestService: InvalidOnceAppAttestService(),
+            enrollmentTransport: EnrollmentTransportSpy(state: transportState)
+        )
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let client = BackendGenerationClient(
+            baseURL: URL(string: "https://generation.test"),
+            credentialProvider: provider,
+            session: URLSession(configuration: configuration)
+        )
+
+        let generation = try await client.generateProject(from: "Craft a cyan sword named Harbor.")
+
+        XCTAssertEqual(generation.outcome, .ready)
+        XCTAssertEqual(recorder.count, 1)
+        XCTAssertEqual(recorder.request(at: 0)?.value(forHTTPHeaderField: "Authorization"), "Bearer fixture-session-token")
+        let enrollmentCounts = await transportState.counts()
+        XCTAssertEqual(enrollmentCounts.enroll, 1)
+        let storedValues = await store.values()
+        XCTAssertEqual(storedValues.keyID, "recovered-app-attest-key")
+        XCTAssertEqual(storedValues.token, "fixture-session-token")
+    }
+
     func testBackendClientRejectsUnconfiguredOrNonHTTPSEndpointBeforeFetchingCredential() async throws {
         let provider = CredentialProviderSpy(token: "runtime-test-token")
         let unconfigured = BackendGenerationClient(baseURL: nil, credentialProvider: provider)
@@ -579,8 +653,40 @@ private actor SessionCredentialStoreSpy: GenerationSessionCredentialStore {
         self.keyID = keyID
     }
 
+    func clearSession() async throws {
+        token = nil
+        keyID = nil
+    }
+
     func values() -> (token: String?, keyID: String?) {
         (token, keyID)
+    }
+}
+
+private actor InvalidOnceAppAttestState {
+    private var assertionCalls = 0
+    private var keyCalls = 0
+
+    func generateKey() -> String {
+        keyCalls += 1
+        return "recovered-app-attest-key"
+    }
+
+    func generateAssertion() throws -> Data {
+        assertionCalls += 1
+        if assertionCalls == 1 { throw GenerationAppAttestError.invalidKey }
+        return Data("recovered-assertion".utf8)
+    }
+}
+
+private struct InvalidOnceAppAttestService: GenerationAppAttestService {
+    private let state = InvalidOnceAppAttestState()
+    var isSupported: Bool { true }
+
+    func generateKey() async throws -> String { await state.generateKey() }
+    func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data { Data("attestation".utf8) }
+    func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        try await state.generateAssertion()
     }
 }
 

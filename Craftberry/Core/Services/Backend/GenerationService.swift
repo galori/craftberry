@@ -201,7 +201,7 @@ public enum GenerationQuotaWindow: String, Sendable {
 }
 
 public enum GenerationReservation: Sendable {
-    case reserved
+    case reserved(UUID)
     case replay(Data)
     case inProgress
     case idempotencyConflict
@@ -211,7 +211,7 @@ public enum GenerationReservation: Sendable {
 /// A production store must consume enrollment/assertion challenges atomically with
 /// installation/counter updates and durably persist quota events before `.reserved`.
 public protocol GenerationServiceStore: Sendable {
-    func createEnrollmentChallenge(_ challenge: StoredEnrollmentChallenge) async throws
+    func createEnrollmentChallenge(_ challenge: StoredEnrollmentChallenge, now: Date) async throws
     func enrollmentChallenge(id: String, now: Date) async throws -> StoredEnrollmentChallenge?
     func registerInstallation(
         challengeID: String,
@@ -239,14 +239,16 @@ public protocol GenerationServiceStore: Sendable {
     func completeGeneration(
         installationID: UUID,
         idempotencyKey: String,
+        reservationID: UUID,
         response: Data,
         now: Date
-    ) async throws
+    ) async throws -> Bool
     func markGenerationRetryable(
         installationID: UUID,
         idempotencyKey: String,
+        reservationID: UUID,
         now: Date
-    ) async throws
+    ) async throws -> Bool
 }
 
 public protocol AppAttestVerifying: Sendable {
@@ -337,7 +339,7 @@ public struct GenerationService: Sendable {
         )
         guard challenge.challenge.count == 32 else { return response(status: 503, error: "service_unavailable") }
         do {
-            try await store.createEnrollmentChallenge(challenge)
+            try await store.createEnrollmentChallenge(challenge, now: clock.now())
             return response(
                 status: 200,
                 payload: EnrollmentChallengeResponse(
@@ -382,7 +384,6 @@ public struct GenerationService: Sendable {
                   verified.appIdentifier == configuration.expectedAppIdentifier,
                   verified.environment == configuration.appAttestEnvironment,
                   !verified.publicKey.isEmpty,
-                  !verified.bundleVersion.isEmpty,
                   !verified.receipt.isEmpty else {
                 return response(status: 401, error: "unauthorized")
             }
@@ -392,16 +393,17 @@ public struct GenerationService: Sendable {
                 return response(status: 503, error: "service_unavailable")
             }
             let digest = Data(SHA256.hash(data: Data(sessionToken.utf8)))
+            let registrationTime = clock.now()
             let registration = GenerationInstallationRegistration(
                 installationID: UUID(),
                 verifiedKey: verified,
-                enrolledAt: now
+                enrolledAt: registrationTime
             )
             let registered = try await store.registerInstallation(
                 challengeID: body.challengeID,
                 registration: registration,
                 tokenDigest: digest,
-                now: now
+                now: registrationTime
             )
             guard registered else { return response(status: 401, error: "unauthorized") }
             return response(status: 200, payload: EnrollmentResponse(sessionToken: sessionToken))
@@ -462,8 +464,7 @@ public struct GenerationService: Sendable {
                   challengeData == challenge.challenge,
                   let storedCredential = try await store.appAttestCredential(for: installationID),
                   storedCredential.appIdentifier == configuration.expectedAppIdentifier,
-                  storedCredential.environment == configuration.appAttestEnvironment,
-                  !storedCredential.bundleVersion.isEmpty else {
+                  storedCredential.environment == configuration.appAttestEnvironment else {
                 return response(status: 401, error: "unauthorized")
             }
             assertionChallenge = challenge
@@ -540,36 +541,42 @@ public struct GenerationService: Sendable {
                 error: "quota_exceeded",
                 headers: ["Retry-After": String(window.retryAfter)]
             )
-        case .reserved:
-            break
-        }
-
-        do {
-            let intent = try await intentProvider.generateIntent(prompt: body.prompt)
-            _ = try OpenAIResponsesClient.assembleProject(
-                from: intent,
-                prompt: body.prompt,
-                identityGenerator: { .generate() }
-            )
-            let intentData = Data(intent.utf8)
-            try await store.completeGeneration(
-                installationID: installationID,
-                idempotencyKey: idempotencyKey,
-                response: intentData,
-                now: now
-            )
-            return GenerationServiceResponse(statusCode: 200, headers: Self.jsonHeaders, body: intentData)
-        } catch {
+        case .reserved(let reservationID):
             do {
-                try await store.markGenerationRetryable(
+                let intent = try await intentProvider.generateIntent(prompt: body.prompt)
+                _ = try OpenAIResponsesClient.assembleProject(
+                    from: intent,
+                    prompt: body.prompt,
+                    identityGenerator: { .generate() }
+                )
+                let intentData = Data(intent.utf8)
+                let completed = try await store.completeGeneration(
                     installationID: installationID,
                     idempotencyKey: idempotencyKey,
+                    reservationID: reservationID,
+                    response: intentData,
                     now: clock.now()
                 )
+                guard completed else {
+                    return response(status: 409, error: "generation_in_progress", headers: ["Retry-After": "1"])
+                }
+                return GenerationServiceResponse(statusCode: 200, headers: Self.jsonHeaders, body: intentData)
             } catch {
+                do {
+                    let markedRetryable = try await store.markGenerationRetryable(
+                        installationID: installationID,
+                        idempotencyKey: idempotencyKey,
+                        reservationID: reservationID,
+                        now: clock.now()
+                    )
+                    guard markedRetryable else {
+                        return response(status: 409, error: "generation_in_progress", headers: ["Retry-After": "1"])
+                    }
+                } catch {
+                    return response(status: 503, error: "service_unavailable")
+                }
                 return response(status: 503, error: "service_unavailable")
             }
-            return response(status: 503, error: "service_unavailable")
         }
     }
 
@@ -675,7 +682,7 @@ private struct GenerationIdempotencyScope: Hashable, Sendable {
 }
 
 private enum MemoryIdempotencyState: Sendable {
-    case processing(updatedAt: Date)
+    case processing(updatedAt: Date, reservationID: UUID)
     case retryable(updatedAt: Date)
     case completed(response: Data, updatedAt: Date)
 }
@@ -696,7 +703,8 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
 
     public init() {}
 
-    public func createEnrollmentChallenge(_ challenge: StoredEnrollmentChallenge) async throws {
+    public func createEnrollmentChallenge(_ challenge: StoredEnrollmentChallenge, now: Date) async throws {
+        challenges = challenges.filter { $0.value.challenge.expiresAt > now }
         challenges[challenge.id] = MemoryChallenge(challenge: challenge)
     }
 
@@ -776,26 +784,28 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
             switch existing.state {
             case .completed(let response, _):
                 return .replay(response)
-            case .processing(let updatedAt) where now.timeIntervalSince(updatedAt) < 30:
+            case .processing:
                 return .inProgress
-            case .processing, .retryable:
+            case .retryable:
                 if let limit = quotaWindow(for: events, now: now, quota: quota) { return .limited(limit) }
                 events.append(now)
                 eventsByInstallation[installationID] = events
-                existing.state = .processing(updatedAt: now)
+                let reservationID = UUID()
+                existing.state = .processing(updatedAt: now, reservationID: reservationID)
                 idempotency[scope] = existing
-                return .reserved
+                return .reserved(reservationID)
             }
         }
 
         if let limit = quotaWindow(for: events, now: now, quota: quota) { return .limited(limit) }
 
         eventsByInstallation[installationID, default: []].append(now)
+        let reservationID = UUID()
         idempotency[scope] = MemoryIdempotencyRecord(
             fingerprint: requestFingerprint,
-            state: .processing(updatedAt: now)
+            state: .processing(updatedAt: now, reservationID: reservationID)
         )
-        return .reserved
+        return .reserved(reservationID)
     }
 
     private func quotaWindow(
@@ -812,24 +822,32 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
     public func completeGeneration(
         installationID: UUID,
         idempotencyKey: String,
+        reservationID: UUID,
         response: Data,
         now: Date
-    ) async throws {
+    ) async throws -> Bool {
         let scope = GenerationIdempotencyScope(installationID: installationID, key: idempotencyKey)
         guard var record = idempotency[scope] else { throw StoreError.missingReservation }
+        guard case .processing(_, let currentReservationID) = record.state,
+              currentReservationID == reservationID else { return false }
         record.state = .completed(response: response, updatedAt: now)
         idempotency[scope] = record
+        return true
     }
 
     public func markGenerationRetryable(
         installationID: UUID,
         idempotencyKey: String,
+        reservationID: UUID,
         now: Date
-    ) async throws {
+    ) async throws -> Bool {
         let scope = GenerationIdempotencyScope(installationID: installationID, key: idempotencyKey)
         guard var record = idempotency[scope] else { throw StoreError.missingReservation }
+        guard case .processing(_, let currentReservationID) = record.state,
+              currentReservationID == reservationID else { return false }
         record.state = .retryable(updatedAt: now)
         idempotency[scope] = record
+        return true
     }
 
     private enum StoreError: Error {
