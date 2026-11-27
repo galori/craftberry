@@ -166,15 +166,16 @@ read_pack_ids_for_cleanup() {
     if ! local_path="$(afc_get_to_temp "$world_dir/$file" "$(basename "$world_dir")-$file")"; then
         return 1
     fi
-    jq -r '
-        if type == "array" then
-            .[] | if (.pack_id | type) == "string" and (.pack_id | length) > 0 then
-                .pack_id
-            else
-                error("invalid pack_id")
-            end
+    jq -r -s '
+        if length != 1 or (.[0] | type) != "array" then
+            error("expected exactly one pack reference array")
         else
-            error("expected a pack reference array")
+            .[0][]
+        end
+        | if (.pack_id | type) == "string" and (.pack_id | length) > 0 then
+            .pack_id
+        else
+            error("invalid pack_id")
         end
     ' "$local_path"
 }

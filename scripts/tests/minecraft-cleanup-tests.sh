@@ -225,6 +225,37 @@ testMissingPackReferenceFilesAreEmptyLists() {
     assert_exists "$CASE_ROOT/resource_packs/target"
 }
 
+testEmptyOrWhitespacePackReferencesAbortCleanup() {
+    local world file
+    for world in target other; do
+        create_fixture
+        file="$CASE_ROOT/minecraftWorlds/$world/world_behavior_packs.json"
+        : > "$file"
+        expect_cleanup_failure "empty pack-reference file in $world world"
+        assert_exists "$CASE_ROOT/minecraftWorlds/target"
+        assert_exists "$CASE_ROOT/behavior_packs/target"
+
+        create_fixture
+        file="$CASE_ROOT/minecraftWorlds/$world/world_behavior_packs.json"
+        printf ' \t\n' > "$file"
+        expect_cleanup_failure "whitespace-only pack-reference file in $world world"
+        assert_exists "$CASE_ROOT/minecraftWorlds/target"
+        assert_exists "$CASE_ROOT/behavior_packs/target"
+    done
+}
+
+testMultiplePackReferenceValuesAbortCleanup() {
+    local world file
+    for world in target other; do
+        create_fixture
+        file="$CASE_ROOT/minecraftWorlds/$world/world_behavior_packs.json"
+        printf '[] []\n' > "$file"
+        expect_cleanup_failure "multiple top-level pack-reference values in $world world"
+        assert_exists "$CASE_ROOT/minecraftWorlds/target"
+        assert_exists "$CASE_ROOT/behavior_packs/target"
+    done
+}
+
 testUnreadableTargetAndOtherPackReferencesAbortCleanup() {
     create_fixture
     FAKE_FAIL_GET_PATH="$WORLD_PATH/target/world_behavior_packs.json"
@@ -275,6 +306,10 @@ testUnreadableWorldTitlesAbortExactCleanup
 echo "PASS: unreadable world title"
 testMissingPackReferenceFilesAreEmptyLists
 echo "PASS: absent pack-reference files"
+testEmptyOrWhitespacePackReferencesAbortCleanup
+echo "PASS: empty or whitespace-only pack-reference files"
+testMultiplePackReferenceValuesAbortCleanup
+echo "PASS: multiple top-level pack-reference values"
 testUnreadableTargetAndOtherPackReferencesAbortCleanup
 echo "PASS: unreadable pack references"
 testDuplicateExactWorldTitlesAbortCleanup
