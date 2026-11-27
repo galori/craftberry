@@ -564,7 +564,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                             )
                             return ItemDocument.BlockPlacer(
                                 block: self.identifier(for: block.id, namespace: project.namespace),
-                                useOn: placer.useOn
+                                useOn: placer.useOn.map { ItemDocument.BlockPlacer.UseOnDescriptor(name: $0) }
                             )
                         },
                         // Food items require a non-zero use_duration; values pinned to vanilla apple.

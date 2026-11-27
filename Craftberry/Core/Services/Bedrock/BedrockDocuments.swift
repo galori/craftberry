@@ -164,9 +164,13 @@ struct ItemDocument: Encodable {
 
     struct BlockPlacer: Encodable {
         let block: String
-        let useOn: [String]
+        let useOn: [UseOnDescriptor]
 
         enum CodingKeys: String, CodingKey { case block; case useOn = "use_on" }
+
+        struct UseOnDescriptor: Encodable {
+            let name: String
+        }
     }
 
     struct Tags: Encodable { let tags: [String] }

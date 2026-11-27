@@ -908,7 +908,8 @@ final class BedrockCompilerTests: XCTestCase {
         let seedComponents = try XCTUnwrap(seedBody["components"] as? [String: Any])
         let placer = try XCTUnwrap(seedComponents["minecraft:block_placer"] as? [String: Any])
         XCTAssertEqual(placer["block"] as? String, "craftberry:azure_a1b2c3_crop")
-        XCTAssertEqual(placer["use_on"] as? [String], ["minecraft:farmland"])
+        let useOn = try XCTUnwrap(placer["use_on"] as? [[String: Any]])
+        XCTAssertEqual(useOn.first?["name"] as? String, "minecraft:farmland")
 
         let block = try json(named: "blocks/azure_a1b2c3_crop.json", in: behavior)
         let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
