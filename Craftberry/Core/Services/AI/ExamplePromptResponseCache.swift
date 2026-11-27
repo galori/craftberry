@@ -1331,6 +1331,12 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialHostileEntitySet(materialName: "Frostbite", color: .white, sourceItem: "minecraft:quartz", sourceCount: 4, health: 20, shortDescription: "A quartz hostile Frostbite creature that attacks players.", originalPrompt: originalPrompt, identity: identity)
         case "A redstone hostile creature set named Pulse with 24 health":
             project = try AddOnProject.materialHostileEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, health: 24, shortDescription: "A redstone hostile Pulse creature with 24 health.", originalPrompt: originalPrompt, identity: identity)
+        case "A redstone boss named Pulse with 40 health and a faster second phase":
+            project = try AddOnProject.materialBossEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, health: 40, shortDescription: "A redstone boss that grows faster and stronger below half health.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald two-phase boss named Verdant that drops its ingot":
+            project = try AddOnProject.materialBossEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 40, shortDescription: "An emerald boss that changes phase below half health and drops a verdant ingot.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond boss encounter that grows stronger below half health":
+            project = try AddOnProject.materialBossEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 40, shortDescription: "A diamond boss that gains size, speed, and attack damage below half health.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1453,6 +1459,9 @@ enum ExamplePromptResponseCache {
             "An emerald hostile entity set named Verdant that attacks players",
             "A quartz hostile mob set named Frostbite that attacks the player",
             "A redstone hostile creature set named Pulse with 24 health",
+            "A redstone boss named Pulse with 40 health and a faster second phase",
+            "An emerald two-phase boss named Verdant that drops its ingot",
+            "A diamond boss encounter that grows stronger below half health",
             "A diamond hut structure from 4 diamonds, with Azure Block hut",
             "An emerald hut named Verdant with 3x3 shelter structure",
             "A blaze rod structure hut named Ember with block shelter",

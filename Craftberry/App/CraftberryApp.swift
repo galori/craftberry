@@ -120,6 +120,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneStructureSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-structure-set")
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
+        let usesRedstoneBossSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-boss-set")
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesMusicRecordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-music-record-set")
@@ -142,6 +143,17 @@ private struct UITestingLLMClient: LLMClient {
                 color: .cyan,
                 style: .dreamy,
                 shortDescription: "A dreamy cyan music record called First Light.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneBossSet {
+            project = try AddOnProject.materialBossEntitySet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                health: 40,
+                shortDescription: "A summoned redstone boss with a health-triggered second phase and a guaranteed ingot drop.",
                 originalPrompt: prompt,
                 identity: identity
             )

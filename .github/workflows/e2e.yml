@@ -27,10 +27,12 @@ on:
           - block
           - smithing
           - furnace
+          - fuel
           - brewing
           - ore
           - crop
           - entity
+          - boss
           - structure
 
 # Only one E2E run at a time — the single iPhone 13 Pro cannot parallelize.

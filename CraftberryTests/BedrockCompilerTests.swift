@@ -1062,6 +1062,78 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(brightness["adjust_for_weather"] as? Bool, true)
     }
 
+    func testCompilerEmitsBossPhaseAndRewardUsingPinnedEntityPatterns() throws {
+        let project = try AddOnProject.materialBossEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 40,
+            originalPrompt: "a two-phase Azure boss",
+            identity: makeIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+        let entity = try json(named: "entities/azure_a1b2c3_creature.json", in: behavior)
+        let entityBody = try XCTUnwrap(entity["minecraft:entity"] as? [String: Any])
+        let components = try XCTUnwrap(entityBody["components"] as? [String: Any])
+        let phaseOneAttack = try XCTUnwrap(components["minecraft:attack"] as? [String: Any])
+        XCTAssertEqual(phaseOneAttack["damage"] as? Int, 1)
+        let boss = try XCTUnwrap(components["minecraft:boss"] as? [String: Any])
+        XCTAssertEqual(boss["hud_range"] as? Int, 55)
+        XCTAssertEqual(boss["should_darken_sky"] as? Bool, false)
+
+        let componentGroups = try XCTUnwrap(entityBody["component_groups"] as? [String: Any])
+        let phaseOne = try XCTUnwrap(componentGroups["azure_a1b2c3_creature_boss_phase_one"] as? [String: Any])
+        let phaseOneSensor = try XCTUnwrap(phaseOne["minecraft:environment_sensor"] as? [String: Any])
+        let triggers = try XCTUnwrap(phaseOneSensor["triggers"] as? [[String: Any]])
+        let phaseTrigger = try XCTUnwrap(triggers.first)
+        let filters = try XCTUnwrap(phaseTrigger["filters"] as? [String: Any])
+        XCTAssertEqual(filters["test"] as? String, "actor_health")
+        XCTAssertEqual(filters["subject"] as? String, "self")
+        XCTAssertEqual(filters["operator"] as? String, "<=")
+        XCTAssertEqual(filters["value"] as? Int, 20)
+        XCTAssertEqual(phaseTrigger["event"] as? String, "craftberry:azure_a1b2c3_creature_boss_phase_two")
+
+        let phaseTwo = try XCTUnwrap(componentGroups["azure_a1b2c3_creature_boss_phase_two"] as? [String: Any])
+        let phaseAttack = try XCTUnwrap(phaseTwo["minecraft:attack"] as? [String: Any])
+        XCTAssertEqual(phaseAttack["damage"] as? Int, 12)
+        let phaseMovement = try XCTUnwrap(phaseTwo["minecraft:movement"] as? [String: Any])
+        XCTAssertEqual(phaseMovement["value"] as? Double, 0.45)
+        let phaseScale = try XCTUnwrap(phaseTwo["minecraft:scale"] as? [String: Any])
+        XCTAssertEqual(phaseScale["value"] as? Double, 1.25)
+
+        let events = try XCTUnwrap(entityBody["events"] as? [String: Any])
+        let spawn = try XCTUnwrap(events["minecraft:entity_spawned"] as? [String: Any])
+        let spawnAdd = try XCTUnwrap(spawn["add"] as? [String: Any])
+        XCTAssertEqual(
+            spawnAdd["component_groups"] as? [String],
+            ["azure_a1b2c3_creature_adult", "azure_a1b2c3_creature_boss_phase_one"]
+        )
+        let adultGroup = try XCTUnwrap(componentGroups["azure_a1b2c3_creature_adult"] as? [String: Any])
+        let entityLoot = try XCTUnwrap(adultGroup["minecraft:loot"] as? [String: Any])
+        XCTAssertEqual(entityLoot["table"] as? String, "loot_tables/entities/azure_a1b2c3_creature.json")
+        let phaseEvent = try XCTUnwrap(events["craftberry:azure_a1b2c3_creature_boss_phase_two"] as? [String: Any])
+        let phaseAdd = try XCTUnwrap(phaseEvent["add"] as? [String: Any])
+        XCTAssertEqual(phaseAdd["component_groups"] as? [String], ["azure_a1b2c3_creature_boss_phase_two"])
+        let phaseRemove = try XCTUnwrap(phaseEvent["remove"] as? [String: Any])
+        XCTAssertEqual(phaseRemove["component_groups"] as? [String], ["azure_a1b2c3_creature_boss_phase_one"])
+
+        let loot = try json(named: "loot_tables/entities/azure_a1b2c3_creature.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        XCTAssertEqual(pools.first?["rolls"] as? Int, 1)
+        let entries = try XCTUnwrap(pools.first?["entries"] as? [[String: Any]])
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?["name"] as? String, "craftberry:azure_a1b2c3_ingot")
+        XCTAssertEqual(entries.first?["weight"] as? Int, 1)
+
+        let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+        let localization = try XCTUnwrap(String(data: XCTUnwrap(resources.first { $0.path == "texts/en_US.lang" }).data, encoding: .utf8))
+        XCTAssertTrue(localization.contains("entity.craftberry:azure_a1b2c3_creature.name=Azure Boss"))
+    }
+
     func testCompilerEmitsMaterialStructureSetWithHutAndFeature() throws {
         let project = try AddOnProject.materialStructureSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "hut", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

@@ -235,6 +235,10 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let identifier = identifier(for: entity.id, namespace: project.namespace)
             let adultGroupName = "\(entity.id.rawValue)_adult"
             let babyGroupName = "\(entity.id.rawValue)_baby"
+            let bossPhaseOneGroupName = "\(entity.id.rawValue)_boss_phase_one"
+            let bossPhaseTwoGroupName = "\(entity.id.rawValue)_boss_phase_two"
+            let bossPhaseTwoEventName = "\(project.namespace):\(entity.id.rawValue)_boss_phase_two"
+            let isHostile = entity.archetype.isHostile
             let lootTablePath = "loot_tables/entities/\(entity.id.rawValue).json"
             let babyGroup = EntityDocument.ComponentGroup(
                 isBaby: EntityDocument.EmptyComponent(),
@@ -263,14 +267,56 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     : nil
             )
             var componentGroups = [adultGroupName: adultGroup]
+            var spawnComponentGroups = [adultGroupName]
+            var events = [String: EntityDocument.Event]()
+            if entity.archetype == .boss {
+                // Pinned to Mojang bedrock-samples 1.26.30.5 at
+                // 921fafb05c93abeae56c2f2868cd8f942bdbcc0f: entities/armadillo.json
+                // shows minecraft:environment_sensor trigger arrays, actor_health filters, and group events; ender_dragon.json
+                // uses minecraft:boss; piglin_brute.json pins grouped attack damage; piglin.json
+                // and husk.json show component-group movement and scale overrides.
+                // Removing phase one makes this threshold transition fire exactly once.
+                componentGroups[bossPhaseOneGroupName] = EntityDocument.ComponentGroup(
+                    isBaby: nil,
+                    scale: nil,
+                    ageable: nil,
+                    experienceReward: nil,
+                    loot: nil,
+                    breedable: nil,
+                    environmentSensor: EntityDocument.EnvironmentSensor(triggers: [
+                        EntityDocument.Trigger(
+                            filters: EntityDocument.Filter(
+                                test: "actor_health",
+                                subject: "self",
+                                operator: "<=",
+                                value: entity.health / 2
+                            ),
+                            event: bossPhaseTwoEventName
+                        )
+                    ])
+                )
+                componentGroups[bossPhaseTwoGroupName] = EntityDocument.ComponentGroup(
+                    isBaby: nil,
+                    scale: EntityDocument.Scale(value: 1.25),
+                    ageable: nil,
+                    experienceReward: nil,
+                    loot: nil,
+                    breedable: nil,
+                    attack: EntityDocument.Attack(damage: 12),
+                    movement: EntityDocument.Movement(value: 0.45)
+                )
+                spawnComponentGroups.append(bossPhaseOneGroupName)
+                events[bossPhaseTwoEventName] = EntityDocument.Event(
+                    add: EntityDocument.ComponentGroupChange(componentGroups: [bossPhaseTwoGroupName]),
+                    remove: EntityDocument.ComponentGroupChange(componentGroups: [bossPhaseOneGroupName])
+                )
+            }
             // The pinned cow entity has an entity_spawned event that activates its adult group;
             // ageable grow-up and birth events activate/swap the corresponding passive groups.
-            var events: [String: EntityDocument.Event] = [
-                "minecraft:entity_spawned": EntityDocument.Event(
-                    add: EntityDocument.ComponentGroupChange(componentGroups: [adultGroupName]),
-                    remove: nil
-                )
-            ]
+            events["minecraft:entity_spawned"] = EntityDocument.Event(
+                add: EntityDocument.ComponentGroupChange(componentGroups: spawnComponentGroups),
+                remove: nil
+            )
             if entity.archetype == .passive {
                 componentGroups[babyGroupName] = babyGroup
                 events["minecraft:entity_born"] = EntityDocument.Event(
@@ -289,12 +335,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         identifier: identifier,
                         isSpawnable: true,
                         isSummonable: true,
-                        spawnCategory: entity.archetype == .hostile ? "monster" : "creature"
+                        spawnCategory: isHostile ? "monster" : "creature"
                     ),
                     componentGroups: componentGroups,
                     events: events,
                     components: EntityDocument.Components(
-                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, entity.archetype == .hostile ? "monster" : "animal", "mob"]),
+                        typeFamily: EntityDocument.TypeFamily(family: [entity.id.rawValue, isHostile ? "monster" : "animal", "mob"]),
                         breathable: EntityDocument.Breathable(totalSupply: 15, suffocateTime: 0),
                         collisionBox: EntityDocument.CollisionBox(width: 0.6, height: 0.8),
                         nameable: EntityDocument.EmptyComponent(),
@@ -304,11 +350,11 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         pushableByEntity: EntityDocument.EmptyComponent(),
                         pushableByBlock: EntityDocument.EmptyComponent(),
                         scale: EntityDocument.Scale(value: entity.scale),
-                        attack: entity.archetype == .hostile ? EntityDocument.Attack(damage: 3) : nil,
-                        behaviorMeleeBoxAttack: entity.archetype == .hostile
+                        attack: isHostile ? EntityDocument.Attack(damage: entity.archetype == .boss ? 1 : 3) : nil,
+                        behaviorMeleeBoxAttack: isHostile
                             ? EntityDocument.BehaviorMeleeBoxAttack(trackTarget: true, priority: 3)
                             : nil,
-                        behaviorNearestAttackableTarget: entity.archetype == .hostile
+                        behaviorNearestAttackableTarget: isHostile
                             ? EntityDocument.BehaviorNearestAttackableTarget(
                                 mustSee: true,
                                 reselectTargets: true,
@@ -324,11 +370,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                                 priority: 2
                             )
                             : nil,
-                        jumpStatic: entity.archetype == .hostile ? EntityDocument.EmptyComponent() : nil,
-                        movementBasic: entity.archetype == .hostile ? EntityDocument.EmptyComponent() : nil,
-                        navigationWalk: entity.archetype == .hostile
+                        jumpStatic: isHostile ? EntityDocument.EmptyComponent() : nil,
+                        movementBasic: isHostile ? EntityDocument.EmptyComponent() : nil,
+                        navigationWalk: isHostile
                             ? EntityDocument.NavigationWalk(canPassDoors: true, canWalk: true)
-                            : nil
+                            : nil,
+                        boss: entity.archetype == .boss ? EntityDocument.Boss(hudRange: 55, shouldDarkenSky: false) : nil
                     )
                 )
             )
@@ -346,23 +393,23 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let spawnDocument = SpawnRuleDocument(
                 formatVersion: profile.spawnRuleFormatVersion,
                 spawnRules: SpawnRuleDocument.SpawnRules(
-                    description: SpawnRuleDocument.Description(identifier: identifier, populationControl: entity.archetype == .hostile ? "monster" : "animal"),
+                    description: SpawnRuleDocument.Description(identifier: identifier, populationControl: entity.archetype.isHostile ? "monster" : "animal"),
                     conditions: [
                         SpawnRuleDocument.Condition(
                             spawnsOnSurface: SpawnRuleDocument.EmptyComponent(),
-                            spawnsUnderground: entity.archetype == .hostile ? SpawnRuleDocument.EmptyComponent() : nil,
-                            spawnsOnBlockFilter: entity.archetype == .hostile ? nil : "minecraft:grass_block",
+                            spawnsUnderground: entity.archetype.isHostile ? SpawnRuleDocument.EmptyComponent() : nil,
+                            spawnsOnBlockFilter: entity.archetype.isHostile ? nil : "minecraft:grass_block",
                             brightnessFilter: SpawnRuleDocument.BrightnessFilter(
-                                min: entity.archetype == .hostile ? 0 : 7,
-                                max: entity.archetype == .hostile ? 7 : 15,
-                                adjustForWeather: entity.archetype == .hostile
+                                min: entity.archetype.isHostile ? 0 : 7,
+                                max: entity.archetype.isHostile ? 7 : 15,
+                                adjustForWeather: entity.archetype.isHostile
                             ),
-                            difficultyFilter: entity.archetype == .hostile
+                            difficultyFilter: entity.archetype.isHostile
                                 ? SpawnRuleDocument.DifficultyFilter(min: "easy", max: "hard")
                                 : nil,
-                            weight: SpawnRuleDocument.Weight(default: entity.archetype == .hostile ? 100 : 10),
-                            herd: entity.archetype == .hostile ? nil : SpawnRuleDocument.Herd(minSize: 2, maxSize: 4),
-                            biomeFilter: entity.archetype == .hostile
+                            weight: SpawnRuleDocument.Weight(default: entity.archetype.isHostile ? 100 : 10),
+                            herd: entity.archetype.isHostile ? nil : SpawnRuleDocument.Herd(minSize: 2, maxSize: 4),
+                            biomeFilter: entity.archetype.isHostile
                                 ? SpawnRuleDocument.BiomeFilter(allOf: [
                                     .init(test: "has_biome_tag", operator: nil, value: "monster"),
                                     .init(test: "has_biome_tag", operator: "!=", value: "sulfur_caves")
