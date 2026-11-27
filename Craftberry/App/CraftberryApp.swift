@@ -46,7 +46,7 @@ struct CraftberryApp: App {
         let client = CachingLLMClient(
             wrapping: BackendGenerationClient(
                 baseURL: backendURL,
-                credentialProvider: KeychainGenerationCredentialProvider()
+                credentialProvider: KeychainGenerationCredentialProvider(baseURL: backendURL)
             )
         )
         return CreationViewModel(apiKey: "", client: client, telemetryManager: telemetryManager)
