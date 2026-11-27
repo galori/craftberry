@@ -215,6 +215,8 @@ public enum AddOnProjectValidator {
                         } else if !placer.useOn.contains("minecraft:farmland") {
                             issues.append(CompilationIssue(severity: .error, code: "crop_seed_requires_farmland", path: "content.items.\(seedItemID.rawValue).traits.blockPlacer.useOn", message: "Crop seeds must be usable on minecraft:farmland."))
                         }
+                    } else {
+                        issues.append(CompilationIssue(severity: .error, code: "missing_crop_seed_placer", path: "content.items.\(seedItemID.rawValue).traits.blockPlacer", message: "Crop seed must have a block placer that places its crop on farmland."))
                     }
                 } else {
                     issues.append(CompilationIssue(severity: .error, code: "missing_crop_seed_item", path: "\(blockPath).seedItemID", message: "Growing crops must identify the seed item used to plant them."))

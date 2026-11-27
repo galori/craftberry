@@ -799,6 +799,37 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(ordinaryProjectWithPlacer.items.first(where: { $0.id == ordinaryItem.id })?.traits.blockPlacer?.useOn, ["minecraft:dirt"])
     }
 
+    func testCropSeedRequiresBlockPlacer() throws {
+        let project = try AddOnProject.materialCropSet(originalPrompt: "crop", identity: testIdentity())
+        let crop = try XCTUnwrap(project.blocks.first)
+        let seed = try XCTUnwrap(project.items.first { $0.id == crop.seedItemID })
+        let nonPlantableSeed = ItemDefinition(
+            id: seed.id,
+            displayName: seed.displayName,
+            menuCategory: seed.menuCategory,
+            menuGroup: seed.menuGroup,
+            traits: ItemTraits(),
+            visualResourceID: seed.visualResourceID
+        )
+        let invalidProject = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content.map { node in
+                if case .item(let item) = node, item.id == seed.id { return .item(nonPlantableSeed) }
+                return node
+            }
+        )
+
+        let report = AddOnProjectValidator.validate(invalidProject, profile: .current)
+
+        XCTAssertTrue(report.errors.contains { $0.code == "missing_crop_seed_placer" })
+    }
+
     func testSwordArchetypeRejectsInvalidSemanticTraits() {
         XCTAssertThrowsError(
             try AddOnProject.sword(
