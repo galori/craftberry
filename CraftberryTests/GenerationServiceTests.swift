@@ -6,6 +6,22 @@ import XCTest
 final class GenerationServiceTests: XCTestCase {
     private static let assertionSequence = TestAssertionSequence()
 
+    func testGenerationServerMainTypeLivesOutsideImplicitMainSwiftFile() {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let serverDirectory = repositoryRoot.appending(
+            path: "Tools/GenerationServer",
+            directoryHint: .isDirectory
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: serverDirectory.appending(path: "GenerationServerMain.swift").path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: serverDirectory.appending(path: "main.swift").path),
+            "The executable target bundles resources; keep its @main entry point out of main.swift for older SwiftPM toolchains."
+        )
+    }
+
     func testFixtureContractSupportsReadyAndUnsupportedIntents() async throws {
         let fixture = try generationFixture()
         let ready = try fixtureBody("ready", fixture: fixture)
