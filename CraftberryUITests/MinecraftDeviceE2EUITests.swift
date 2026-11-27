@@ -67,7 +67,7 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
-    func testCraftberryRedstoneSmithingSetCanCraftIngotInImportedCreativeWorld() throws {
+    func testCraftberryRedstoneSmithingSetUpgradesSwordAndAppliesArmorTrim() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
         #else
@@ -371,29 +371,9 @@ extension MinecraftE2EScenario {
         )
     )
 
-    static let redstoneSmithingSet = MinecraftE2EScenario(
-        launchArgument: "--ui-testing-redstone-smithing-set",
-        prompt: "Generate a redstone smithing set crafted from redstone",
-        projectName: "Redstone",
-        expectedCraftedItemName: "Redstone Ingot",
-        behaviorPackName: "Redstone Behavior",
-        resourcePackName: "Redstone Resources",
-        craftingPlan: MinecraftCraftingPlan(
-            recipes: [
-                .init(
-                    outputName: "Redstone Ingot",
-                    ingredients: [
-                        .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
-                    ],
-                    beforePickupVerification: nil,
-                    afterPickupVerification: .text("Redstone"),
-                    outputDestination: firstCraftSlot,
-                    shouldResetTableAfterPickup: false
-                )
-            ],
-            finalHotbarTap: nil
-        )
-    )
+    static var redstoneSmithingSet: MinecraftE2EScenario {
+        MinecraftSmithingScenarioFactory.redstoneSmithingSet(layout: .uncalibrated)
+    }
 
     static let redstoneFurnaceSet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-furnace-set",
@@ -725,4 +705,239 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Confirm the record was ejected", action: .assertText("Found"))
         ]
     )
+}
+
+/// Only the smithing-panel cell centres are deliberately optional: they must come from a fresh
+/// iPhone screenshot calibration. The world interaction, close button, hotbar and HUD positions
+/// reuse coordinates already measured for this same device and landscape layout.
+struct MinecraftSmithingLayout {
+    let smithingTableBlock: MinecraftCoordinate
+    let templateSlot: MinecraftCoordinate?
+    let baseSlot: MinecraftCoordinate?
+    let additionSlot: MinecraftCoordinate?
+    let resultSlot: MinecraftCoordinate?
+    let closeButton: MinecraftCoordinate
+    let ingotHotbarSlot: MinecraftCoordinate
+    let swordBaseHotbarSlot: MinecraftCoordinate
+    let swordResultHUDSlot: MinecraftCoordinate
+    let swordTemplateHotbarSlot: MinecraftCoordinate
+    let trimBaseHotbarSlot: MinecraftCoordinate
+    let trimResultHUDSlot: MinecraftCoordinate
+    let trimTemplateHotbarSlot: MinecraftCoordinate
+
+    static var uncalibrated: MinecraftSmithingLayout {
+        let calibrated = MinecraftCalibratedLayout()
+        return MinecraftSmithingLayout(
+            smithingTableBlock: calibrated.reopenCraftingTable,
+            templateSlot: nil,
+            baseSlot: nil,
+            additionSlot: nil,
+            resultSlot: nil,
+            closeButton: calibrated.closeCraftingTable,
+            ingotHotbarSlot: calibrated.hotbarSlot(1),
+            swordBaseHotbarSlot: calibrated.hotbarSlot(4),
+            swordResultHUDSlot: calibrated.hudHotbarSlot(4),
+            swordTemplateHotbarSlot: calibrated.hotbarSlot(9),
+            trimBaseHotbarSlot: calibrated.hotbarSlot(6),
+            trimResultHUDSlot: calibrated.hudHotbarSlot(6),
+            trimTemplateHotbarSlot: calibrated.hotbarSlot(8)
+        )
+    }
+}
+
+struct MinecraftSmithingPlanCompiler {
+    let layout: MinecraftSmithingLayout
+
+    func applySwordUpgrade() -> [MinecraftStep] {
+        apply(
+            name: "Redstone Sword",
+            templateHotbarSlot: layout.swordTemplateHotbarSlot,
+            baseHotbarSlot: layout.swordBaseHotbarSlot,
+            outputHUDSlot: layout.swordResultHUDSlot
+        )
+    }
+
+    func applyArmorTrim() -> [MinecraftStep] {
+        apply(
+            name: "Iron Chestplate",
+            templateHotbarSlot: layout.trimTemplateHotbarSlot,
+            baseHotbarSlot: layout.trimBaseHotbarSlot,
+            outputHUDSlot: layout.trimResultHUDSlot
+        )
+    }
+
+    func applyBoth() -> [MinecraftStep] {
+        let missingControls = [
+            layout.templateSlot == nil ? "smithing template slot" : nil,
+            layout.baseSlot == nil ? "smithing base slot" : nil,
+            layout.additionSlot == nil ? "smithing material slot" : nil,
+            layout.resultSlot == nil ? "smithing result slot" : nil
+        ].compactMap { $0 }
+        guard missingControls.isEmpty else {
+            return [
+                .tap("Open smithing table for Redstone Sword", layout.smithingTableBlock),
+                MinecraftStep(name: "Wait for smithing table interface", action: .wait(seconds: 4)),
+                MinecraftStep(name: "Confirm smithing table interface", action: .assertText("Smithing Table")),
+                MinecraftStep(
+                    name: "Calibrate smithing panel controls",
+                    action: .calibrationRequired("Missing calibrated smithing coordinates: \(missingControls.joined(separator: ", ")).")
+                )
+            ]
+        }
+
+        return applySwordUpgrade() + applyArmorTrim()
+    }
+
+    private func apply(
+        name: String,
+        templateHotbarSlot: MinecraftCoordinate,
+        baseHotbarSlot: MinecraftCoordinate,
+        outputHUDSlot: MinecraftCoordinate
+    ) -> [MinecraftStep] {
+        var steps: [MinecraftStep] = [
+            .tap("Open smithing table for \(name)", layout.smithingTableBlock),
+            MinecraftStep(name: "Wait for smithing table interface", action: .wait(seconds: 4)),
+            MinecraftStep(name: "Confirm smithing table interface", action: .assertText("Smithing Table"))
+        ]
+
+        steps += [
+            .tap("Pick the redstone ingot for \(name)", layout.ingotHotbarSlot),
+            tap("Place the redstone ingot in the smithing material slot", layout.additionSlot, missing: "smithing material slot"),
+            .tap("Pick the template for \(name)", templateHotbarSlot),
+            tap("Place the template for \(name)", layout.templateSlot, missing: "smithing template slot"),
+            .tap("Pick the base item for \(name)", baseHotbarSlot),
+            tap("Place the base item for \(name)", layout.baseSlot, missing: "smithing base slot"),
+            MinecraftStep(name: "Wait for \(name) smithing result", action: .wait(seconds: 2)),
+            pixelStep(
+                name: name == "Iron Chestplate"
+                    ? "Confirm redstone-trimmed chestplate in smithing result slot"
+                    : "Confirm Redstone Sword in smithing result slot",
+                coordinate: layout.resultSlot,
+                missing: "smithing result slot",
+                expectation: { coordinate in
+                    redItem(
+                        in: coordinate,
+                        horizontalRadius: 0.018,
+                        verticalRadius: 0.034,
+                        minimumCount: name == "Iron Chestplate" ? 2 : 4
+                    )
+                }
+            ),
+            tap("Collect \(name) from the smithing result slot", layout.resultSlot, missing: "smithing result slot"),
+            MinecraftStep(name: "Wait for collected \(name)", action: .wait(seconds: 2)),
+            pixelStep(
+                name: "Confirm smithing result slot is empty",
+                coordinate: layout.resultSlot,
+                missing: "smithing result slot",
+                expectation: { coordinate in noRedItem(in: coordinate, horizontalRadius: 0.018, verticalRadius: 0.034) }
+            ),
+            .tap("Close smithing table after \(name)", layout.closeButton),
+            MinecraftStep(name: "Wait for the world HUD after smithing", action: .wait(seconds: 2)),
+            MinecraftStep(
+                name: name == "Iron Chestplate"
+                    ? "Confirm redstone trim appears on the chestplate hotbar item"
+                    : "Confirm Redstone Sword is visible in its hotbar slot",
+                action: .assertPixels(redItem(inHUD: outputHUDSlot, minimumCount: name == "Iron Chestplate" ? 2 : 4))
+            ),
+            .tap("Select \(name) after smithing", outputHUDSlot),
+            MinecraftStep(name: "Wait for \(name) tooltip", action: .wait(seconds: 0.2)),
+            MinecraftStep(
+                name: name == "Iron Chestplate"
+                    ? "Confirm selected trimmed Iron Chestplate tooltip"
+                    : "Confirm selected Redstone Sword tooltip",
+                action: .assertText(name)
+            ),
+            MinecraftStep(name: "Wait for the \(name) tooltip to fade", action: .wait(seconds: 2))
+        ]
+        return steps
+    }
+
+    private func tap(_ name: String, _ coordinate: MinecraftCoordinate?, missing: String) -> MinecraftStep {
+        guard let coordinate else {
+            return MinecraftStep(name: "Calibrate \(name)", action: .calibrationRequired("Missing calibrated \(missing) coordinate."))
+        }
+        return .tap(name, coordinate)
+    }
+
+    private func pixelStep(
+        name: String,
+        coordinate: MinecraftCoordinate?,
+        missing: String,
+        expectation: (MinecraftCoordinate) -> MinecraftPixelExpectation
+    ) -> MinecraftStep {
+        guard let coordinate else {
+            return MinecraftStep(name: "Calibrate \(name)", action: .calibrationRequired("Missing calibrated \(missing) coordinate."))
+        }
+        return MinecraftStep(name: name, action: .assertPixels(expectation(coordinate)))
+    }
+
+    private func redItem(
+        in coordinate: MinecraftCoordinate,
+        horizontalRadius: CGFloat,
+        verticalRadius: CGFloat,
+        minimumCount: Int
+    ) -> MinecraftPixelExpectation {
+        .redCluster(
+            xRange: (coordinate.x - horizontalRadius)...(coordinate.x + horizontalRadius),
+            yRange: (coordinate.y - verticalRadius)...(coordinate.y + verticalRadius),
+            minimumCount: minimumCount
+        )
+    }
+
+    private func noRedItem(in coordinate: MinecraftCoordinate, horizontalRadius: CGFloat, verticalRadius: CGFloat) -> MinecraftPixelExpectation {
+        .redAbsent(
+            xRange: (coordinate.x - horizontalRadius)...(coordinate.x + horizontalRadius),
+            yRange: (coordinate.y - verticalRadius)...(coordinate.y + verticalRadius),
+            maximumCount: 2
+        )
+    }
+
+    private func redItem(inHUD coordinate: MinecraftCoordinate, minimumCount: Int) -> MinecraftPixelExpectation {
+        redItem(in: coordinate, horizontalRadius: 0.02, verticalRadius: 0.05, minimumCount: minimumCount)
+    }
+}
+
+enum MinecraftSmithingScenarioFactory {
+    static func redstoneSmithingSet(layout: MinecraftSmithingLayout) -> MinecraftE2EScenario {
+        let setup = [
+            MinecraftStep(name: "Replace the staged crafting table with a smithing table", action: .chatCommand("/setblock 98 80 95 air")),
+            MinecraftStep(name: "Place the smithing table for both recipes", action: .chatCommand("/setblock 98 80 95 smithing_table")),
+            MinecraftStep(name: "Clear returned redstone ingredients before filling the smithing hotbar", action: .chatCommand("/clear @s minecraft:redstone")),
+            MinecraftStep(name: "Fill smithing hotbar slot 2 with a stone spacer", action: .chatCommand("/give @s minecraft:stone")),
+            MinecraftStep(name: "Fill smithing hotbar slot 3 with a stick spacer", action: .chatCommand("/give @s minecraft:stick")),
+            MinecraftStep(name: "Give the diamond sword for the transform recipe", action: .chatCommand("/give @s minecraft:diamond_sword")),
+            MinecraftStep(name: "Fill smithing hotbar slot 5 with a dirt spacer", action: .chatCommand("/give @s minecraft:dirt")),
+            MinecraftStep(name: "Give the iron chestplate for the trim recipe", action: .chatCommand("/give @s minecraft:iron_chestplate")),
+            MinecraftStep(name: "Fill smithing hotbar slot 7 with a torch spacer", action: .chatCommand("/give @s minecraft:torch")),
+            MinecraftStep(name: "Give the ward armor trim template", action: .chatCommand("/give @s minecraft:ward_armor_trim_smithing_template")),
+            MinecraftStep(name: "Give the netherite upgrade template", action: .chatCommand("/give @s minecraft:netherite_upgrade_smithing_template"))
+        ]
+        let ingotRecipe = MinecraftCraftingPlan.Recipe(
+            outputName: "Redstone Ingot",
+            ingredients: [
+                .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+            ],
+            beforePickupVerification: nil,
+            afterPickupVerification: .text("Redstone"),
+            outputDestination: firstCraftSlot,
+            shouldResetTableAfterPickup: false
+        )
+
+        return MinecraftE2EScenario(
+            launchArgument: "--ui-testing-redstone-smithing-set",
+            prompt: "Generate a redstone smithing set crafted from redstone",
+            projectName: "Redstone",
+            expectedCraftedItemName: "Redstone Ingot",
+            behaviorPackName: "Redstone Behavior",
+            resourcePackName: "Redstone Resources",
+            craftingPlan: MinecraftCraftingPlan(recipes: [ingotRecipe], finalHotbarTap: nil),
+            postCraftingSteps: setup + MinecraftSmithingPlanCompiler(layout: layout).applyBoth()
+        )
+    }
+}
+
+private extension MinecraftStep {
+    static func tap(_ name: String, _ coordinate: MinecraftCoordinate) -> MinecraftStep {
+        MinecraftStep(name: name, action: .tap(x: coordinate.x, y: coordinate.y))
+    }
 }

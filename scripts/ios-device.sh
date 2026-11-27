@@ -305,8 +305,8 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         smithing)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneSmithingSetCanCraftIngotInImportedCreativeWorld"
-            result_name="MinecraftRedstoneSmithingSetE2EUITests"
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneSmithingSetUpgradesSwordAndAppliesArmorTrim"
+            result_name="MinecraftRedstoneSmithingGameplayE2EUITests"
             prepared_world_name="Redstone (Creative)"
             ;;
         furnace)

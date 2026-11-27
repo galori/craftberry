@@ -158,6 +158,123 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Enchanting succeeded") })
     }
 
+    func testSmithingScenarioUpgradesSwordAndAppliesAVisibleArmorTrim() throws {
+        let scenario = MinecraftSmithingScenarioFactory.redstoneSmithingSet(layout: testSmithingLayout)
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Ingot")
+        XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Ingot"])
+        XCTAssertEqual(commands, [
+            "/setblock 98 80 95 air",
+            "/setblock 98 80 95 smithing_table",
+            "/clear @s minecraft:redstone",
+            "/give @s minecraft:stone",
+            "/give @s minecraft:stick",
+            "/give @s minecraft:diamond_sword",
+            "/give @s minecraft:dirt",
+            "/give @s minecraft:iron_chestplate",
+            "/give @s minecraft:torch",
+            "/give @s minecraft:ward_armor_trim_smithing_template",
+            "/give @s minecraft:netherite_upgrade_smithing_template"
+        ])
+
+        let names = scenario.postCraftingSteps.map(\.name)
+        let confirmStation = try XCTUnwrap(names.firstIndex(of: "Confirm smithing table interface"))
+        let confirmSword = try XCTUnwrap(names.firstIndex(of: "Confirm Redstone Sword in smithing result slot"))
+        let confirmSwordTooltip = try XCTUnwrap(names.firstIndex(of: "Confirm selected Redstone Sword tooltip"))
+        let confirmTrim = try XCTUnwrap(names.firstIndex(of: "Confirm redstone-trimmed chestplate in smithing result slot"))
+        let confirmTrimTooltip = try XCTUnwrap(names.firstIndex(of: "Confirm selected trimmed Iron Chestplate tooltip"))
+        XCTAssertLessThan(confirmStation, confirmSword)
+        XCTAssertLessThan(confirmSword, confirmSwordTooltip)
+        XCTAssertLessThan(confirmSwordTooltip, confirmTrim)
+        XCTAssertLessThan(confirmTrim, confirmTrimTooltip)
+
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Smithing Table") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Redstone Sword") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Iron Chestplate") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { step in
+            if case .assertPixels(.redCluster) = step.action { return true }
+            return false
+        }, "The smithing flow should use pixel evidence to confirm the red result/trim is visible.")
+        let layout = testSmithingLayout
+        let templateSlot = try XCTUnwrap(layout.templateSlot)
+        let baseSlot = try XCTUnwrap(layout.baseSlot)
+        let additionSlot = try XCTUnwrap(layout.additionSlot)
+        let resultSlot = try XCTUnwrap(layout.resultSlot)
+        assertTap(named: "Place the redstone ingot in the smithing material slot", in: scenario.postCraftingSteps, x: additionSlot.x, y: additionSlot.y)
+        assertTap(named: "Place the template for Redstone Sword", in: scenario.postCraftingSteps, x: templateSlot.x, y: templateSlot.y)
+        assertTap(named: "Place the base item for Redstone Sword", in: scenario.postCraftingSteps, x: baseSlot.x, y: baseSlot.y)
+        assertTap(named: "Collect Redstone Sword from the smithing result slot", in: scenario.postCraftingSteps, x: resultSlot.x, y: resultSlot.y)
+        assertTap(named: "Place the template for Iron Chestplate", in: scenario.postCraftingSteps, x: templateSlot.x, y: templateSlot.y)
+        assertTap(named: "Place the base item for Iron Chestplate", in: scenario.postCraftingSteps, x: baseSlot.x, y: baseSlot.y)
+        assertTap(named: "Collect Iron Chestplate from the smithing result slot", in: scenario.postCraftingSteps, x: resultSlot.x, y: resultSlot.y)
+        let swordResult = try XCTUnwrap(scenario.postCraftingSteps.first { $0.name == "Confirm Redstone Sword in smithing result slot" })
+        let trimResult = try XCTUnwrap(scenario.postCraftingSteps.first { $0.name == "Confirm redstone-trimmed chestplate in smithing result slot" })
+        XCTAssertEqual(swordResult.action, .assertPixels(.redCluster(
+            xRange: (resultSlot.x - 0.018)...(resultSlot.x + 0.018),
+            yRange: (resultSlot.y - 0.034)...(resultSlot.y + 0.034),
+            minimumCount: 4
+        )))
+        XCTAssertEqual(trimResult.action, .assertPixels(.redCluster(
+            xRange: (resultSlot.x - 0.018)...(resultSlot.x + 0.018),
+            yRange: (resultSlot.y - 0.034)...(resultSlot.y + 0.034),
+            minimumCount: 2
+        )))
+        let swordHUD = try XCTUnwrap(scenario.postCraftingSteps.first { $0.name == "Confirm Redstone Sword is visible in its hotbar slot" })
+        let trimHUD = try XCTUnwrap(scenario.postCraftingSteps.first { $0.name == "Confirm redstone trim appears on the chestplate hotbar item" })
+        XCTAssertEqual(swordHUD.action, .assertPixels(.redCluster(
+            xRange: (layout.swordResultHUDSlot.x - 0.02)...(layout.swordResultHUDSlot.x + 0.02),
+            yRange: (layout.swordResultHUDSlot.y - 0.05)...(layout.swordResultHUDSlot.y + 0.05),
+            minimumCount: 4
+        )))
+        XCTAssertEqual(trimHUD.action, .assertPixels(.redCluster(
+            xRange: (layout.trimResultHUDSlot.x - 0.02)...(layout.trimResultHUDSlot.x + 0.02),
+            yRange: (layout.trimResultHUDSlot.y - 0.05)...(layout.trimResultHUDSlot.y + 0.05),
+            minimumCount: 2
+        )))
+        XCTAssertFalse(scenario.postCraftingSteps.contains { step in
+            if case .calibrationRequired = step.action { return true }
+            return false
+        }, "A fully calibrated layout must execute both smithing operations.")
+    }
+
+    func testDefaultSmithingLayoutStopsBeforeAnyUncalibratedPanelTap() throws {
+        let steps = MinecraftE2EScenario.redstoneSmithingSet.postCraftingSteps
+        let station = try XCTUnwrap(steps.firstIndex { $0.action == .assertText("Smithing Table") })
+        let calibration = try XCTUnwrap(steps.firstIndex { step in
+            if case .calibrationRequired = step.action { return true }
+            return false
+        })
+
+        XCTAssertLessThan(station, calibration)
+        XCTAssertEqual(steps.last?.action, steps[calibration].action)
+        XCTAssertTrue(steps.suffix(from: calibration + 1).isEmpty, "The default layout must stop before any inventory or smithing-panel interaction.")
+    }
+
+    private var testSmithingLayout: MinecraftSmithingLayout {
+        // Synthetic slot centres exercise action ordering only. The device scenario remains
+        // uncalibrated until the root agent measures the live smithing panel on the iPhone.
+        let calibrated = MinecraftCalibratedLayout()
+        return MinecraftSmithingLayout(
+            smithingTableBlock: MinecraftCoordinate(x: 0.50, y: 0.26),
+            templateSlot: MinecraftCoordinate(x: 0.40, y: 0.34),
+            baseSlot: MinecraftCoordinate(x: 0.50, y: 0.34),
+            additionSlot: MinecraftCoordinate(x: 0.60, y: 0.34),
+            resultSlot: MinecraftCoordinate(x: 0.78, y: 0.34),
+            closeButton: calibrated.closeCraftingTable,
+            ingotHotbarSlot: calibrated.hotbarSlot(1),
+            swordBaseHotbarSlot: calibrated.hotbarSlot(4),
+            swordResultHUDSlot: calibrated.hudHotbarSlot(4),
+            swordTemplateHotbarSlot: calibrated.hotbarSlot(9),
+            trimBaseHotbarSlot: calibrated.hotbarSlot(6),
+            trimResultHUDSlot: calibrated.hudHotbarSlot(6),
+            trimTemplateHotbarSlot: calibrated.hotbarSlot(8)
+        )
+    }
+
     func testCalibrationRequiredStepFailsWithAnExplicitCalibrationReason() {
         let executor = MinecraftStepExecutor()
         let step = MinecraftPhasedStep(
