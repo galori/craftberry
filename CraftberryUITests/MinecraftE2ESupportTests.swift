@@ -56,6 +56,42 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(enterSurvival, verifyDamage)
     }
 
+    func testPassiveAcceptanceScenarioExercisesEggSpawnPeacefulBehaviorAndLoot() throws {
+        let scenario = MinecraftE2EScenario.redstonePassiveEntitySet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-passive-entity-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Spawn Egg")
+        XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Spawn Egg"])
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.contains("/testfor @e[family=redstone_uitest_creature]"))
+        XCTAssertTrue(commands.contains("/testfor @e[family=animal]"))
+        XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
+        XCTAssertTrue(commands.contains("/gamemode survival @s"))
+        XCTAssertTrue(commands.contains("/testfor @a[m=survival]"))
+        XCTAssertTrue(commands.contains("/damage @e[family=redstone_uitest_creature] 100 entity_attack entity @s"))
+        XCTAssertTrue(commands.contains("/clear @s minecraft:feather 0 0"))
+        XCTAssertFalse(commands.contains("/testfor @e[type=item]"), "The loot check must verify the item ID and count.")
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Passive scenario chat commands must stay on the calibrated lowercase keyboard plane.")
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("No targets") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("has 1 items that match the criteria") })
+
+        let names = scenario.postCraftingSteps.map(\.name)
+        let useEgg = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
+        let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm the egg spawned one creature") })
+        let enterSurvival = try XCTUnwrap(names.firstIndex { $0.contains("Enter Survival") })
+        let confirmAlive = try XCTUnwrap(names.firstIndex { $0.contains("not attacked to death") })
+        let defeat = try XCTUnwrap(names.firstIndex { $0.contains("Defeat the creature") })
+        let confirmLoot = try XCTUnwrap(names.firstIndex { $0.contains("exactly one feather") })
+        XCTAssertLessThan(useEgg, confirmSpawn)
+        XCTAssertLessThan(confirmSpawn, enterSurvival)
+        XCTAssertLessThan(enterSurvival, confirmAlive)
+        XCTAssertLessThan(confirmAlive, defeat)
+        XCTAssertLessThan(defeat, confirmLoot)
+    }
+
     func testBossAcceptanceScenarioExercisesPhaseTransitionAndReward() throws {
         let scenario = MinecraftE2EScenario.redstoneBossEntitySet
 

@@ -121,6 +121,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesRedstoneBossSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-boss-set")
+        let usesRedstonePassiveEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-passive-entity-set")
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesMusicRecordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-music-record-set")
@@ -154,6 +155,17 @@ private struct UITestingLLMClient: LLMClient {
                 sourceCount: 4,
                 health: 40,
                 shortDescription: "A summoned redstone boss with a health-triggered second phase and a guaranteed ingot drop.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstonePassiveEntitySet {
+            project = try AddOnProject.materialPassiveEntitySet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                health: 10,
+                shortDescription: "A redstone passive creature with a craftable spawn egg.",
                 originalPrompt: prompt,
                 identity: identity
             )

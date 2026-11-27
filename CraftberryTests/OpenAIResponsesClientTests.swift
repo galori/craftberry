@@ -608,6 +608,71 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertNil(generation.project)
     }
 
+    func testClientAssemblesPassiveEntitySetFromStructuredIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A gentle passive creature.","materialPassiveEntitySet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"health":12}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            return (
+                try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)),
+                responseData
+            )
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        let generation = try await client.generateProject(from: "A gentle Azure animal that never attacks")
+
+        XCTAssertEqual(generation.outcome, .ready)
+        let project = try XCTUnwrap(generation.project)
+        XCTAssertEqual(project.entities.first?.archetype, .passive)
+        XCTAssertEqual(project.entities.first?.health, 12)
+        XCTAssertEqual(project.spawnRules.count, 1)
+        XCTAssertEqual(project.entityLootTables.first?.item, .vanilla("minecraft:feather"))
+
+        let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let requestDocument = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let textConfiguration = try XCTUnwrap(requestDocument["text"] as? [String: Any])
+        let format = try XCTUnwrap(textConfiguration["format"] as? [String: Any])
+        let schema = try XCTUnwrap(format["schema"] as? [String: Any])
+        XCTAssertTrue((try XCTUnwrap(schema["required"] as? [String])).contains("materialPassiveEntitySet"))
+        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
+        let passiveIntent = try XCTUnwrap(properties["materialPassiveEntitySet"] as? [String: Any])
+        let variants = try XCTUnwrap(passiveIntent["anyOf"] as? [[String: Any]])
+        let objectSchema = try XCTUnwrap(variants.first { $0["type"] as? String == "object" })
+        let healthSchema = try XCTUnwrap((objectSchema["properties"] as? [String: Any])?["health"] as? [String: Any])
+        XCTAssertEqual(healthSchema["minimum"] as? Int, 4)
+        XCTAssertEqual(healthSchema["maximum"] as? Int, 40)
+    }
+
+    func testClientRejectsPassiveIntentCombinedWithAnotherIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"Two intents.","materialPassiveEntitySet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"health":12},"materialHostileEntitySet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"health":12}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        do {
+            _ = try await client.generateProject(from: "A passive and hostile creature")
+            XCTFail("Expected invalidResponse")
+        } catch {
+            guard case LLMClientError.invalidResponse = error else { return XCTFail("Unexpected error \(error)") }
+        }
+    }
+
     func testClientAssemblesBossEntitySetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A phased boss encounter.","materialBossEntitySet":{"materialName":"Azure","color":"red","sourceItem":"diamond","sourceCount":4,"health":40}}

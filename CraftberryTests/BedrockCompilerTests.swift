@@ -1001,6 +1001,82 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(placer["entity"] as? String, "craftberry:azure_a1b2c3_creature")
     }
 
+    func testCompilerEmitsPassiveCreatureRoutePinnedToChickenSample() throws {
+        let project = try AddOnProject.materialPassiveEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 12,
+            originalPrompt: "passive entity",
+            identity: makeIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_ingot_behavior.mcpack", in: outer)
+
+        // Entity pinned to Mojang bedrock-samples behavior_pack/entities/chicken.json.
+        let entity = try json(named: "entities/azure_a1b2c3_creature.json", in: behavior)
+        let body = try XCTUnwrap(entity["minecraft:entity"] as? [String: Any])
+        let description = try XCTUnwrap(body["description"] as? [String: Any])
+        XCTAssertEqual(description["spawn_category"] as? String, "creature")
+        XCTAssertEqual(description["is_spawnable"] as? Bool, true)
+        XCTAssertEqual(description["is_summonable"] as? Bool, true)
+        let components = try XCTUnwrap(body["components"] as? [String: Any])
+        XCTAssertEqual((components["minecraft:health"] as? [String: Any])?["value"] as? Int, 12)
+        let typeFamily = try XCTUnwrap(components["minecraft:type_family"] as? [String: Any])
+        XCTAssertEqual(typeFamily["family"] as? [String], ["azure_a1b2c3_creature", "animal", "mob"])
+        for hostileKey in ["minecraft:attack", "minecraft:behavior.melee_box_attack", "minecraft:behavior.nearest_attackable_target", "minecraft:boss"] {
+            XCTAssertNil(components[hostileKey], "A passive creature must not carry \(hostileKey).")
+        }
+        let groups = try XCTUnwrap(body["component_groups"] as? [String: Any])
+        XCTAssertEqual(Set(groups.keys), ["azure_a1b2c3_creature_adult", "azure_a1b2c3_creature_baby"])
+        let adult = try XCTUnwrap(groups["azure_a1b2c3_creature_adult"] as? [String: Any])
+        XCTAssertEqual((adult["minecraft:loot"] as? [String: Any])?["table"] as? String, "loot_tables/entities/azure_a1b2c3_creature.json")
+        let breedable = try XCTUnwrap(adult["minecraft:breedable"] as? [String: Any])
+        XCTAssertEqual(breedable["require_tame"] as? Bool, false)
+        XCTAssertEqual(breedable["breed_items"] as? [String], ["wheat"])
+        XCTAssertNotNil((breedable["breeds_with"] as? [String: Any])?["craftberry:azure_a1b2c3_creature"])
+        let baby = try XCTUnwrap(groups["azure_a1b2c3_creature_baby"] as? [String: Any])
+        XCTAssertNotNil(baby["minecraft:is_baby"])
+        XCTAssertEqual((baby["minecraft:scale"] as? [String: Any])?["value"] as? Double, 0.5)
+        XCTAssertEqual((baby["minecraft:ageable"] as? [String: Any])?["duration"] as? Int, 1200)
+        let events = try XCTUnwrap(body["events"] as? [String: Any])
+        XCTAssertEqual(Set(events.keys), ["minecraft:entity_spawned", "minecraft:entity_born", "minecraft:ageable_grow_up"])
+
+        // Spawn rule pinned to behavior_pack/spawn_rules/chicken.json (format 1.8.0).
+        let spawn = try json(named: "spawn_rules/azure_a1b2c3_spawn_rule.json", in: behavior)
+        XCTAssertEqual(spawn["format_version"] as? String, "1.8.0")
+        let rules = try XCTUnwrap(spawn["minecraft:spawn_rules"] as? [String: Any])
+        XCTAssertEqual((rules["description"] as? [String: Any])?["population_control"] as? String, "animal")
+        let condition = try XCTUnwrap((rules["conditions"] as? [[String: Any]])?.first)
+        XCTAssertNotNil(condition["minecraft:spawns_on_surface"])
+        XCTAssertNil(condition["minecraft:spawns_underground"])
+        XCTAssertEqual(condition["minecraft:spawns_on_block_filter"] as? String, "minecraft:grass_block")
+        let brightness = try XCTUnwrap(condition["minecraft:brightness_filter"] as? [String: Any])
+        XCTAssertEqual(brightness["min"] as? Int, 7)
+        XCTAssertEqual(brightness["max"] as? Int, 15)
+        XCTAssertEqual(brightness["adjust_for_weather"] as? Bool, false)
+        XCTAssertEqual((condition["minecraft:weight"] as? [String: Any])?["default"] as? Int, 10)
+        let herd = try XCTUnwrap(condition["minecraft:herd"] as? [String: Any])
+        XCTAssertEqual(herd["min_size"] as? Int, 2)
+        XCTAssertEqual(herd["max_size"] as? Int, 4)
+        let biome = try XCTUnwrap(condition["minecraft:biome_filter"] as? [String: Any])
+        XCTAssertEqual(biome["test"] as? String, "has_biome_tag")
+        XCTAssertEqual(biome["value"] as? String, "animal")
+
+        // Loot is one roll of one entry, so a kill always drops exactly one item.
+        let loot = try json(named: "loot_tables/entities/azure_a1b2c3_creature.json", in: behavior)
+        let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
+        XCTAssertEqual(pools.count, 1)
+        XCTAssertEqual(pools.first?["rolls"] as? Int, 1)
+        let entries = try XCTUnwrap(pools.first?["entries"] as? [[String: Any]])
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?["name"] as? String, "minecraft:feather")
+        XCTAssertNil(entries.first?["functions"])
+    }
+
     func testCompilerEmitsHostilePlayerTargetingBehaviorPinnedToZombieSample() throws {
         let project = try AddOnProject.materialHostileEntitySet(
             materialName: "Azure",

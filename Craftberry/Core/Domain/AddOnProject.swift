@@ -1585,6 +1585,31 @@ extension AddOnProject {
         return AddOnProject(id: identity.projectID, namespace: identity.namespace, displayName: material, shortDescription: shortDescription, packUUIDs: identity.packUUIDs, buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0), targetProfileID: profile.id, originalPrompt: originalPrompt, content: [.item(ingot), .item(spawnEgg), .entity(entity), .spawnRule(spawnRule), .entityLoot(loot), .shapelessRecipe(ingotRecipe), .shapedRecipe(spawnEggRecipe)] + visuals.map(AddOnContentNode.visualResource))
     }
 
+    public static func materialPassiveEntitySet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        health: Int = 10,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        try materialEntitySet(
+            materialName: materialName,
+            color: color,
+            sourceItem: sourceItem,
+            sourceCount: sourceCount,
+            health: health,
+            archetype: .passive,
+            shortDescription: shortDescription,
+            originalPrompt: originalPrompt,
+            identity: identity,
+            profile: profile
+        )
+    }
+
     public static func materialHostileEntitySet(
         materialName: String = "Azure",
         color: PixelArtColor = .red,

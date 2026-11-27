@@ -1331,6 +1331,12 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialHostileEntitySet(materialName: "Frostbite", color: .white, sourceItem: "minecraft:quartz", sourceCount: 4, health: 20, shortDescription: "A quartz hostile Frostbite creature that attacks players.", originalPrompt: originalPrompt, identity: identity)
         case "A redstone hostile creature set named Pulse with 24 health":
             project = try AddOnProject.materialHostileEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, health: 24, shortDescription: "A redstone hostile Pulse creature with 24 health.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond passive creature set with a gentle Azure animal":
+            project = try AddOnProject.materialPassiveEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 10, shortDescription: "A diamond passive Azure animal that never attacks.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald passive animal set named Verdant that never attacks":
+            project = try AddOnProject.materialPassiveEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 10, shortDescription: "An emerald passive Verdant animal that never attacks.", originalPrompt: originalPrompt, identity: identity)
+        case "A quartz passive creature set named Frostbite with 12 health":
+            project = try AddOnProject.materialPassiveEntitySet(materialName: "Frostbite", color: .white, sourceItem: "minecraft:quartz", sourceCount: 4, health: 12, shortDescription: "A quartz passive Frostbite animal with 12 health.", originalPrompt: originalPrompt, identity: identity)
         case "A redstone boss named Pulse with 40 health and a faster second phase":
             project = try AddOnProject.materialBossEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, health: 40, shortDescription: "A redstone boss that grows faster and stronger below half health.", originalPrompt: originalPrompt, identity: identity)
         case "An emerald two-phase boss named Verdant that drops its ingot":
@@ -1459,6 +1465,9 @@ enum ExamplePromptResponseCache {
             "An emerald hostile entity set named Verdant that attacks players",
             "A quartz hostile mob set named Frostbite that attacks the player",
             "A redstone hostile creature set named Pulse with 24 health",
+            "A diamond passive creature set with a gentle Azure animal",
+            "An emerald passive animal set named Verdant that never attacks",
+            "A quartz passive creature set named Frostbite with 12 health",
             "A redstone boss named Pulse with 40 health and a faster second phase",
             "An emerald two-phase boss named Verdant that drops its ingot",
             "A diamond boss encounter that grows stronger below half health",
