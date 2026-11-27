@@ -16,6 +16,7 @@
 		A10000000000000000000066 /* PrivacyTelemetryRetentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */; };
 		A10000000000000000000067 /* MusicRecordAudioRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000067 /* MusicRecordAudioRenderer.swift */; };
 		A10000000000000000000068 /* MusicRecordProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000068 /* MusicRecordProject.swift */; };
+		A10000000000000000000069 /* ProfileMigrationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000069 /* ProfileMigrationGate.swift */; };
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
@@ -100,6 +101,7 @@
 		A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTelemetryRetentionTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000067 /* MusicRecordAudioRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicRecordAudioRenderer.swift; sourceTree = "<group>"; };
 		A20000000000000000000068 /* MusicRecordProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicRecordProject.swift; sourceTree = "<group>"; };
+		A20000000000000000000069 /* ProfileMigrationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileMigrationGate.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
@@ -246,8 +248,17 @@
 			children = (
 				A40000000000000000000009 /* AI */,
 				A40000000000000000000010 /* Bedrock */,
+				A40000000000000000000013 /* Migration */,
 			);
 			path = Core/Services;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000013 /* Migration */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000068 /* ProfileMigrationGate.swift */,
+			);
+			path = Migration;
 			sourceTree = "<group>";
 		};
 		A40000000000000000000006 /* CraftberryTests */ = {
@@ -521,6 +532,7 @@
 				A10000000000000000000065 /* SidecarRetentionPolicy.swift in Sources */,
 				A10000000000000000000067 /* MusicRecordAudioRenderer.swift in Sources */,
 				A10000000000000000000068 /* MusicRecordProject.swift in Sources */,
+				A10000000000000000000069 /* ProfileMigrationGate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

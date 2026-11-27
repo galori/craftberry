@@ -39,6 +39,43 @@ final class AddOnRevisionTests: XCTestCase {
         try AddOnProject.materialSwordSet(materialName: material, sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "material \(material)", identity: testIdentity())
     }
 
+    private func projectScratchDirectory() throws -> URL {
+        let worktreeRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let scratchRoot = worktreeRoot.appending(path: ".scratch", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: scratchRoot, withIntermediateDirectories: true)
+        let directory = scratchRoot.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func settingItemDisplayName(_ name: String, in project: AddOnProject) -> AddOnProject {
+        let content = project.content.map { node in
+            guard case .item(let item) = node else { return node }
+            return AddOnContentNode.item(ItemDefinition(
+                id: item.id,
+                displayName: name,
+                menuCategory: item.menuCategory,
+                menuGroup: item.menuGroup,
+                traits: item.traits,
+                visualResourceID: item.visualResourceID
+            ))
+        }
+        return AddOnProject(
+            schemaVersion: project.schemaVersion,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: content
+        )
+    }
+
     // MARK: - Sidecar round-trip
 
     func testSidecarRoundTripPreservesIdentityAndContent() throws {
@@ -53,7 +90,7 @@ final class AddOnRevisionTests: XCTestCase {
 
     func testProjectStoreRoundTripViaFile() throws {
         let project = try makeSwordProject()
-        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let directory = try projectScratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let compiler = BedrockAddOnCompiler()
         _ = try compiler.compile(project: project, profile: .current, outputDirectory: directory)
@@ -63,6 +100,105 @@ final class AddOnRevisionTests: XCTestCase {
         XCTAssertEqual(loaded, project)
         let loadedByID = try AddOnProjectStore.load(for: project.id, in: directory)
         XCTAssertEqual(loadedByID, project)
+    }
+
+    func testLoadProjectMigratesKnownLegacyProfileWithoutRewritingSourceSidecar() throws {
+        let project = try makeSwordProject()
+        let legacy = AddOnProject(
+            schemaVersion: 1,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: "bedrock-stable-1.21.80",
+            originalPrompt: project.originalPrompt,
+            content: project.content
+        )
+        let directory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sidecarURL = directory.appending(path: "legacy-project.json")
+        try AddOnProjectStore.save(legacy, to: sidecarURL)
+        let originalData = try Data(contentsOf: sidecarURL)
+
+        let migrated = try AddOnRevisionService().loadProject(from: sidecarURL)
+
+        XCTAssertEqual(migrated.schemaVersion, AddOnProject.currentSchemaVersion)
+        XCTAssertEqual(migrated.targetProfileID, BedrockContentProfile.current.id)
+        XCTAssertEqual(migrated.id, legacy.id)
+        XCTAssertEqual(migrated.packUUIDs, legacy.packUUIDs)
+        XCTAssertEqual(migrated.content, legacy.content)
+        XCTAssertEqual(try Data(contentsOf: sidecarURL), originalData)
+    }
+
+    func testFailedLegacyMigrationLeavesOriginalSidecarRecoverable() throws {
+        let project = try makeSwordProject()
+        let invalidLegacy = AddOnProject(
+            schemaVersion: 1,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: "bedrock-stable-1.21.80",
+            originalPrompt: project.originalPrompt,
+            content: project.content + [.item(try XCTUnwrap(project.items.first))]
+        )
+        let directory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sidecarURL = AddOnProjectStore.sidecarURL(for: invalidLegacy.id, in: directory)
+        try AddOnProjectStore.save(invalidLegacy, to: sidecarURL)
+        let originalData = try Data(contentsOf: sidecarURL)
+
+        XCTAssertThrowsError(try AddOnRevisionService().loadProject(from: sidecarURL))
+        XCTAssertEqual(try Data(contentsOf: sidecarURL), originalData)
+    }
+
+    func testMigratedLegacyProjectCanBuildARevisionWithTheSameProjectAndPackIdentity() async throws {
+        let base = try makeSwordProject()
+        let legacy = AddOnProject(
+            schemaVersion: 1,
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            shortDescription: base.shortDescription,
+            packUUIDs: base.packUUIDs,
+            buildVersion: base.buildVersion,
+            targetProfileID: "bedrock-stable-1.21.80",
+            originalPrompt: base.originalPrompt,
+            content: base.content
+        )
+        let directory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try AddOnProjectStore.save(legacy, to: AddOnProjectStore.sidecarURL(for: legacy.id, in: directory))
+        let service = AddOnRevisionService()
+        let loaded = try service.loadProject(for: base.id, in: directory)
+        let draftIdentity = AddOnProjectIdentity(
+            projectID: UUID(),
+            namespace: "generated",
+            contentSuffix: "zz99zz",
+            packUUIDs: PackUUIDs(behaviorHeader: UUID(), behaviorModule: UUID(), resourceHeader: UUID(), resourceModule: UUID())
+        )
+        let draft = try makeSwordProject(identity: draftIdentity)
+
+        let result = try await service.reviseWithDraft(
+            baseProject: loaded,
+            draft: draft,
+            newPrompt: "rebuild this migrated sword",
+            outputDirectory: directory
+        )
+
+        XCTAssertEqual(result.project.id, legacy.id)
+        XCTAssertEqual(result.project.packUUIDs, legacy.packUUIDs)
+        XCTAssertEqual(result.project.buildVersion, legacy.buildVersion.nextPatch())
+        XCTAssertTrue(FileManager.default.fileExists(atPath: result.compilationResult.artifact.url.path))
+        let saved = try AddOnProjectStore.load(for: legacy.id, in: directory)
+        XCTAssertEqual(saved.id, legacy.id)
+        XCTAssertEqual(saved.packUUIDs, legacy.packUUIDs)
+        XCTAssertEqual(saved.schemaVersion, AddOnProject.currentSchemaVersion)
+        XCTAssertEqual(saved.targetProfileID, BedrockContentProfile.current.id)
     }
 
     // MARK: - Version increment
@@ -125,6 +261,56 @@ final class AddOnRevisionTests: XCTestCase {
         XCTAssertEqual(result.project.packUUIDs, base.packUUIDs)
         // Build version bumped, not copied from draft.
         XCTAssertNotEqual(result.project.buildVersion, draft.buildVersion)
+    }
+
+    func testRevisionPreservesIdentitiesForSemanticallyUnchangedContent() async throws {
+        let base = try makeSwordProject()
+        let ephemeralIdentity = AddOnProjectIdentity(
+            projectID: UUID(),
+            namespace: "generated",
+            contentSuffix: "zz99zz",
+            packUUIDs: PackUUIDs(behaviorHeader: UUID(), behaviorModule: UUID(), resourceHeader: UUID(), resourceModule: UUID())
+        )
+        let draft = try makeSwordProject(identity: ephemeralIdentity)
+        let directory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await AddOnRevisionService().reviseWithDraft(
+            baseProject: base,
+            draft: draft,
+            newPrompt: "keep the same sword",
+            outputDirectory: directory
+        )
+
+        XCTAssertTrue(result.changeSummary.isEmpty)
+        XCTAssertEqual(result.project.content.map(\.contentID), base.content.map(\.contentID))
+        XCTAssertEqual(result.project.items.first?.visualResourceID, base.items.first?.visualResourceID)
+        XCTAssertEqual(result.project.recipes.first?.result.item, base.recipes.first?.result.item)
+    }
+
+    func testRevisionDoesNotRewriteDisplayTextThatMatchesADraftContentID() async throws {
+        let ephemeralIdentity = AddOnProjectIdentity(
+            projectID: UUID(),
+            namespace: "generated",
+            contentSuffix: "zz99zz",
+            packUUIDs: PackUUIDs(behaviorHeader: UUID(), behaviorModule: UUID(), resourceHeader: UUID(), resourceModule: UUID())
+        )
+        let draftWithoutDisplayOverride = try makeSwordProject(identity: ephemeralIdentity)
+        let displayName = try XCTUnwrap(draftWithoutDisplayOverride.items.first?.id.rawValue)
+        let base = settingItemDisplayName(displayName, in: try makeSwordProject())
+        let draft = settingItemDisplayName(displayName, in: draftWithoutDisplayOverride)
+        let directory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await AddOnRevisionService().reviseWithDraft(
+            baseProject: base,
+            draft: draft,
+            newPrompt: "keep the same sword",
+            outputDirectory: directory
+        )
+
+        XCTAssertEqual(result.project.items.first?.displayName, displayName)
+        XCTAssertEqual(result.project.content.map(\.contentID), base.content.map(\.contentID))
     }
 
     // MARK: - Change summary
