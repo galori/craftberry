@@ -123,6 +123,10 @@ struct MinecraftE2EScenario {
 enum MinecraftWorldGameMode: String {
     case creative
     case survival
+
+    func worldTitle(projectName: String) -> String {
+        "\(projectName) (\(rawValue.capitalized))"
+    }
 }
 
 struct MinecraftCraftingPlan {

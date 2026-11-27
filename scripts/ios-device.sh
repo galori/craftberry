@@ -353,10 +353,11 @@ minecraft_e2e_on_device() {
     mkdir -p "$OUTPUT_DIR"
 
     if [[ -n "$prepared_world_name" ]]; then
-        echo "Removing only the prior '$prepared_world_name' test world and generated packs..."
+        echo "Removing only the prior '$prepared_world_name' test world and its exclusively referenced generated packs..."
         terminate_minecraft_on_device "$CORE_DEVICE_ID"
         CRAFTBERRY_CLEANUP_WORLD_NAME="$prepared_world_name" \
             CRAFTBERRY_CLEANUP_WORLD_MATCH_MODE=exact \
+            CRAFTBERRY_CLEANUP_PACK_SCOPE=referenced \
             "$CLEANUP_SCRIPT" clean --delete-world --yes
     elif [[ "$fresh_world" == "yes" ]]; then
         echo "Fresh-world requested — deleting existing craftberry test world and packs via AFC..."
@@ -405,6 +406,7 @@ minecraft_e2e_on_device() {
     if [[ -n "$prepared_world_name" ]]; then
         CRAFTBERRY_CLEANUP_WORLD_NAME="$prepared_world_name" \
             CRAFTBERRY_CLEANUP_WORLD_MATCH_MODE=exact \
+            CRAFTBERRY_CLEANUP_PACK_SCOPE=referenced \
             "$CLEANUP_SCRIPT" clean --delete-world --yes
     else
         "$CLEANUP_SCRIPT" clean --yes

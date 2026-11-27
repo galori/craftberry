@@ -2,6 +2,11 @@ import ImageIO
 import XCTest
 
 final class MinecraftE2ESupportTests: XCTestCase {
+    func testWorldTitleIncludesTheScenarioGameMode() {
+        XCTAssertEqual(MinecraftWorldGameMode.survival.worldTitle(projectName: "Redstone"), "Redstone (Survival)")
+        XCTAssertEqual(MinecraftWorldGameMode.creative.worldTitle(projectName: "Azure"), "Azure (Creative)")
+    }
+
     func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() throws {
         let scenario = MinecraftE2EScenario.redstoneHostileEntitySet
 
