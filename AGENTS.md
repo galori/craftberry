@@ -171,3 +171,14 @@ scripts/ios-device.sh test
 ```
 
 Do not run a signed archive, upload, TestFlight distribution, or device installation unless the user explicitly asks.
+
+### Physical iPhone visibility and sandbox access
+
+Device discovery from a sandboxed command may report no connected iPhones even when the device is visible in Xcode and in the user's Terminal. Treat a sandbox-only “no device” result as an access limitation, not evidence that the phone is disconnected.
+
+When a physical-device check is authorized or required:
+1. Run `DEVELOPER_DIR=/Applications/Xcode.app scripts/ios-device.sh list` with access outside the sandbox (`require_escalated`).
+2. If the device appears there, run the focused test with the same outside-sandbox access. Set `DEVICE_ID` if needed.
+3. Ask the user to reconnect or unlock the phone only if the outside-sandbox discovery also fails.
+
+Describe the result precisely: say “the sandboxed runner cannot access the device” when that is what happened. Do not say “Xcode cannot see the phone” based only on a sandboxed check.
