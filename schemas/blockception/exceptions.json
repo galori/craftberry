@@ -28,7 +28,7 @@
     "pathPattern": "recipes/.+_sword_smithing_recipe\\.json",
     "jsonPathPattern": "^\\$\\['minecraft:recipe_smithing_transform'\\]$",
     "validator": "additionalProperties",
-    "messageContains": "template",
+    "messageEquals": "Additional properties are not allowed ('template' was unexpected)",
     "expectedOccurrences": 1,
     "reason": "The pinned Mojang smithing_netherite_sword sample includes the template ingredient, which this older Blockception transform schema omits.",
     "samplePath": "behavior_pack/recipes/smithing_netherite_sword.json"

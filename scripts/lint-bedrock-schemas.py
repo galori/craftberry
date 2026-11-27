@@ -27,12 +27,16 @@ def matches_exception(exception, family, name, error):
         return False
     if instance_type not in (None, "string"):
         raise ValueError(f"Unsupported exception instance type: {instance_type}")
+    message_equals = exception.get("messageEquals")
+    if message_equals is not None and error.message != message_equals:
+        return False
+    message_contains = exception.get("messageContains")
     return (
         exception["family"] == family
         and re.fullmatch(exception["pathPattern"], name)
         and re.fullmatch(exception["jsonPathPattern"], str(error.json_path))
         and exception["validator"] == error.validator
-        and exception["messageContains"] in error.message
+        and (message_equals is not None or message_contains in error.message)
     )
 
 

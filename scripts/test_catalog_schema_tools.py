@@ -181,6 +181,64 @@ class ScriptRegressionTests(unittest.TestCase):
             self.skipTest("jsonschema is installed by the advisory-schema CI job")
         self.assertFalse(Draft7Validator(description).is_valid(None))
 
+    def test_entity_schema_accepts_its_documented_timer_and_swoop_examples(self) -> None:
+        schema = json.loads((ROOT / "schemas/blockception/behavior/entities/entities.json").read_text())
+        try:
+            from jsonschema import Draft7Validator
+        except ImportError:
+            self.skipTest("jsonschema is installed by the advisory-schema CI job")
+
+        timer = schema["definitions"]["DBG"]
+        timer_instance = {
+            "format_version": "1.20.80",
+            "minecraft:entity": {
+                "description": {"identifier": "craftberry:timer_fixture"},
+                "components": {"minecraft:timer": timer["examples"][0]},
+            },
+        }
+        timer_errors = list(Draft7Validator(schema).iter_errors(timer_instance))
+        with self.subTest(component="minecraft:timer"):
+            self.assertEqual(timer_errors, [], "the timer schema must accept its own documented scalar time example")
+
+        swoop = schema["definitions"]["EJI"]
+        swoop_instance = {
+            "format_version": "1.20.80",
+            "minecraft:entity": {
+                "description": {"identifier": "craftberry:swoop_fixture"},
+                "components": {"minecraft:behavior.swoop_attack": swoop["examples"][0]},
+            },
+        }
+        swoop_errors = list(Draft7Validator(schema).iter_errors(swoop_instance))
+        with self.subTest(component="minecraft:behavior.swoop_attack"):
+            self.assertEqual(swoop_errors, [], "the swoop schema must accept its own documented numeric pair example")
+
+    def test_template_exception_matches_only_the_template_property_error(self) -> None:
+        with patch.dict(sys.modules, {"jsonschema": SimpleNamespace(Draft7Validator=object)}):
+            linter = load_script("lint-bedrock-schemas.py", "schema_linter_template_exception_tested")
+        exceptions = json.loads((ROOT / "schemas/blockception/exceptions.json").read_text())
+        exception = next(
+            item for item in exceptions
+            if item["id"] == "smithing-transform-template-omitted-from-pinned-blockception-schema"
+        )
+        path = "recipes/test_sword_smithing_recipe.json"
+        template_only = SimpleNamespace(
+            json_path="$['minecraft:recipe_smithing_transform']",
+            validator="additionalProperties",
+            message="Additional properties are not allowed ('template' was unexpected)",
+            instance={"template": "minecraft:netherite_upgrade_smithing_template"},
+        )
+        template_and_typo = SimpleNamespace(
+            json_path="$['minecraft:recipe_smithing_transform']",
+            validator="additionalProperties",
+            message="Additional properties are not allowed ('template', 'templat' were unexpected)",
+            instance={
+                "template": "minecraft:netherite_upgrade_smithing_template",
+                "templat": "minecraft:netherite_upgrade_smithing_template",
+            },
+        )
+        self.assertTrue(linter.matches_exception(exception, "recipes/", path, template_only))
+        self.assertFalse(linter.matches_exception(exception, "recipes/", path, template_and_typo))
+
 
 if __name__ == "__main__":
     unittest.main()
