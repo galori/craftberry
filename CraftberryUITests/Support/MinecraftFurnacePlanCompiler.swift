@@ -54,13 +54,27 @@ struct MinecraftFurnacePlanCompiler {
             .tap("Pick \(fuelName) from the hotbar", fuelHotbarSlot),
             .tap("Place \(fuelName) into the furnace fuel slot", fuelSlot),
             MinecraftStep(name: "Wait for \(expectedOutputName) to smelt", action: .wait(seconds: smeltDuration)),
+            MinecraftStep(name: "Confirm furnace produced \(expectedOutputName)", action: .assertText(expectedOutputName)),
             .tap("Collect \(expectedOutputName) from the furnace output slot", outputSlot),
             MinecraftStep(name: "Wait for collected \(expectedOutputName)", action: .wait(seconds: 2)),
+            MinecraftStep(
+                name: "Confirm furnace output slot is empty",
+                action: .assertPixels(.itemContrastAbsent(
+                    xRange: (outputSlot.x - 0.018)...(outputSlot.x + 0.018),
+                    yRange: (outputSlot.y - 0.034)...(outputSlot.y + 0.034),
+                    maximumCount: 2
+                ))
+            ),
+            MinecraftStep(
+                name: "Confirm collected \(expectedOutputName) in the HUD hotbar",
+                action: .assertPixels(.itemContrastCluster(
+                    xRange: (layout.outputHUDHotbarSlot.x - 0.02)...(layout.outputHUDHotbarSlot.x + 0.02),
+                    yRange: (layout.outputHUDHotbarSlot.y - 0.025)...(layout.outputHUDHotbarSlot.y + 0.05),
+                    minimumCount: 20
+                ))
+            ),
             .tap("Close furnace interface", closeButton),
-            MinecraftStep(name: "Wait for the world HUD", action: .wait(seconds: 2)),
-            .tap("Select collected \(expectedOutputName) in the HUD hotbar", layout.outputHUDHotbarSlot),
-            MinecraftStep(name: "Wait for \(expectedOutputName) tooltip", action: .wait(seconds: 0.2)),
-            MinecraftStep(name: "Confirm smelted \(expectedOutputName)", action: .assertText(expectedOutputName))
+            MinecraftStep(name: "Wait for the world HUD", action: .wait(seconds: 2))
         ]
         return steps
     }
