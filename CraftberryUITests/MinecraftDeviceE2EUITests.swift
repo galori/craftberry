@@ -593,11 +593,15 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Respawn after verifying the phase-two attack", action: .tapTextRow(x: 0.5, text: "Respawn")),
             MinecraftStep(name: "Wait for the player to respawn", action: .wait(seconds: 8)),
             MinecraftStep(name: "Return to Creative to finish the reward check safely", action: .chatCommand("/gamemode creative @s")),
+            MinecraftStep(name: "Remove any earlier generated ingot from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot")),
+            MinecraftStep(name: "Clear item drops before defeating the boss", action: .chatCommand("/kill @e[type=item]")),
             MinecraftStep(name: "Defeat the boss with player-attributed damage", action: .chatCommand("/damage @e[family=monster] 100 entity_attack entity @s")),
             MinecraftStep(name: "Wait for the boss reward to drop", action: .wait(seconds: 2)),
-            MinecraftStep(name: "Query for the dropped reward item", action: .chatCommand("/testfor @e[type=item]")),
-            MinecraftStep(name: "Confirm the deterministic reward dropped", action: .assertText("Found 1")),
-            MinecraftStep(name: "Clean up the boss loot item", action: .chatCommand("/kill @e[type=item]"))
+            MinecraftStep(name: "Collect the isolated boss reward", action: .chatCommand("/tp @s @e[type=item]")),
+            MinecraftStep(name: "Wait for the redstone ingot to enter inventory", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot 0 0")),
+            MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("Found 1 matching item")),
+            MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot"))
         ]
     )
 

@@ -1538,20 +1538,21 @@ extension AddOnProject {
         color: PixelArtColor = .blue,
         sourceItem: String = "minecraft:diamond",
         sourceCount: Int = 4,
-        health: Int = 10,
+        health: Int? = nil,
         archetype: EntityArchetype = .passive,
         shortDescription: String? = nil,
         originalPrompt: String,
         identity: AddOnProjectIdentity = .generate(),
         profile: BedrockContentProfile = .current
     ) throws -> AddOnProject {
+        let resolvedHealth = health ?? (archetype == .boss ? 40 : 10)
         if archetype == .boss {
             return try materialBossEntitySet(
                 materialName: materialName,
                 color: color,
                 sourceItem: sourceItem,
                 sourceCount: sourceCount,
-                health: health,
+                health: resolvedHealth,
                 shortDescription: shortDescription,
                 originalPrompt: originalPrompt,
                 identity: identity,
@@ -1562,7 +1563,7 @@ extension AddOnProject {
         guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
         guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
         guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
-        guard (4...40).contains(health) else { throw AddOnProjectError.invalidEntityHealth }
+        guard (4...40).contains(resolvedHealth) else { throw AddOnProjectError.invalidEntityHealth }
         guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
 
         let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
@@ -1571,7 +1572,7 @@ extension AddOnProject {
         let spawnEggID = ContentID("\(stem)_spawn_egg")
         let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
         let spawnEgg = ItemDefinition(id: spawnEggID, displayName: "\(material) Spawn Egg", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 16, entityPlacer: EntityPlacerTrait(entityID: entityID)), visualResourceID: spawnEggID)
-        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: health, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID, textureResourceID: entityID, archetype: archetype)
+        let entity = EntityDefinition(id: entityID, displayName: "\(material) Creature", health: resolvedHealth, movement: 0.25, scale: 1.0, spawnEggResourceID: spawnEggID, textureResourceID: entityID, archetype: archetype)
         let spawnRule = SpawnDefinition(id: ContentID("\(stem)_spawn_rule"), entityID: entityID)
         let loot = LootDefinition(id: ContentID("\(stem)_loot"), entityID: entityID, item: .vanilla("minecraft:feather"), minCount: 0, maxCount: 2)
         let ingotRecipe = ShapelessRecipeDefinition(id: ContentID("\(stem)_ingot_recipe"), tags: ["crafting_table"], ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount), result: RecipeResult(item: .generated(ingotID), count: 1), unlock: [.vanilla(sourceItem)])

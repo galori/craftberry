@@ -270,7 +270,6 @@ final class AddOnProjectTests: XCTestCase {
     func testMaterialEntitySetBossArchetypeUsesTheCompleteBossTemplate() throws {
         let project = try AddOnProject.materialEntitySet(
             materialName: "Azure",
-            health: 20,
             archetype: .boss,
             originalPrompt: "Azure boss",
             identity: testIdentity()
@@ -278,10 +277,27 @@ final class AddOnProjectTests: XCTestCase {
 
         XCTAssertEqual(project.entities.first?.archetype, .boss)
         XCTAssertEqual(project.entities.first?.displayName, "Azure Boss")
+        XCTAssertEqual(project.entities.first?.health, 40)
         XCTAssertTrue(project.spawnRules.isEmpty)
         XCTAssertEqual(project.entityLootTables.first?.item, .generated(ContentID("azure_a1b2c3_ingot")))
         XCTAssertEqual(project.entityLootTables.first?.minCount, 1)
         XCTAssertEqual(project.entityLootTables.first?.maxCount, 1)
+    }
+
+    func testMaterialEntitySetPreservesPassiveDefaultHealthAndRejectsInvalidBossOverrides() throws {
+        let passive = try AddOnProject.materialEntitySet(originalPrompt: "passive", identity: testIdentity())
+        XCTAssertEqual(passive.entities.first?.health, 10)
+
+        for health in [19, 41] {
+            XCTAssertThrowsError(try AddOnProject.materialEntitySet(
+                health: health,
+                archetype: .boss,
+                originalPrompt: "boss",
+                identity: testIdentity()
+            )) {
+                XCTAssertEqual($0 as? AddOnProjectError, .invalidBossHealth)
+            }
+        }
     }
 
     func testMaterialEntitySetLinksBodyTextureResource() throws {
