@@ -32,10 +32,17 @@ enum GenerationServerMain {
         }.filter { !$0.isEmpty })
         guard !allowedVersions.isEmpty else { throw ServerStartupError.missingAllowedBundleVersions }
         let databasePath = environment["GENERATION_DATABASE_PATH"] ?? "craftberry-generation.sqlite"
+        let databaseURL = URL(fileURLWithPath: databasePath).standardizedFileURL
         let bindHost = environment["GENERATION_BIND_HOST"] ?? "127.0.0.1"
         guard let port = UInt16(environment["GENERATION_PORT"] ?? "8787"), port > 0 else {
             throw ServerStartupError.invalidPort
         }
+        try FileManager.default.createDirectory(
+            at: databaseURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let databaseLock = try GenerationDatabaseProcessLock(databaseURL: databaseURL)
+        defer { databaseLock.unlock() }
 
         guard let rootURL = Bundle.module.url(
             forResource: "Apple_App_Attestation_Root_CA",
@@ -44,15 +51,20 @@ enum GenerationServerMain {
            let rootDER = pemCertificate(rootPEM) else {
             throw ServerStartupError.missingAppleAttestationRoot
         }
+        guard let receiptRootURL = Bundle.module.url(forResource: "AppleRootCA-G3", withExtension: "cer"),
+              let receiptRootDER = try? Data(contentsOf: receiptRootURL) else {
+            throw ServerStartupError.missingAppleReceiptRoot
+        }
 
         let service = GenerationService(
             configuration: GenerationServiceConfiguration(
                 expectedAppIdentifier: appIdentifier,
                 appAttestEnvironment: appEnvironment
             ),
-            store: try SQLiteGenerationServiceStore(databaseURL: URL(fileURLWithPath: databasePath)),
+            store: try SQLiteGenerationServiceStore(databaseURL: databaseURL),
             attestationVerifier: AppleAppAttestVerifier(
                 rootCertificateDER: rootDER,
+                receiptRootCertificateDER: receiptRootDER,
                 allowedBundleVersions: allowedVersions
             ),
             intentProvider: EnvironmentOpenAIIntentProvider(environment: environment)
@@ -83,19 +95,66 @@ enum GenerationServerMain {
 private enum ServerStartupError: LocalizedError {
     case missingEnvironment(String)
     case missingAppleAttestationRoot
+    case missingAppleReceiptRoot
     case invalidAppAttestEnvironment
     case missingAllowedBundleVersions
     case invalidPort
+    case databaseAlreadyRunning(String)
+    case databaseLockUnavailable(String, String)
 
     var errorDescription: String? {
         switch self {
         case .missingEnvironment(let name): "Required server environment variable is missing: \(name)"
         case .missingAppleAttestationRoot: "The Apple App Attestation Root CA resource is missing or invalid."
+        case .missingAppleReceiptRoot: "The Apple Root CA G3 resource for App Attest receipt verification is missing or invalid."
         case .invalidAppAttestEnvironment: "APP_ATTEST_ENVIRONMENT must be development or production."
         case .missingAllowedBundleVersions: "APP_ATTEST_ALLOWED_BUNDLE_VERSIONS must contain at least one version."
         case .invalidPort: "GENERATION_PORT must be a TCP port between 1 and 65535."
+        case .databaseAlreadyRunning(let path):
+            "Another GenerationServer process already holds the database lock for \(path)."
+        case .databaseLockUnavailable(let path, let reason):
+            "Unable to lock the generation database at \(path): \(reason)"
         }
     }
+}
+
+private final class GenerationDatabaseProcessLock {
+    private let descriptor: Int32
+    private var isLocked = true
+
+    init(databaseURL: URL) throws {
+        let lockPath = databaseURL.path + ".lock"
+        let opened = open(lockPath, O_CREAT | O_RDWR | O_NOFOLLOW, mode_t(0o600))
+        guard opened >= 0 else {
+            throw ServerStartupError.databaseLockUnavailable(lockPath, String(cString: strerror(errno)))
+        }
+        guard fchmod(opened, mode_t(0o600)) == 0 else {
+            let reason = String(cString: strerror(errno))
+            close(opened)
+            throw ServerStartupError.databaseLockUnavailable(lockPath, reason)
+        }
+        guard flock(opened, LOCK_EX | LOCK_NB) == 0 else {
+            let lockError = errno
+            let reason = lockError == EWOULDBLOCK
+                ? "another server process is using this database"
+                : String(cString: strerror(lockError))
+            close(opened)
+            if lockError == EWOULDBLOCK {
+                throw ServerStartupError.databaseAlreadyRunning(databaseURL.path)
+            }
+            throw ServerStartupError.databaseLockUnavailable(lockPath, reason)
+        }
+        descriptor = opened
+    }
+
+    func unlock() {
+        guard isLocked else { return }
+        isLocked = false
+        _ = flock(descriptor, LOCK_UN)
+        _ = close(descriptor)
+    }
+
+    deinit { unlock() }
 }
 
 private struct GenerationHTTPServer {

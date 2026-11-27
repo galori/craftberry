@@ -43,7 +43,7 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertEqual(try jsonValue(unsupportedResponse.body), try jsonValue(unsupported))
     }
 
-    func testMissingOrUnknownSessionReturnsFixtureUnauthorizedStatus() async throws {
+    func testUnknownSessionHasARecoverySignalWhileMissingAuthorizationStaysGeneric() async throws {
         let harness = try await makeHarness()
         let fixture = try generationFixture()
         let body = try fixtureRequestBody(fixture)
@@ -59,7 +59,7 @@ final class GenerationServiceTests: XCTestCase {
             body: body
         ))
         XCTAssertEqual(unknown.statusCode, 401)
-        XCTAssertEqual(try errorCode(unknown), "unauthorized")
+        XCTAssertEqual(try errorCode(unknown), "unknown_session")
     }
 
     func testStoreFailureWhileResolvingSessionReturnsServiceUnavailable() async throws {
@@ -330,6 +330,52 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertEqual(credential?.assertionCounter, 2)
     }
 
+    func testConcurrentSQLiteInitializersSerializeLegacySchemaMigrations() async throws {
+        let databaseURL = try testDatabaseURL()
+        defer { removeDatabase(at: databaseURL) }
+        try executeSQLite("""
+        CREATE TABLE installations (
+            installation_id TEXT PRIMARY KEY NOT NULL,
+            key_id TEXT UNIQUE NOT NULL,
+            public_key BLOB NOT NULL,
+            app_identifier TEXT NOT NULL,
+            environment TEXT NOT NULL,
+            bundle_version TEXT NOT NULL,
+            enrolled_at REAL NOT NULL
+        );
+        CREATE TABLE generation_events (
+            installation_id TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL,
+            request_fingerprint BLOB NOT NULL,
+            occurred_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            state TEXT NOT NULL,
+            response BLOB,
+            PRIMARY KEY (installation_id, idempotency_key)
+        );
+        """, at: databaseURL)
+
+        let stores = try await withThrowingTaskGroup(of: SQLiteGenerationServiceStore.self) { group in
+            for _ in 0..<8 {
+                group.addTask { try SQLiteGenerationServiceStore(databaseURL: databaseURL) }
+            }
+            var opened: [SQLiteGenerationServiceStore] = []
+            for try await store in group { opened.append(store) }
+            return opened
+        }
+
+        XCTAssertEqual(stores.count, 8)
+        let laterStore = try SQLiteGenerationServiceStore(databaseURL: databaseURL)
+        let challenge = StoredEnrollmentChallenge(
+            id: "after-concurrent-migration",
+            challenge: Data(repeating: 8, count: 32),
+            expiresAt: Date().addingTimeInterval(60)
+        )
+        try await laterStore.createEnrollmentChallenge(challenge, now: Date())
+        let storedChallenge = try await laterStore.enrollmentChallenge(id: challenge.id, now: Date())
+        XCTAssertNotNil(storedChallenge)
+    }
+
     func testUnusedExpiredEnrollmentChallengesAreDeletedWhenIssuingAnother() async throws {
         let databaseURL = try testDatabaseURL()
         defer { removeDatabase(at: databaseURL) }
@@ -475,6 +521,41 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertEqual(second.statusCode, 200, "A failed finalizer must not leave a dead reservation stuck in progress.")
         let providerCalls = await provider.callCount()
         XCTAssertEqual(providerCalls, 2)
+    }
+
+    func testSuccessfulProviderResultIsRetriedIfSQLiteCannotPersistIt() async throws {
+        let databaseURL = try testDatabaseURL()
+        defer { removeDatabase(at: databaseURL) }
+        let fixture = try generationFixture()
+        let intent = String(decoding: try fixtureBody("ready", fixture: fixture), as: UTF8.self)
+        let provider = ScriptedIntentProvider(intent: intent)
+        let store = try SQLiteGenerationServiceStore(databaseURL: databaseURL)
+        let clock = ManualGenerationClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let service = makeService(store: store, provider: provider, clock: clock)
+        let token = try await enroll(service)
+        try executeSQLite("""
+        CREATE TRIGGER fail_first_generation_completion BEFORE UPDATE OF response ON generation_events
+        BEGIN SELECT RAISE(FAIL, 'intentional completion persistence failure'); END;
+        """, at: databaseURL)
+
+        let first = await service.handle(try await generationRequest(
+            from: fixture,
+            service: service,
+            token: token,
+            idempotencyKey: "provider-succeeded-before-persist-failure"
+        ))
+        try executeSQLite("DROP TRIGGER fail_first_generation_completion", at: databaseURL)
+        let second = await service.handle(try await generationRequest(
+            from: fixture,
+            service: service,
+            token: token,
+            idempotencyKey: "provider-succeeded-before-persist-failure"
+        ))
+
+        XCTAssertEqual(first.statusCode, 503)
+        XCTAssertEqual(second.statusCode, 200)
+        let providerCalls = await provider.callCount()
+        XCTAssertEqual(providerCalls, 2, "Provider calls are at least once when the validated result could not be committed.")
     }
 
     func testSQLiteReservationOwnershipPreventsLiveReclaimAndRejectsStaleFinalizers() async throws {

@@ -441,7 +441,7 @@ public struct GenerationService: Sendable {
         } catch {
             return response(status: 503, error: "service_unavailable")
         }
-        guard let installationID else { return response(status: 401, error: "unauthorized") }
+        guard let installationID else { return response(status: 401, error: "unknown_session") }
 
         guard let idempotencyKey = request.header("Idempotency-Key") else {
             return response(status: 400, error: "invalid_idempotency_key")
@@ -489,11 +489,13 @@ public struct GenerationService: Sendable {
                 expectedAppIdentifier: configuration.expectedAppIdentifier,
                 expectedEnvironment: configuration.appAttestEnvironment
             )
+        } catch AppleAppAttestVerificationError.invalidAssertionCounter {
+            return response(status: 409, error: "assertion_counter_out_of_order")
         } catch {
             return response(status: 401, error: "unauthorized")
         }
         guard verifiedAssertion.counter > credential.assertionCounter else {
-            return response(status: 401, error: "unauthorized")
+            return response(status: 409, error: "assertion_counter_out_of_order")
         }
         do {
             let consumed = try await store.consumeAppAttestAssertion(
@@ -503,7 +505,7 @@ public struct GenerationService: Sendable {
                 newCounter: verifiedAssertion.counter,
                 now: clock.now()
             )
-            guard consumed else { return response(status: 401, error: "unauthorized") }
+            guard consumed else { return response(status: 409, error: "assertion_counter_out_of_order") }
         } catch {
             return response(status: 503, error: "service_unavailable")
         }

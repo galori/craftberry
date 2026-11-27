@@ -7,7 +7,12 @@ import XCTest
 final class AppleAppAttestVerifierTests: XCTestCase {
     func testValidAttestationFixtureValidatesCertificateNonceAppIDKeyAndEnvironment() async throws {
         let fixture = try fixture()
-        let verifier = AppleAppAttestVerifier(rootCertificateDER: fixture.rootDER, allowedBundleVersions: ["1.0"])
+        let verifier = AppleAppAttestVerifier(
+            rootCertificateDER: fixture.rootDER,
+            receiptRootCertificateDER: fixture.receiptRootDER,
+            allowedBundleVersions: ["1.0"],
+            clock: { fixture.receiptCreationDate }
+        )
 
         let verified = try await verifier.verifyAttestation(
             object: fixture.attestation,
@@ -22,12 +27,17 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         XCTAssertEqual(verified.environment, .development)
         XCTAssertEqual(verified.bundleVersion, "1.0")
         XCTAssertEqual(verified.publicKey.count, 65)
-        XCTAssertFalse(verified.receipt.isEmpty)
+        XCTAssertEqual(verified.receipt, fixture.receipt)
     }
 
     func testAttestationRejectsWrongChallengeAppIDKeyIDAndEnvironment() async throws {
         let fixture = try fixture()
-        let verifier = AppleAppAttestVerifier(rootCertificateDER: fixture.rootDER, allowedBundleVersions: ["1.0"])
+        let verifier = AppleAppAttestVerifier(
+            rootCertificateDER: fixture.rootDER,
+            receiptRootCertificateDER: fixture.receiptRootDER,
+            allowedBundleVersions: ["1.0"],
+            clock: { fixture.receiptCreationDate }
+        )
 
         await assertInvalid(.invalidChallenge) {
             try await verifier.verifyAttestation(
@@ -69,7 +79,11 @@ final class AppleAppAttestVerifierTests: XCTestCase {
 
     func testAttestationRejectsUntrustedCertificateChainAndBundleVersion() async throws {
         let fixture = try fixture()
-        let verifier = AppleAppAttestVerifier(rootCertificateDER: Data(repeating: 0, count: fixture.rootDER.count))
+        let verifier = AppleAppAttestVerifier(
+            rootCertificateDER: Data(repeating: 0, count: fixture.rootDER.count),
+            receiptRootCertificateDER: fixture.receiptRootDER,
+            clock: { fixture.receiptCreationDate }
+        )
         await assertInvalid(.invalidCertificateChain) {
             try await verifier.verifyAttestation(
                 object: fixture.attestation,
@@ -80,7 +94,12 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             )
         }
 
-        let versionRestricted = AppleAppAttestVerifier(rootCertificateDER: fixture.rootDER, allowedBundleVersions: ["2.0"])
+        let versionRestricted = AppleAppAttestVerifier(
+            rootCertificateDER: fixture.rootDER,
+            receiptRootCertificateDER: fixture.receiptRootDER,
+            allowedBundleVersions: ["2.0"],
+            clock: { fixture.receiptCreationDate }
+        )
         await assertInvalid(.invalidExtensions) {
             try await versionRestricted.verifyAttestation(
                 object: fixture.attestation,
@@ -92,9 +111,13 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         }
     }
 
-    func testAttestationRequiresExtensionFlagAndEnvironmentSpecificValidationCategory() async throws {
+    func testAttestationAcceptsAppleExtensionMapWithoutFlagAndRejectsWrongValidationCategory() async throws {
         let fixture = try fixture()
-        let verifier = AppleAppAttestVerifier(rootCertificateDER: fixture.rootDER)
+        let verifier = AppleAppAttestVerifier(
+            rootCertificateDER: fixture.rootDER,
+            receiptRootCertificateDER: fixture.receiptRootDER,
+            clock: { fixture.receiptCreationDate }
+        )
 
         await assertInvalid(.invalidExtensions) {
             try await verifier.verifyAttestation(
@@ -105,15 +128,14 @@ final class AppleAppAttestVerifierTests: XCTestCase {
                 expectedEnvironment: .development
             )
         }
-        await assertInvalid(.invalidAuthenticatorFlags) {
-            try await verifier.verifyAttestation(
-                object: fixture.missingExtensionFlag,
-                keyID: fixture.keyID,
-                challenge: fixture.challenge,
-                expectedAppIdentifier: fixture.appIdentifier,
-                expectedEnvironment: .development
-            )
-        }
+        let verified = try await verifier.verifyAttestation(
+            object: fixture.missingExtensionFlag,
+            keyID: fixture.keyID,
+            challenge: fixture.challenge,
+            expectedAppIdentifier: fixture.appIdentifier,
+            expectedEnvironment: .development
+        )
+        XCTAssertEqual(verified.bundleVersion, "1.0")
     }
 
     func testApplePublishedNonceExtensionUnwrapsExplicitOctetStringWithoutTrustEvaluation() throws {
@@ -129,6 +151,52 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         ])
 
         XCTAssertEqual(try AppleAppAttestVerifier.appAttestNonceExtension(in: appleSampleLeaf), expectedNonce)
+    }
+
+    func testReceiptValidationChecksCmsSignatureTrustAndAttestationBindings() throws {
+        let fixture = try fixture()
+        let now = fixture.receiptCreationDate
+        let verify = { (receipt: Data, root: Data, appID: String, leaf: Data, clientHash: Data, date: Date) in
+            try AppleAppAttestVerifier.verifyAttestationReceipt(
+                receipt,
+                rootCertificateDER: root,
+                expectedAppIdentifier: appID,
+                expectedCredentialCertificate: leaf,
+                expectedClientDataHash: clientHash,
+                now: date
+            )
+        }
+        let clientHash = Data(SHA256.hash(data: fixture.challenge))
+
+        XCTAssertNoThrow(try verify(
+            fixture.receipt,
+            fixture.receiptRootDER,
+            fixture.appIdentifier,
+            fixture.leafCertificateDER,
+            clientHash,
+            now
+        ))
+
+        var tamperedReceipt = fixture.receipt
+        tamperedReceipt[tamperedReceipt.count - 1] ^= 0x01
+        assertInvalidReceipt {
+            try verify(tamperedReceipt, fixture.receiptRootDER, fixture.appIdentifier, fixture.leafCertificateDER, clientHash, now)
+        }
+        assertInvalidReceipt {
+            try verify(fixture.receipt, Data(repeating: 0, count: fixture.receiptRootDER.count), fixture.appIdentifier, fixture.leafCertificateDER, clientHash, now)
+        }
+        assertInvalidReceipt {
+            try verify(fixture.receipt, fixture.receiptRootDER, "OTHERTEAMID.com.craftberry.app", fixture.leafCertificateDER, clientHash, now)
+        }
+        assertInvalidReceipt {
+            try verify(fixture.receipt, fixture.receiptRootDER, fixture.appIdentifier, Data("another-key".utf8), clientHash, now)
+        }
+        assertInvalidReceipt {
+            try verify(fixture.receipt, fixture.receiptRootDER, fixture.appIdentifier, fixture.leafCertificateDER, Data(repeating: 0, count: 32), now)
+        }
+        assertInvalidReceipt {
+            try verify(fixture.receipt, fixture.receiptRootDER, fixture.appIdentifier, fixture.leafCertificateDER, clientHash, now.addingTimeInterval(301))
+        }
     }
 
     func testLegacyAuthenticatorDataWithoutNewExtensionsRemainsValid() throws {
@@ -151,6 +219,26 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         let olderOSParsed = try AppleAppAttestVerifier(rootCertificateDER: Data()).parseAuthenticatorData(olderOSData)
         XCTAssertNil(olderOSParsed.validationCategory)
         XCTAssertNil(olderOSParsed.bundleVersion)
+
+        var trailingMapWithoutExtensionFlag = authenticatorData
+        trailingMapWithoutExtensionFlag.append(
+            Data([0xA2]) + cborText("apple_validation_category_01") + Data([0x03])
+                + cborText("apple_bundle_version_01") + cborText("1.0")
+        )
+        let trailingMapParsed = try AppleAppAttestVerifier(rootCertificateDER: Data()).parseAuthenticatorData(
+            trailingMapWithoutExtensionFlag
+        )
+        XCTAssertEqual(trailingMapParsed.validationCategory, 3)
+        XCTAssertEqual(trailingMapParsed.bundleVersion, "1.0")
+    }
+
+    func testCBORReaderAcceptsDataSlicesWithNonzeroStartIndex() throws {
+        let encoded = Data([0xFF, 0xA1, 0x61, 0x78, 0x01, 0xEE])
+        let slice = encoded[1..<5]
+
+        let decoded = try CBORReader(data: slice).decodeComplete()
+
+        XCTAssertEqual(decoded.stringKeyedMap?["x"]?.unsigned, 1)
     }
 
     func testCBORRejectsLengthThatWouldOverflowOffsetAddition() {
@@ -422,6 +510,16 @@ final class AppleAppAttestVerifierTests: XCTestCase {
         }
     }
 
+    private func assertInvalidReceipt(
+        operation: () throws -> Void,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertThrowsError(try operation(), file: file, line: line) {
+            XCTAssertEqual($0 as? AppleAppAttestVerificationError, .invalidReceipt, file: file, line: line)
+        }
+    }
+
     private func assertionObject(
         signedBy privateKey: SecKey,
         clientData: Data,
@@ -534,11 +632,20 @@ final class AppleAppAttestVerifierTests: XCTestCase {
 
     private func fixture() throws -> Fixture {
         let bundleURL = try XCTUnwrap(Bundle.module.resourceURL?.appending(path: "AppAttest", directoryHint: .isDirectory))
+        let attestation = try Data(contentsOf: bundleURL.appending(path: "valid-attestation.cbor"))
+        let attestationMap = try XCTUnwrap(CBORReader(data: attestation).decodeComplete().stringKeyedMap)
+        let statement = try XCTUnwrap(attestationMap["attStmt"]?.stringKeyedMap)
+        let chain = try XCTUnwrap(statement["x5c"]?.array?.compactMap(\.bytes))
+        let receiptDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2027-01-15T08:00:00Z"))
         return Fixture(
-            attestation: try Data(contentsOf: bundleURL.appending(path: "valid-attestation.cbor")),
+            attestation: attestation,
             wrongValidationCategory: try Data(contentsOf: bundleURL.appending(path: "wrong-validation-category-attestation.cbor")),
             missingExtensionFlag: try Data(contentsOf: bundleURL.appending(path: "missing-extension-flag-attestation.cbor")),
             rootDER: try Data(contentsOf: bundleURL.appending(path: "test-root.der")),
+            receiptRootDER: try Data(contentsOf: bundleURL.appending(path: "receipt-root.der")),
+            receipt: try Data(contentsOf: bundleURL.appending(path: "valid-receipt.cms")),
+            leafCertificateDER: try XCTUnwrap(chain.first),
+            receiptCreationDate: receiptDate,
             challenge: try Data(contentsOf: bundleURL.appending(path: "challenge.bin")),
             keyID: try String(contentsOf: bundleURL.appending(path: "key-id.txt"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
             appIdentifier: try String(contentsOf: bundleURL.appending(path: "app-id.txt"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -551,6 +658,10 @@ private struct Fixture {
     let wrongValidationCategory: Data
     let missingExtensionFlag: Data
     let rootDER: Data
+    let receiptRootDER: Data
+    let receipt: Data
+    let leafCertificateDER: Data
+    let receiptCreationDate: Date
     let challenge: Data
     let keyID: String
     let appIdentifier: String

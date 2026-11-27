@@ -21,65 +21,65 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
         try Self.execute("PRAGMA synchronous=FULL", on: handle)
         try Self.execute("PRAGMA foreign_keys=ON", on: handle)
         try Self.execute("PRAGMA busy_timeout=5000", on: handle)
-        try Self.execute("""
-        CREATE TABLE IF NOT EXISTS enrollment_challenges (
-            challenge_id TEXT PRIMARY KEY NOT NULL,
-            challenge BLOB NOT NULL,
-            expires_at REAL NOT NULL
-        )
-        """, on: handle)
-        try Self.execute("""
-        CREATE TABLE IF NOT EXISTS installations (
-            installation_id TEXT PRIMARY KEY NOT NULL,
-            key_id TEXT UNIQUE NOT NULL,
-            public_key BLOB NOT NULL,
-            app_identifier TEXT NOT NULL,
-            environment TEXT NOT NULL,
-            bundle_version TEXT NOT NULL,
-            enrolled_at REAL NOT NULL,
-            attestation_receipt BLOB,
-            assertion_counter INTEGER NOT NULL DEFAULT 0
-        )
-        """, on: handle)
-        if try !Self.tableHasColumn("attestation_receipt", table: "installations", on: handle) {
-            try Self.execute("ALTER TABLE installations ADD COLUMN attestation_receipt BLOB", on: handle)
-        }
-        if try !Self.tableHasColumn("assertion_counter", table: "installations", on: handle) {
-            try Self.execute(
-                "ALTER TABLE installations ADD COLUMN assertion_counter INTEGER NOT NULL DEFAULT 0",
-                on: handle
-            )
-        }
-        try Self.execute("""
-        CREATE TABLE IF NOT EXISTS generation_sessions (
-            token_digest BLOB PRIMARY KEY NOT NULL,
-            installation_id TEXT NOT NULL REFERENCES installations(installation_id),
-            created_at REAL NOT NULL
-        )
-        """, on: handle)
-        try Self.execute("""
-        CREATE TABLE IF NOT EXISTS generation_events (
-            installation_id TEXT NOT NULL REFERENCES installations(installation_id),
-            idempotency_key TEXT NOT NULL,
-            request_fingerprint BLOB NOT NULL,
-            occurred_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
-            state TEXT NOT NULL,
-            response BLOB,
-            reservation_id TEXT,
-            owner_id TEXT,
-            PRIMARY KEY (installation_id, idempotency_key)
-        )
-        """, on: handle)
-        if try !Self.tableHasColumn("reservation_id", table: "generation_events", on: handle) {
-            try Self.execute("ALTER TABLE generation_events ADD COLUMN reservation_id TEXT", on: handle)
-        }
-        if try !Self.tableHasColumn("owner_id", table: "generation_events", on: handle) {
-            try Self.execute("ALTER TABLE generation_events ADD COLUMN owner_id TEXT", on: handle)
-        }
-        try Self.execute("CREATE INDEX IF NOT EXISTS generation_events_install_time ON generation_events(installation_id, occurred_at)", on: handle)
         try Self.execute("BEGIN IMMEDIATE", on: handle)
         do {
+            try Self.execute("""
+            CREATE TABLE IF NOT EXISTS enrollment_challenges (
+                challenge_id TEXT PRIMARY KEY NOT NULL,
+                challenge BLOB NOT NULL,
+                expires_at REAL NOT NULL
+            )
+            """, on: handle)
+            try Self.execute("""
+            CREATE TABLE IF NOT EXISTS installations (
+                installation_id TEXT PRIMARY KEY NOT NULL,
+                key_id TEXT UNIQUE NOT NULL,
+                public_key BLOB NOT NULL,
+                app_identifier TEXT NOT NULL,
+                environment TEXT NOT NULL,
+                bundle_version TEXT NOT NULL,
+                enrolled_at REAL NOT NULL,
+                attestation_receipt BLOB,
+                assertion_counter INTEGER NOT NULL DEFAULT 0
+            )
+            """, on: handle)
+            if try !Self.tableHasColumn("attestation_receipt", table: "installations", on: handle) {
+                try Self.execute("ALTER TABLE installations ADD COLUMN attestation_receipt BLOB", on: handle)
+            }
+            if try !Self.tableHasColumn("assertion_counter", table: "installations", on: handle) {
+                try Self.execute(
+                    "ALTER TABLE installations ADD COLUMN assertion_counter INTEGER NOT NULL DEFAULT 0",
+                    on: handle
+                )
+            }
+            try Self.execute("""
+            CREATE TABLE IF NOT EXISTS generation_sessions (
+                token_digest BLOB PRIMARY KEY NOT NULL,
+                installation_id TEXT NOT NULL REFERENCES installations(installation_id),
+                created_at REAL NOT NULL
+            )
+            """, on: handle)
+            try Self.execute("""
+            CREATE TABLE IF NOT EXISTS generation_events (
+                installation_id TEXT NOT NULL REFERENCES installations(installation_id),
+                idempotency_key TEXT NOT NULL,
+                request_fingerprint BLOB NOT NULL,
+                occurred_at REAL NOT NULL,
+                updated_at REAL NOT NULL,
+                state TEXT NOT NULL,
+                response BLOB,
+                reservation_id TEXT,
+                owner_id TEXT,
+                PRIMARY KEY (installation_id, idempotency_key)
+            )
+            """, on: handle)
+            if try !Self.tableHasColumn("reservation_id", table: "generation_events", on: handle) {
+                try Self.execute("ALTER TABLE generation_events ADD COLUMN reservation_id TEXT", on: handle)
+            }
+            if try !Self.tableHasColumn("owner_id", table: "generation_events", on: handle) {
+                try Self.execute("ALTER TABLE generation_events ADD COLUMN owner_id TEXT", on: handle)
+            }
+            try Self.execute("CREATE INDEX IF NOT EXISTS generation_events_install_time ON generation_events(installation_id, occurred_at)", on: handle)
             let quotaEventsTableExisted = try Self.tableExists("generation_quota_events", on: handle)
             try Self.execute("""
             CREATE TABLE IF NOT EXISTS generation_quota_events (
@@ -449,8 +449,18 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
     }
 
     private static func execute(_ sql: String, on database: OpaquePointer) throws {
-        var errorPointer: UnsafeMutablePointer<CChar>?
-        guard sqlite3_exec(database, sql, nil, nil, &errorPointer) == SQLITE_OK else {
+        var attempts = 0
+        while true {
+            var errorPointer: UnsafeMutablePointer<CChar>?
+            let result = sqlite3_exec(database, sql, nil, nil, &errorPointer)
+            if result == SQLITE_OK { return }
+            let baseResult = result & 0xFF
+            if (baseResult == SQLITE_BUSY || baseResult == SQLITE_LOCKED), attempts < 100 {
+                sqlite3_free(errorPointer)
+                attempts += 1
+                Thread.sleep(forTimeInterval: 0.05)
+                continue
+            }
             let message = errorPointer.map { String(cString: $0) } ?? String(cString: sqlite3_errmsg(database))
             sqlite3_free(errorPointer)
             throw SQLiteGenerationServiceStoreError.database(message)

@@ -14,6 +14,7 @@ public enum AppleAppAttestVerificationError: Error, Equatable {
     case invalidCounter
     case invalidExtensions
     case missingReceipt
+    case invalidReceipt
     case invalidAssertionSignature
     case invalidAssertionChallenge
     case invalidAssertionAppIdentifier
@@ -29,11 +30,20 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
     public static let legacyBundleVersionPolicyToken = "legacy-no-bundle-version"
 
     private let rootCertificateDER: Data
+    private let receiptRootCertificateDER: Data?
     private let allowedBundleVersions: Set<String>?
+    private let clock: @Sendable () -> Date
 
-    public init(rootCertificateDER: Data, allowedBundleVersions: Set<String>? = nil) {
+    public init(
+        rootCertificateDER: Data,
+        receiptRootCertificateDER: Data? = nil,
+        allowedBundleVersions: Set<String>? = nil,
+        clock: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.rootCertificateDER = rootCertificateDER
+        self.receiptRootCertificateDER = receiptRootCertificateDER
         self.allowedBundleVersions = allowedBundleVersions
+        self.clock = clock
     }
 
     public func verifyAttestation(
@@ -54,6 +64,9 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         }
         guard let receipt = statement["receipt"]?.bytes, !receipt.isEmpty else {
             throw AppleAppAttestVerificationError.missingReceipt
+        }
+        guard let receiptRootCertificateDER else {
+            throw AppleAppAttestVerificationError.invalidReceipt
         }
 
         let publicPoint = try verifyCertificateChain(chain)
@@ -91,6 +104,14 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         } else if authenticator.validationCategory != nil || authenticator.bundleVersion != nil {
             throw AppleAppAttestVerificationError.invalidExtensions
         }
+        try Self.verifyAttestationReceipt(
+            receipt,
+            rootCertificateDER: receiptRootCertificateDER,
+            expectedAppIdentifier: expectedAppIdentifier,
+            expectedCredentialCertificate: leafCertificate,
+            expectedClientDataHash: clientDataHash,
+            now: clock()
+        )
 
         return VerifiedAppAttestKey(
             keyID: keyID,
@@ -211,6 +232,144 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         return try publicPoint(inCertificate: leaf)
     }
 
+    static func verifyAttestationReceipt(
+        _ receipt: Data,
+        rootCertificateDER: Data,
+        expectedAppIdentifier: String,
+        expectedCredentialCertificate: Data,
+        expectedClientDataHash: Data,
+        now: Date
+    ) throws {
+        #if os(macOS)
+        do {
+            var decoder: CMSDecoder?
+            guard CMSDecoderCreate(&decoder) == errSecSuccess, let decoder else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+            let messageStatus = receipt.withUnsafeBytes { bytes in
+                guard let baseAddress = bytes.baseAddress else { return errSecParam }
+                return CMSDecoderUpdateMessage(decoder, baseAddress, bytes.count)
+            }
+            guard messageStatus == errSecSuccess,
+                  CMSDecoderFinalizeMessage(decoder) == errSecSuccess else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+
+            var signerCount = 0
+            guard CMSDecoderGetNumSigners(decoder, &signerCount) == errSecSuccess,
+                  signerCount == 1 else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+            var content: CFData?
+            guard CMSDecoderCopyContent(decoder, &content) == errSecSuccess,
+                  let content else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+            let fields = try parseReceiptPayload(content as Data)
+            guard let appIdentifierData = fields[2],
+                  let credentialCertificate = fields[3],
+                  let clientDataHash = fields[4],
+                  let receiptTypeData = fields[6],
+                  let creationTimeData = fields[12] else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+            let appIdentifier = try receiptString(appIdentifierData)
+            let receiptType = try receiptString(receiptTypeData)
+            let creationDate = try receiptDate(creationTimeData)
+            guard appIdentifier == expectedAppIdentifier,
+                  credentialCertificate == expectedCredentialCertificate,
+                  clientDataHash == expectedClientDataHash,
+                  receiptType == "ATTEST",
+                  creationDate <= now,
+                  now.timeIntervalSince(creationDate) <= 5 * 60 else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+
+            let policy = SecPolicyCreateBasicX509()
+            var signerStatus: CMSSignerStatus = .unsigned
+            var trust: SecTrust?
+            guard CMSDecoderCopySignerStatus(
+                decoder,
+                0,
+                policy,
+                false,
+                &signerStatus,
+                &trust,
+                nil
+            ) == errSecSuccess,
+                  signerStatus == .valid,
+                  let trust,
+                  let anchor = SecCertificateCreateWithData(nil, rootCertificateDER as CFData),
+                  SecTrustSetNetworkFetchAllowed(trust, false) == errSecSuccess,
+                  SecTrustSetAnchorCertificates(trust, [anchor] as CFArray) == errSecSuccess,
+                  SecTrustSetAnchorCertificatesOnly(trust, true) == errSecSuccess,
+                  SecTrustSetVerifyDate(trust, creationDate as CFDate) == errSecSuccess else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+            var trustError: CFError?
+            guard SecTrustEvaluateWithError(trust, &trustError) else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+        } catch {
+            throw AppleAppAttestVerificationError.invalidReceipt
+        }
+        #else
+        throw AppleAppAttestVerificationError.invalidReceipt
+        #endif
+    }
+
+    private static func parseReceiptPayload(_ data: Data) throws -> [Int: Data] {
+        let reader = DERReader(data: data)
+        let payload = try reader.read(at: 0)
+        guard payload.tag == 0x31, payload.endOffset == data.count else {
+            throw AppleAppAttestVerificationError.invalidReceipt
+        }
+        var fields: [Int: Data] = [:]
+        for attribute in try reader.children(of: payload) {
+            guard attribute.tag == 0x30 else { throw AppleAppAttestVerificationError.invalidReceipt }
+            let parts = try reader.children(of: attribute)
+            guard parts.count == 3,
+                  parts[0].tag == 0x02,
+                  parts[1].tag == 0x02,
+                  parts[2].tag == 0x04 else {
+                throw AppleAppAttestVerificationError.invalidReceipt
+            }
+            let type = try reader.integer(parts[0])
+            _ = try reader.integer(parts[1])
+            guard fields[type] == nil else { throw AppleAppAttestVerificationError.invalidReceipt }
+            fields[type] = try reader.content(of: parts[2])
+        }
+        return fields
+    }
+
+    private static func receiptString(_ value: Data) throws -> String {
+        let reader = DERReader(data: value)
+        let element = try reader.read(at: 0)
+        guard [0x0C, 0x13, 0x16].contains(element.tag), element.endOffset == value.count,
+              let string = String(data: try reader.content(of: element), encoding: .utf8) else {
+            throw AppleAppAttestVerificationError.invalidReceipt
+        }
+        return string
+    }
+
+    private static func receiptDate(_ value: Data) throws -> Date {
+        let reader = DERReader(data: value)
+        let element = try reader.read(at: 0)
+        guard element.tag == 0x18, element.endOffset == value.count,
+              let text = String(data: try reader.content(of: element), encoding: .ascii) else {
+            throw AppleAppAttestVerificationError.invalidReceipt
+        }
+        for options: ISO8601DateFormatter.Options in [
+            [.withInternetDateTime, .withFractionalSeconds],
+            [.withInternetDateTime]
+        ] {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = options
+            if let date = formatter.date(from: text) { return date }
+        }
+        throw AppleAppAttestVerificationError.invalidReceipt
+    }
+
     private func decodeKeyIdentifier(_ keyID: String) throws -> Data {
         if let value = Data(base64Encoded: keyID), value.count == 32 { return value }
         var normalized = keyID.replacingOccurrences(of: "-", with: "+")
@@ -303,7 +462,12 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
         let extensionData = Data(data[(credentialEnd + coseBytesUsed)...])
         var validationCategory: UInt32?
         var bundleVersion: String?
-        if flags & 0x80 != 0 {
+        if extensionData.isEmpty {
+            guard flags & 0x80 == 0 else { throw AppleAppAttestVerificationError.invalidExtensions }
+        } else {
+            // Apple's attestation sample includes an extension map after the COSE key
+            // even when the ED flag is clear. Parse a complete CBOR map when bytes are
+            // present, and reject all other trailing data.
             let extensions = try CBORReader(data: extensionData).decodeComplete()
             guard let values = extensions.stringKeyedMap else {
                 throw AppleAppAttestVerificationError.invalidExtensions
@@ -316,8 +480,6 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
                 validationCategory = category
                 bundleVersion = version
             }
-        } else if !extensionData.isEmpty {
-            throw AppleAppAttestVerificationError.invalidAuthenticatorFlags
         }
         return ParsedAuthenticatorData(
             rpIDHash: rpIDHash,
@@ -397,7 +559,7 @@ struct CBORReader {
     let data: Data
     private var offset = 0
 
-    init(data: Data) { self.data = data }
+    init(data: Data) { self.data = Data(data) }
 
     func decodeComplete() throws -> CBORValue {
         var reader = self
@@ -499,6 +661,8 @@ private struct DERElement {
 private struct DERReader {
     let data: Data
 
+    init(data: Data) { self.data = Data(data) }
+
     func read(at start: Int) throws -> DERElement {
         guard start + 2 <= data.count else { throw AppleAppAttestVerificationError.malformedObject }
         let tag = data[start]
@@ -538,6 +702,17 @@ private struct DERReader {
 
     func content(of element: DERElement) throws -> Data {
         Data(data[element.contentRange])
+    }
+
+    func integer(_ element: DERElement) throws -> Int {
+        let bytes = try content(of: element)
+        guard element.tag == 0x02, !bytes.isEmpty, bytes.count <= MemoryLayout<Int>.size else {
+            throw AppleAppAttestVerificationError.invalidReceipt
+        }
+        var value = 0
+        for byte in bytes { value = (value << 8) | Int(byte) }
+        guard value >= 0 else { throw AppleAppAttestVerificationError.invalidReceipt }
+        return value
     }
 
     func oid(_ element: DERElement) throws -> String {

@@ -21,7 +21,10 @@ let package = Package(
             name: "GenerationServer",
             dependencies: ["CraftberryCore"],
             path: "Tools/GenerationServer",
-            resources: [.copy("Resources/Apple_App_Attestation_Root_CA.pem")]
+            resources: [
+                .copy("Resources/Apple_App_Attestation_Root_CA.pem"),
+                .copy("Resources/AppleRootCA-G3.cer")
+            ]
         ),
         .executableTarget(name: "MinecraftFixture", dependencies: ["CraftberryCore"], path: "Tools/MinecraftFixture"),
         .executableTarget(name: "SchemaFixture", dependencies: ["CraftberryCore"], path: "Tools/SchemaFixture"),
