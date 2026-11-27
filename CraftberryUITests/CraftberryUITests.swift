@@ -6,6 +6,8 @@ final class CraftberryUITests: XCTestCase {
     }
 
     func testDeterministicSwordExportBuildsAndOpensShareSheetInOneStep() throws {
+        XCUIDevice.shared.orientation = .portrait
+
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]
         app.launch()
