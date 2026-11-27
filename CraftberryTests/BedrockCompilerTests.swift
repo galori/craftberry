@@ -91,6 +91,53 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: initialResult.artifact.projectSidecarURL), previousSidecar)
     }
 
+    func testCompilerRestoresPreviousArchiveWhenSidecarPublicationFails() throws {
+        let project = try makeProject()
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let compiler = BedrockAddOnCompiler()
+        let initialResult = try compiler.compile(project: project, profile: .current, outputDirectory: directory)
+        let previousArchive = try Data(contentsOf: initialResult.artifact.url)
+        let changedPixels = Data(repeating: 0xA5, count: 32 * 32 * 4)
+        let changedProject = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content.map { node in
+                guard case .visualResource(let resource) = node, resource.kind == .swordPixelArt else { return node }
+                return .visualResource(VisualResource(
+                    id: resource.id,
+                    kind: resource.kind,
+                    color: resource.color,
+                    customPixels: changedPixels
+                ))
+            }
+        )
+        let expectedDirectory = directory.appending(path: "expected", directoryHint: .isDirectory)
+        let expectedResult = try compiler.compile(
+            project: changedProject,
+            profile: .current,
+            outputDirectory: expectedDirectory
+        )
+        XCTAssertNotEqual(try Data(contentsOf: expectedResult.artifact.url), previousArchive)
+
+        try FileManager.default.removeItem(at: initialResult.artifact.projectSidecarURL)
+        try FileManager.default.createDirectory(
+            at: initialResult.artifact.projectSidecarURL,
+            withIntermediateDirectories: true
+        )
+        XCTAssertThrowsError(
+            try compiler.compile(project: changedProject, profile: .current, outputDirectory: directory)
+        )
+        XCTAssertEqual(try Data(contentsOf: initialResult.artifact.url), previousArchive)
+    }
+
     func testCompilerEmitsMaterialBrewingSetRecipesAndTextures() throws {
         let project = try AddOnProject.materialBrewingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "brewing", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
