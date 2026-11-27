@@ -133,7 +133,7 @@ private struct GenerationHTTPServer {
         while true {
             let client = accept(listener, nil, nil)
             guard client >= 0 else {
-                if errno == EINTR { continue }
+                if errno == EINTR || errno == ECONNABORTED { continue }
                 throw SocketServerError.systemCall("accept", errno)
             }
             connectionSlots.wait()

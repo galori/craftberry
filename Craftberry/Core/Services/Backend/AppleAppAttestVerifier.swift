@@ -24,6 +24,10 @@ public enum AppleAppAttestVerificationError: Error, Equatable {
 /// Verifies Apple App Attest key-attestation objects using the Apple App Attestation
 /// root CA and the concrete application identity configured by the service host.
 public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
+    /// Add this explicit token to the server allowlist to accept App Attest data
+    /// from OS releases that do not include bundle-version extensions.
+    public static let legacyBundleVersionPolicyToken = "legacy-no-bundle-version"
+
     private let rootCertificateDER: Data
     private let allowedBundleVersions: Set<String>?
 
@@ -75,11 +79,13 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
               try Self.certificateExtension(oid: "1.2.840.113635.100.8.2", in: leafCertificate) == nonce else {
             throw AppleAppAttestVerificationError.invalidChallenge
         }
+        guard acceptsBundleVersion(authenticator.bundleVersion) else {
+            throw AppleAppAttestVerificationError.invalidExtensions
+        }
         if let validationCategory = authenticator.validationCategory,
            let bundleVersion = authenticator.bundleVersion {
             guard Self.validationCategory(validationCategory, isAllowedIn: expectedEnvironment),
-                  !bundleVersion.isEmpty,
-                  allowedBundleVersions.map({ $0.contains(bundleVersion) }) ?? true else {
+                  !bundleVersion.isEmpty else {
                 throw AppleAppAttestVerificationError.invalidExtensions
             }
         } else if authenticator.validationCategory != nil || authenticator.bundleVersion != nil {
@@ -137,13 +143,15 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
                       let version = extensions["apple_bundle_version_01"]?.text else {
                     throw AppleAppAttestVerificationError.invalidAssertionExtensions
                 }
-                guard (credential.bundleVersion.isEmpty || version == credential.bundleVersion),
-                      allowedBundleVersions.map({ $0.contains(version) }) ?? true,
+                guard acceptsBundleVersion(version),
+                      allowedBundleVersions != nil || credential.bundleVersion.isEmpty || version == credential.bundleVersion,
                       Self.validationCategory(category, isAllowedIn: expectedEnvironment) else {
                     throw AppleAppAttestVerificationError.invalidAssertionExtensions
                 }
             }
         } else if !extensionBytes.isEmpty {
+            throw AppleAppAttestVerificationError.invalidAssertionExtensions
+        } else if !acceptsBundleVersion(nil) {
             throw AppleAppAttestVerificationError.invalidAssertionExtensions
         }
 
@@ -212,6 +220,14 @@ public struct AppleAppAttestVerifier: AppAttestVerifying, Sendable {
             throw AppleAppAttestVerificationError.invalidKeyIdentifier
         }
         return value
+    }
+
+    private func acceptsBundleVersion(_ bundleVersion: String?) -> Bool {
+        guard let allowedBundleVersions else { return true }
+        guard let bundleVersion else {
+            return allowedBundleVersions.contains(Self.legacyBundleVersionPolicyToken)
+        }
+        return allowedBundleVersions.contains(bundleVersion)
     }
 
     private func publicPoint(inCertificate certificate: Data) throws -> Data {

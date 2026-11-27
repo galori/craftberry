@@ -141,6 +141,33 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertEqual(calls, 1)
     }
 
+    func testMissingIdempotencyHeaderIsRejectedBeforeAssertionVerification() async throws {
+        let fixture = try generationFixture()
+        let provider = ScriptedIntentProvider(intent: String(decoding: try fixtureBody("ready", fixture: fixture), as: UTF8.self))
+        let harness = try await makeHarness(provider: provider)
+        let validRequest = try await generationRequest(
+            from: fixture,
+            service: harness.service,
+            token: harness.token,
+            idempotencyKey: "missing-idempotency"
+        )
+        var headers = validRequest.headers
+        headers.removeValue(forKey: "Idempotency-Key")
+        let request = GenerationServiceRequest(
+            method: validRequest.method,
+            path: validRequest.path,
+            headers: headers,
+            body: validRequest.body
+        )
+
+        let response = await harness.service.handle(request)
+
+        XCTAssertEqual(response.statusCode, 400)
+        XCTAssertEqual(try errorCode(response), "invalid_idempotency_key")
+        let calls = await provider.callCount()
+        XCTAssertEqual(calls, 0)
+    }
+
     func testPromptLimitAccepts600CharactersAndRejects601BeforeProvider() async throws {
         let fixture = try generationFixture()
         let intent = String(decoding: try fixtureBody("ready", fixture: fixture), as: UTF8.self)
@@ -386,6 +413,68 @@ final class GenerationServiceTests: XCTestCase {
                 return
             }
         }
+    }
+
+    func testSQLiteQuotaTableBackfillRollsBackAndRetriesAfterForeignKeyFailure() async throws {
+        let databaseURL = try testDatabaseURL()
+        defer { removeDatabase(at: databaseURL) }
+        _ = try SQLiteGenerationServiceStore(databaseURL: databaseURL)
+        try executeSQLite("""
+        PRAGMA foreign_keys = OFF;
+        INSERT INTO generation_events(installation_id, idempotency_key, request_fingerprint, occurred_at, updated_at, state)
+        VALUES('missing-installation', 'legacy-event', zeroblob(32), 1800000000, 1800000000, 'completed');
+        DROP TABLE generation_quota_events;
+        """, at: databaseURL)
+
+        XCTAssertThrowsError(try SQLiteGenerationServiceStore(databaseURL: databaseURL))
+        XCTAssertEqual(
+            try sqliteCount("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='generation_quota_events'", at: databaseURL),
+            0,
+            "A failed quota migration must roll back its table creation."
+        )
+
+        try executeSQLite("""
+        INSERT INTO installations(installation_id, key_id, public_key, app_identifier, environment, bundle_version, enrolled_at)
+        VALUES('missing-installation', 'migration-fixture-key', X'01', 'TESTTEAMID.com.craftberry.app', 'development', '1.0', 1800000000);
+        """, at: databaseURL)
+        _ = try SQLiteGenerationServiceStore(databaseURL: databaseURL)
+
+        XCTAssertEqual(try sqliteCount("SELECT COUNT(*) FROM generation_quota_events WHERE idempotency_key='legacy-event'", at: databaseURL), 1)
+    }
+
+    func testFailedRetryableFinalizationReleasesReservationForNextAttempt() async throws {
+        let databaseURL = try testDatabaseURL()
+        defer { removeDatabase(at: databaseURL) }
+        let fixture = try generationFixture()
+        let intent = String(decoding: try fixtureBody("ready", fixture: fixture), as: UTF8.self)
+        let provider = ScriptedIntentProvider(intent: intent, initialFailures: 1)
+        let store = try SQLiteGenerationServiceStore(databaseURL: databaseURL)
+        let clock = ManualGenerationClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let service = makeService(store: store, provider: provider, clock: clock)
+        let token = try await enroll(service)
+        try executeSQLite("""
+        CREATE TRIGGER fail_retryable_update BEFORE UPDATE OF state ON generation_events
+        WHEN NEW.state = 'retryable'
+        BEGIN SELECT RAISE(FAIL, 'intentional retryable finalization failure'); END;
+        """, at: databaseURL)
+
+        let first = await service.handle(try await generationRequest(
+            from: fixture,
+            service: service,
+            token: token,
+            idempotencyKey: "failed-finalization-retry"
+        ))
+        let second = await service.handle(try await generationRequest(
+            from: fixture,
+            service: service,
+            token: token,
+            idempotencyKey: "failed-finalization-retry"
+        ))
+
+        XCTAssertEqual(first.statusCode, 503)
+        XCTAssertEqual(second.statusCode, 200, "A failed finalizer must not leave a dead reservation stuck in progress.")
+        let providerCalls = await provider.callCount()
+        XCTAssertEqual(providerCalls, 2)
     }
 
     func testSQLiteReservationOwnershipPreventsLiveReclaimAndRejectsStaleFinalizers() async throws {

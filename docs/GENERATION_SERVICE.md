@@ -29,6 +29,8 @@ swift run GenerationServer
 
 `OPENAI_API_KEY` is read only by the server process and is never placed in the app bundle. Do not put real keys in shell history, tracked files, or this example. The listener defaults to `127.0.0.1:8787`; the database defaults to `craftberry-generation.sqlite` in the current directory. Keep the database on a durable local volume. SQLite WAL is intended for one host and must not be shared over NFS or used by multiple replicas.
 
+`APP_ATTEST_ALLOWED_BUNDLE_VERSIONS` must list each accepted app build. App Attest data without bundle-version metadata is rejected when this list is configured unless it also includes the explicit `legacy-no-bundle-version` token. Add that token only when supporting OS releases that omit the metadata; it intentionally permits those clients without a verifiable build number.
+
 ## Staging and release setup still required
 
 - Register the app's App ID in the Apple Developer account and enable App Attest. Set `APP_ATTEST_APP_ID` to the exact registered App ID (`prefix.bundle-id`); the prefix is not always the Team ID.

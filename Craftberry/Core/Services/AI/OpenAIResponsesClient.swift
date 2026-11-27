@@ -430,6 +430,7 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
     private var enrollmentTask: Task<String, Error>?
     private var credentialResetTask: (id: UUID, task: Task<Void, Error>)?
     private var requiresEnrollmentAfterInvalidKey = false
+    private var credentialGeneration: UInt64 = 0
 
     public init(
         baseURL: URL?,
@@ -471,6 +472,7 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
         guard !requiresEnrollmentAfterInvalidKey else {
             throw BackendGenerationClientError.appAttestKeyInvalid
         }
+        let assertionGeneration = credentialGeneration
         guard appAttestService.isSupported,
               let keyID = try await credentialStore.appAttestKeyID(),
               !keyID.isEmpty else {
@@ -492,7 +494,11 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
         do {
             assertion = try await appAttestService.generateAssertion(keyID, clientDataHash: clientDataHash)
         } catch GenerationAppAttestError.invalidKey {
+            guard credentialGeneration == assertionGeneration else {
+                throw BackendGenerationClientError.appAttestKeyInvalid
+            }
             requiresEnrollmentAfterInvalidKey = true
+            credentialGeneration &+= 1
             if credentialResetTask == nil {
                 let store = credentialStore
                 credentialResetTask = (UUID(), Task { try await store.clearSession() })
@@ -527,12 +533,20 @@ public actor KeychainGenerationCredentialProvider: RuntimeGenerationCredentialPr
         )
         try await credentialStore.saveAppAttestKeyID(keyID)
         try await credentialStore.saveBearerToken(token)
+        credentialGeneration &+= 1
         return token
     }
 
     private func awaitCredentialResetIfNeeded() async throws {
         guard let reset = credentialResetTask else { return }
-        try await reset.task.value
+        do {
+            try await reset.task.value
+        } catch {
+            if credentialResetTask?.id == reset.id {
+                credentialResetTask = nil
+            }
+            throw error
+        }
         if credentialResetTask?.id == reset.id {
             credentialResetTask = nil
         }

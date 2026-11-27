@@ -78,24 +78,31 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
             try Self.execute("ALTER TABLE generation_events ADD COLUMN owner_id TEXT", on: handle)
         }
         try Self.execute("CREATE INDEX IF NOT EXISTS generation_events_install_time ON generation_events(installation_id, occurred_at)", on: handle)
-        let quotaEventsTableExisted = try Self.tableExists("generation_quota_events", on: handle)
-        try Self.execute("""
-        CREATE TABLE IF NOT EXISTS generation_quota_events (
-            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            installation_id TEXT NOT NULL REFERENCES installations(installation_id),
-            idempotency_key TEXT NOT NULL,
-            occurred_at REAL NOT NULL
-        )
-        """, on: handle)
-        try Self.execute(
-            "CREATE INDEX IF NOT EXISTS generation_quota_events_install_time ON generation_quota_events(installation_id, occurred_at)",
-            on: handle
-        )
-        if !quotaEventsTableExisted {
+        try Self.execute("BEGIN IMMEDIATE", on: handle)
+        do {
+            let quotaEventsTableExisted = try Self.tableExists("generation_quota_events", on: handle)
             try Self.execute("""
-            INSERT INTO generation_quota_events(installation_id, idempotency_key, occurred_at)
-            SELECT installation_id, idempotency_key, occurred_at FROM generation_events
+            CREATE TABLE IF NOT EXISTS generation_quota_events (
+                event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                installation_id TEXT NOT NULL REFERENCES installations(installation_id),
+                idempotency_key TEXT NOT NULL,
+                occurred_at REAL NOT NULL
+            )
             """, on: handle)
+            try Self.execute(
+                "CREATE INDEX IF NOT EXISTS generation_quota_events_install_time ON generation_quota_events(installation_id, occurred_at)",
+                on: handle
+            )
+            if !quotaEventsTableExisted {
+                try Self.execute("""
+                INSERT INTO generation_quota_events(installation_id, idempotency_key, occurred_at)
+                SELECT installation_id, idempotency_key, occurred_at FROM generation_events
+                """, on: handle)
+            }
+            try Self.execute("COMMIT", on: handle)
+        } catch {
+            try? Self.execute("ROLLBACK", on: handle)
+            throw error
         }
     }
 
@@ -284,6 +291,7 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
         quota: GenerationQuotaPolicy
     ) async throws -> GenerationReservation {
         try execute("BEGIN IMMEDIATE")
+        var pendingReservationID: UUID?
         do {
             let id = installationID.uuidString
             try run(
@@ -301,7 +309,9 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
                 case .completed(let response, _):
                     try execute("COMMIT")
                     return .replay(response)
-                case .processing(_, _, let ownerID) where ownerID == processID:
+                case .processing(_, let existingReservationID, let ownerID)
+                    where ownerID == processID
+                        && existingReservationID.map({ ActiveGenerationReservationRegistry.shared.contains($0) }) == true:
                     try execute("COMMIT")
                     return .inProgress
                 case .processing, .retryable:
@@ -349,9 +359,15 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
                 "INSERT INTO generation_quota_events(installation_id, idempotency_key, occurred_at) VALUES(?, ?, ?)",
                 [.text(id), .text(idempotencyKey), .double(now.timeIntervalSince1970)]
             )
+            ActiveGenerationReservationRegistry.shared.activate(reservationID)
+            pendingReservationID = reservationID
             try execute("COMMIT")
+            pendingReservationID = nil
             return .reserved(reservationID)
         } catch {
+            if let pendingReservationID {
+                ActiveGenerationReservationRegistry.shared.release(pendingReservationID)
+            }
             try? execute("ROLLBACK")
             throw error
         }
@@ -368,7 +384,9 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
             "UPDATE generation_events SET state = 'completed', response = ?, updated_at = ? WHERE installation_id = ? AND idempotency_key = ? AND reservation_id = ? AND state = 'processing'",
             [.blob(response), .double(now.timeIntervalSince1970), .text(installationID.uuidString), .text(idempotencyKey), .text(reservationID.uuidString)]
         )
-        return sqlite3_changes(database) == 1
+        let completed = sqlite3_changes(database) == 1
+        ActiveGenerationReservationRegistry.shared.release(reservationID)
+        return completed
     }
 
     public func markGenerationRetryable(
@@ -381,7 +399,13 @@ public actor SQLiteGenerationServiceStore: GenerationServiceStore {
             "UPDATE generation_events SET state = 'retryable', updated_at = ?, reservation_id = NULL, owner_id = NULL WHERE installation_id = ? AND idempotency_key = ? AND reservation_id = ? AND state = 'processing'",
             [.double(now.timeIntervalSince1970), .text(installationID.uuidString), .text(idempotencyKey), .text(reservationID.uuidString)]
         )
-        return sqlite3_changes(database) == 1
+        let markedRetryable = sqlite3_changes(database) == 1
+        ActiveGenerationReservationRegistry.shared.release(reservationID)
+        return markedRetryable
+    }
+
+    public func releaseGenerationAttempt(reservationID: UUID) async {
+        ActiveGenerationReservationRegistry.shared.release(reservationID)
     }
 
     private func idempotencyRecord(installationID: String, key: String) throws -> IdempotencyRecord? {
@@ -582,6 +606,31 @@ private enum IdempotencyState {
 
 private enum GenerationStoreProcessIdentity {
     static let current = UUID().uuidString.lowercased()
+}
+
+private final class ActiveGenerationReservationRegistry: @unchecked Sendable {
+    static let shared = ActiveGenerationReservationRegistry()
+
+    private let lock = NSLock()
+    private var activeReservations: Set<UUID> = []
+
+    func activate(_ reservationID: UUID) {
+        lock.lock()
+        activeReservations.insert(reservationID)
+        lock.unlock()
+    }
+
+    func contains(_ reservationID: UUID) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeReservations.contains(reservationID)
+    }
+
+    func release(_ reservationID: UUID) {
+        lock.lock()
+        activeReservations.remove(reservationID)
+        lock.unlock()
+    }
 }
 
 private struct IdempotencyRecord {

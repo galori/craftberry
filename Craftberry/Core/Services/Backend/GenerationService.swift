@@ -249,6 +249,11 @@ public protocol GenerationServiceStore: Sendable {
         reservationID: UUID,
         now: Date
     ) async throws -> Bool
+    func releaseGenerationAttempt(reservationID: UUID) async
+}
+
+public extension GenerationServiceStore {
+    func releaseGenerationAttempt(reservationID: UUID) async {}
 }
 
 public protocol AppAttestVerifying: Sendable {
@@ -438,7 +443,9 @@ public struct GenerationService: Sendable {
         }
         guard let installationID else { return response(status: 401, error: "unauthorized") }
 
-        let idempotencyKey = request.header("Idempotency-Key") ?? UUID().uuidString.lowercased()
+        guard let idempotencyKey = request.header("Idempotency-Key") else {
+            return response(status: 400, error: "invalid_idempotency_key")
+        }
         guard Self.isValidIdempotencyKey(idempotencyKey) else {
             return response(status: 400, error: "invalid_idempotency_key")
         }
@@ -570,9 +577,11 @@ public struct GenerationService: Sendable {
                         now: clock.now()
                     )
                     guard markedRetryable else {
+                        await store.releaseGenerationAttempt(reservationID: reservationID)
                         return response(status: 409, error: "generation_in_progress", headers: ["Retry-After": "1"])
                     }
                 } catch {
+                    await store.releaseGenerationAttempt(reservationID: reservationID)
                     return response(status: 503, error: "service_unavailable")
                 }
                 return response(status: 503, error: "service_unavailable")
@@ -700,6 +709,7 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
     private var assertionCounters: [UUID: UInt32] = [:]
     private var eventsByInstallation: [UUID: [Date]] = [:]
     private var idempotency: [GenerationIdempotencyScope: MemoryIdempotencyRecord] = [:]
+    private var activeReservations: Set<UUID> = []
 
     public init() {}
 
@@ -784,8 +794,16 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
             switch existing.state {
             case .completed(let response, _):
                 return .replay(response)
-            case .processing:
-                return .inProgress
+            case .processing(_, let reservationID):
+                guard !activeReservations.contains(reservationID) else { return .inProgress }
+                if let limit = quotaWindow(for: events, now: now, quota: quota) { return .limited(limit) }
+                events.append(now)
+                eventsByInstallation[installationID] = events
+                let newReservationID = UUID()
+                existing.state = .processing(updatedAt: now, reservationID: newReservationID)
+                idempotency[scope] = existing
+                activeReservations.insert(newReservationID)
+                return .reserved(newReservationID)
             case .retryable:
                 if let limit = quotaWindow(for: events, now: now, quota: quota) { return .limited(limit) }
                 events.append(now)
@@ -793,6 +811,7 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
                 let reservationID = UUID()
                 existing.state = .processing(updatedAt: now, reservationID: reservationID)
                 idempotency[scope] = existing
+                activeReservations.insert(reservationID)
                 return .reserved(reservationID)
             }
         }
@@ -805,6 +824,7 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
             fingerprint: requestFingerprint,
             state: .processing(updatedAt: now, reservationID: reservationID)
         )
+        activeReservations.insert(reservationID)
         return .reserved(reservationID)
     }
 
@@ -829,9 +849,13 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
         let scope = GenerationIdempotencyScope(installationID: installationID, key: idempotencyKey)
         guard var record = idempotency[scope] else { throw StoreError.missingReservation }
         guard case .processing(_, let currentReservationID) = record.state,
-              currentReservationID == reservationID else { return false }
+              currentReservationID == reservationID else {
+            activeReservations.remove(reservationID)
+            return false
+        }
         record.state = .completed(response: response, updatedAt: now)
         idempotency[scope] = record
+        activeReservations.remove(reservationID)
         return true
     }
 
@@ -844,10 +868,18 @@ public actor InMemoryGenerationServiceStore: GenerationServiceStore {
         let scope = GenerationIdempotencyScope(installationID: installationID, key: idempotencyKey)
         guard var record = idempotency[scope] else { throw StoreError.missingReservation }
         guard case .processing(_, let currentReservationID) = record.state,
-              currentReservationID == reservationID else { return false }
+              currentReservationID == reservationID else {
+            activeReservations.remove(reservationID)
+            return false
+        }
         record.state = .retryable(updatedAt: now)
         idempotency[scope] = record
+        activeReservations.remove(reservationID)
         return true
+    }
+
+    public func releaseGenerationAttempt(reservationID: UUID) async {
+        activeReservations.remove(reservationID)
     }
 
     private enum StoreError: Error {

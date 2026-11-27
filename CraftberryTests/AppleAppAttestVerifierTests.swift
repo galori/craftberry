@@ -215,7 +215,8 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             bundleVersion: "1.0",
             includeExtensions: false
         )
-        let legacyResult = try await verifier.verifyAssertion(
+        let legacyVerifier = AppleAppAttestVerifier(rootCertificateDER: Data())
+        let legacyResult = try await legacyVerifier.verifyAssertion(
             object: legacyAssertion,
             clientData: clientData,
             credential: legacyCredential,
@@ -232,7 +233,7 @@ final class AppleAppAttestVerifierTests: XCTestCase {
             includeExtensions: false,
             legacyExtensionMap: true
         )
-        let legacyExtensionsResult = try await verifier.verifyAssertion(
+        let legacyExtensionsResult = try await legacyVerifier.verifyAssertion(
             object: legacyExtensionsAssertion,
             clientData: clientData,
             credential: legacyCredential,
@@ -324,6 +325,85 @@ final class AppleAppAttestVerifierTests: XCTestCase {
                 expectedEnvironment: .development
             )
         }
+    }
+
+    func testAssertionAcceptsAnAllowedBundleVersionAfterAppUpdate() async throws {
+        let appIdentifier = "TESTTEAMID.com.craftberry.app"
+        let keyPair = try makeKeyPair()
+        let credential = StoredAppAttestCredential(
+            installationID: UUID(),
+            keyID: "fixture-key-id",
+            publicKey: try externalRepresentation(of: keyPair.publicKey),
+            appIdentifier: appIdentifier,
+            environment: .development,
+            bundleVersion: "1.0",
+            assertionCounter: 0
+        )
+        let clientData = Data("updated app assertion".utf8)
+        let assertion = try assertionObject(
+            signedBy: keyPair.privateKey,
+            clientData: clientData,
+            appIdentifier: appIdentifier,
+            counter: 1,
+            bundleVersion: "2.0"
+        )
+        let verifier = AppleAppAttestVerifier(rootCertificateDER: Data(), allowedBundleVersions: ["1.0", "2.0"])
+
+        let result = try await verifier.verifyAssertion(
+            object: assertion,
+            clientData: clientData,
+            credential: credential,
+            expectedAppIdentifier: appIdentifier,
+            expectedEnvironment: .development
+        )
+
+        XCTAssertEqual(result.counter, 1)
+    }
+
+    func testConfiguredAllowlistRequiresVersionMetadataUnlessLegacyIsExplicitlyAllowed() async throws {
+        let appIdentifier = "TESTTEAMID.com.craftberry.app"
+        let keyPair = try makeKeyPair()
+        let credential = StoredAppAttestCredential(
+            installationID: UUID(),
+            keyID: "legacy-fixture-key-id",
+            publicKey: try externalRepresentation(of: keyPair.publicKey),
+            appIdentifier: appIdentifier,
+            environment: .development,
+            bundleVersion: "",
+            assertionCounter: 0
+        )
+        let clientData = Data("legacy assertion".utf8)
+        let assertion = try assertionObject(
+            signedBy: keyPair.privateKey,
+            clientData: clientData,
+            appIdentifier: appIdentifier,
+            counter: 1,
+            bundleVersion: "1.0",
+            includeExtensions: false
+        )
+        let strictVerifier = AppleAppAttestVerifier(rootCertificateDER: Data(), allowedBundleVersions: ["1.0"])
+        await assertInvalidAssertion(.invalidAssertionExtensions) {
+            try await strictVerifier.verifyAssertion(
+                object: assertion,
+                clientData: clientData,
+                credential: credential,
+                expectedAppIdentifier: appIdentifier,
+                expectedEnvironment: .development
+            )
+        }
+
+        let legacyVerifier = AppleAppAttestVerifier(
+            rootCertificateDER: Data(),
+            allowedBundleVersions: ["1.0", "legacy-no-bundle-version"]
+        )
+        let legacyResult = try await legacyVerifier.verifyAssertion(
+            object: assertion,
+            clientData: clientData,
+            credential: credential,
+            expectedAppIdentifier: appIdentifier,
+            expectedEnvironment: .development
+        )
+        XCTAssertEqual(legacyResult.counter, 1)
     }
 
     private func assertInvalidAssertion(

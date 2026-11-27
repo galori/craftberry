@@ -185,6 +185,75 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertEqual(storedValues.token, "fixture-session-token")
     }
 
+    func testLateInvalidKeyDoesNotClearAReplacementSession() async throws {
+        let store = SessionCredentialStoreSpy(token: "old-session", keyID: "old-key")
+        let state = LateInvalidKeyAppAttestState()
+        let provider = KeychainGenerationCredentialProvider(
+            baseURL: URL(string: "https://generation.test"),
+            credentialStore: store,
+            appAttestService: LateInvalidKeyAppAttestService(state: state),
+            enrollmentTransport: EnrollmentTransportSpy(
+                state: EnrollmentTransportStateSpy(challenge: Data("recovery-challenge".utf8))
+            )
+        )
+        let body = Data(#"{"intentVersion":1,"profileID":"bedrock-stable-1.26.30","prompt":"Build a sword"}"#.utf8)
+
+        let lateAssertion = Task {
+            try await provider.assertionHeaders(for: body, idempotencyKey: "late-request")
+        }
+        await state.waitForFirstAssertion()
+
+        do {
+            _ = try await provider.assertionHeaders(for: body, idempotencyKey: "reset-request")
+            XCTFail("The invalid stored key should trigger session recovery.")
+        } catch let error as BackendGenerationClientError {
+            XCTAssertEqual(error, .appAttestKeyInvalid)
+        }
+
+        let replacementToken = try await provider.bearerToken()
+        XCTAssertEqual(replacementToken, "fixture-session-token")
+        await state.releaseFirstAssertion()
+        do {
+            _ = try await lateAssertion.value
+            XCTFail("The late assertion still used the invalid key.")
+        } catch let error as BackendGenerationClientError {
+            XCTAssertEqual(error, .appAttestKeyInvalid)
+        }
+
+        let storedValues = await store.values()
+        XCTAssertEqual(storedValues.keyID, "replacement-app-attest-key")
+        XCTAssertEqual(storedValues.token, "fixture-session-token")
+    }
+
+    func testFailedCredentialResetTaskCanRecoverOnTheNextEnrollmentAttempt() async throws {
+        let store = FlakySessionCredentialStore(
+            token: "stale-session",
+            keyID: "invalid-key",
+            clearFailuresRemaining: 1
+        )
+        let transportState = EnrollmentTransportStateSpy(challenge: Data("recovery-challenge".utf8))
+        let provider = KeychainGenerationCredentialProvider(
+            baseURL: URL(string: "https://generation.test"),
+            credentialStore: store,
+            appAttestService: InvalidOnceAppAttestService(),
+            enrollmentTransport: EnrollmentTransportSpy(state: transportState)
+        )
+        let body = Data(#"{"intentVersion":1,"profileID":"bedrock-stable-1.26.30","prompt":"Build a sword"}"#.utf8)
+
+        do {
+            _ = try await provider.assertionHeaders(for: body, idempotencyKey: "reset-failure")
+            XCTFail("The first key reset should surface its storage failure.")
+        } catch {}
+
+        let recoveredToken = try await provider.bearerToken()
+        XCTAssertEqual(recoveredToken, "fixture-session-token")
+        let counts = await transportState.counts()
+        XCTAssertEqual(counts.enroll, 1)
+        let storedValues = await store.values()
+        XCTAssertEqual(storedValues.keyID, "recovered-app-attest-key")
+        XCTAssertEqual(storedValues.token, "fixture-session-token")
+    }
+
     func testBackendClientRejectsUnconfiguredOrNonHTTPSEndpointBeforeFetchingCredential() async throws {
         let provider = CredentialProviderSpy(token: "runtime-test-token")
         let unconfigured = BackendGenerationClient(baseURL: nil, credentialProvider: provider)
@@ -663,6 +732,39 @@ private actor SessionCredentialStoreSpy: GenerationSessionCredentialStore {
     }
 }
 
+private actor FlakySessionCredentialStore: GenerationSessionCredentialStore {
+    private var token: String?
+    private var keyID: String?
+    private var clearFailuresRemaining: Int
+
+    init(token: String?, keyID: String?, clearFailuresRemaining: Int) {
+        self.token = token
+        self.keyID = keyID
+        self.clearFailuresRemaining = clearFailuresRemaining
+    }
+
+    func bearerToken() async throws -> String? { token }
+    func appAttestKeyID() async throws -> String? { keyID }
+
+    func saveBearerToken(_ token: String) async throws { self.token = token }
+    func saveAppAttestKeyID(_ keyID: String) async throws { self.keyID = keyID }
+
+    func clearSession() async throws {
+        if clearFailuresRemaining > 0 {
+            clearFailuresRemaining -= 1
+            throw SessionCredentialStoreTestError.clearFailed
+        }
+        token = nil
+        keyID = nil
+    }
+
+    func values() -> (token: String?, keyID: String?) { (token, keyID) }
+}
+
+private enum SessionCredentialStoreTestError: Error {
+    case clearFailed
+}
+
 private actor InvalidOnceAppAttestState {
     private var assertionCalls = 0
     private var keyCalls = 0
@@ -681,6 +783,49 @@ private actor InvalidOnceAppAttestState {
 
 private struct InvalidOnceAppAttestService: GenerationAppAttestService {
     private let state = InvalidOnceAppAttestState()
+    var isSupported: Bool { true }
+
+    func generateKey() async throws -> String { await state.generateKey() }
+    func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data { Data("attestation".utf8) }
+    func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        try await state.generateAssertion()
+    }
+}
+
+private actor LateInvalidKeyAppAttestState {
+    private var assertionCalls = 0
+    private var firstAssertionStarted = false
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    func generateKey() -> String { "replacement-app-attest-key" }
+
+    func waitForFirstAssertion() async {
+        guard !firstAssertionStarted else { return }
+        await withCheckedContinuation { startedContinuation = $0 }
+    }
+
+    func releaseFirstAssertion() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+
+    func generateAssertion() async throws -> Data {
+        assertionCalls += 1
+        if assertionCalls == 1 {
+            firstAssertionStarted = true
+            startedContinuation?.resume()
+            startedContinuation = nil
+            await withCheckedContinuation { releaseContinuation = $0 }
+            throw GenerationAppAttestError.invalidKey
+        }
+        if assertionCalls == 2 { throw GenerationAppAttestError.invalidKey }
+        return Data("replacement-assertion".utf8)
+    }
+}
+
+private struct LateInvalidKeyAppAttestService: GenerationAppAttestService {
+    let state: LateInvalidKeyAppAttestState
     var isSupported: Bool { true }
 
     func generateKey() async throws -> String { await state.generateKey() }
