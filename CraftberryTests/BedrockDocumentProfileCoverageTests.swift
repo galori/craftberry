@@ -27,7 +27,7 @@ final class BedrockDocumentProfileCoverageTests: XCTestCase {
         let document = try XCTUnwrap(JSONSerialization.jsonObject(with: recipeEntry.data) as? [String: Any])
         let recipe = try XCTUnwrap(document["minecraft:recipe_smithing_transform"] as? [String: Any])
 
-        XCTAssertNil(recipe["template"], "Pinned smithing_netherite_sword.json has no transform template field.")
+        XCTAssertEqual(recipe["template"] as? String, "minecraft:netherite_upgrade_smithing_template")
         XCTAssertEqual(recipe["base"] as? String, "minecraft:diamond_sword")
         XCTAssertEqual(recipe["addition"] as? String, project.items.first(where: { $0.id.rawValue.hasSuffix("_ingot") }).map { "\(project.namespace):\($0.id.rawValue)" })
     }
@@ -40,6 +40,11 @@ final class BedrockDocumentProfileCoverageTests: XCTestCase {
         let document = try XCTUnwrap(JSONSerialization.jsonObject(with: entityEntry.data) as? [String: Any])
         let entityDocument = try XCTUnwrap(document["minecraft:entity"] as? [String: Any])
         let events = try XCTUnwrap(entityDocument["events"] as? [String: Any])
+        let componentGroups = try XCTUnwrap(entityDocument["component_groups"] as? [String: Any])
+
+        let adult = try XCTUnwrap(componentGroups["\(entity.id.rawValue)_adult"] as? [String: Any])
+        let adultScale = try XCTUnwrap(adult["minecraft:scale"] as? [String: Any])
+        XCTAssertEqual(adultScale["value"] as? Double, entity.scale)
 
         let spawned = try XCTUnwrap(events["minecraft:entity_spawned"] as? [String: Any])
         let spawnedAdd = try XCTUnwrap(spawned["add"] as? [String: Any])

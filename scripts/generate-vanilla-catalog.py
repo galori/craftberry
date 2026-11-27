@@ -52,17 +52,51 @@ def repository_commit(samples: pathlib.Path) -> str:
     return result.stdout.strip()
 
 
+def read_pinned_json(samples: pathlib.Path, commit: str, relative_path: str) -> Any:
+    result = subprocess.run(
+        ["git", "-C", str(samples), "show", f"{commit}:{relative_path}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"Cannot read {relative_path} from pinned sample commit {commit}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid JSON in pinned sample {relative_path}: {error}") from error
+
+
+def pinned_recipe_paths(samples: pathlib.Path, commit: str) -> list[str]:
+    result = subprocess.run(
+        [
+            "git", "-C", str(samples), "ls-tree", "-r", "-z", "--name-only", commit,
+            "--", "behavior_pack/recipes",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"Cannot list recipes at pinned sample commit {commit}")
+    return [path for path in result.stdout.split("\0") if path.endswith(".json")]
+
+
 def validate_sources(allowlist: dict[str, Any], samples: pathlib.Path) -> None:
     expected_commit = allowlist["sourceCommit"]
     actual_commit = repository_commit(samples)
     if actual_commit != expected_commit:
         raise ValueError(f"Sample checkout is {actual_commit}; expected pinned commit {expected_commit}")
 
-    version = read_json(samples / "version.json")
+    version = read_pinned_json(samples, expected_commit, "version.json")
     if version.get(allowlist["sampleVersion"], {}).get("version") != allowlist["sampleVersion"]:
         raise ValueError(f"Pinned samples do not declare version {allowlist['sampleVersion']}")
 
-    item_data = read_json(samples / "metadata" / "vanilladata_modules" / "mojang-items.json")
+    item_data = read_pinned_json(
+        samples,
+        expected_commit,
+        "metadata/vanilladata_modules/mojang-items.json",
+    )
     item_identifiers = {item.get("name") for item in item_data.get("data_items", [])}
     direct_identifiers = {
         identifier
@@ -78,13 +112,12 @@ def validate_sources(allowlist: dict[str, Any], samples: pathlib.Path) -> None:
     if missing:
         raise ValueError(f"Identifiers missing from pinned mojang-items.json: {', '.join(missing)}")
 
-    recipe_root = samples / "behavior_pack" / "recipes"
     recipe_documents: dict[str, dict[str, Any]] = {}
     recipe_forms: set[str] = set()
     recipe_strings: set[str] = set()
-    for path in sorted(recipe_root.glob("*.json")):
-        document = read_json(path)
-        recipe_documents[path.relative_to(samples).as_posix()] = document
+    for relative_path in pinned_recipe_paths(samples, expected_commit):
+        document = read_pinned_json(samples, expected_commit, relative_path)
+        recipe_documents[relative_path] = document
         recipe_forms.update(key for key in document if key.startswith("minecraft:recipe_"))
         recipe_strings.update(strings_in(document))
 
@@ -193,8 +226,12 @@ def main() -> int:
         print(error, file=sys.stderr)
         return 1
 
-    existing = OUTPUT_PATH.read_text()
     if args.check:
+        try:
+            existing = OUTPUT_PATH.read_text()
+        except OSError as error:
+            print(f"Cannot read {OUTPUT_PATH.relative_to(ROOT)}: {error}", file=sys.stderr)
+            return 1
         if existing != generated:
             print(f"{OUTPUT_PATH.relative_to(ROOT)} is stale; run scripts/refresh-vanilla-catalog.sh", file=sys.stderr)
             return 1

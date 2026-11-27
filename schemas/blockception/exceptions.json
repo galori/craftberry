@@ -17,8 +17,20 @@
     "jsonPathPattern": "^\\$\\['minecraft:recipe_smithing_transform'\\]\\.(base|addition|result)$",
     "validator": "oneOf",
     "messageContains": "is not valid under any of the given schemas",
+    "instanceType": "string",
     "expectedOccurrences": 3,
     "reason": "The pinned Blockception schema's item/tag oneOf accepts a string as both branches because the tag branch omits type=object. The pinned Mojang transform sample uses direct strings for base, addition, and result.",
+    "samplePath": "behavior_pack/recipes/smithing_netherite_sword.json"
+  },
+  {
+    "id": "smithing-transform-template-omitted-from-pinned-blockception-schema",
+    "family": "recipes/",
+    "pathPattern": "recipes/.+_sword_smithing_recipe\\.json",
+    "jsonPathPattern": "^\\$\\['minecraft:recipe_smithing_transform'\\]$",
+    "validator": "additionalProperties",
+    "messageContains": "template",
+    "expectedOccurrences": 1,
+    "reason": "The pinned Mojang smithing_netherite_sword sample includes the template ingredient, which this older Blockception transform schema omits.",
     "samplePath": "behavior_pack/recipes/smithing_netherite_sword.json"
   }
 ]

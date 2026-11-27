@@ -217,7 +217,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             )
             let adultGroup = EntityDocument.ComponentGroup(
                 isBaby: nil,
-                scale: nil,
+                scale: EntityDocument.Scale(value: entity.scale),
                 ageable: nil,
                 experienceReward: EntityDocument.ExperienceReward(onDeath: "query.last_hit_by_player ? Math.Random(1,3) : 0"),
                 loot: EntityDocument.Loot(table: lootTablePath),
@@ -531,12 +531,13 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         }
         for recipe in project.smithingTransformRecipes.sorted(by: smithingTransformRecipeOrder) {
             let resultIdentifier = try resultIdentifier(for: recipe.result.item, namespace: project.namespace, profile: profile, path: "content.recipes.\(recipe.id.rawValue).result")
-            // Mojang's pinned smithing_netherite_sword.json uses base/addition/result only.
+            // Preserve the full template/base/addition/result shape from Mojang's pinned transform sample.
             let document = SmithingTransformRecipeDocument(
                 formatVersion: profile.recipeFormatVersion,
                 recipe: SmithingTransformRecipeDocument.Recipe(
                     description: ShapedRecipeDocument.Description(identifier: identifier(for: recipe.id, namespace: project.namespace)),
                     tags: recipe.tags,
+                    template: smithingTransformIngredient(for: recipe.template, namespace: project.namespace),
                     base: smithingTransformIngredient(for: recipe.base, namespace: project.namespace),
                     addition: smithingTransformIngredient(for: recipe.addition, namespace: project.namespace),
                     result: resultIdentifier

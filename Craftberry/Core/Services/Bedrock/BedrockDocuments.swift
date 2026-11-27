@@ -301,11 +301,12 @@ struct SmithingTransformRecipeDocument: Encodable {
     struct Recipe: Encodable {
         let description: ShapedRecipeDocument.Description
         let tags: [String]
+        let template: IngredientValue
         let base: IngredientValue
         let addition: IngredientValue
         let result: String
 
-        enum CodingKeys: String, CodingKey { case description, tags, base, addition, result }
+        enum CodingKeys: String, CodingKey { case description, tags, template, base, addition, result }
     }
 
     enum IngredientValue: Encodable {

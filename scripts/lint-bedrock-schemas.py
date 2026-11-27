@@ -7,8 +7,6 @@ import re
 import sys
 import zipfile
 
-from jsonschema import Draft7Validator
-
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMAS = {
     "features/": pathlib.Path("features.json"),
@@ -23,7 +21,24 @@ SCHEMAS = {
 EXCEPTIONS_PATH = ROOT / "schemas/blockception/exceptions.json"
 
 
+def matches_exception(exception, family, name, error):
+    instance_type = exception.get("instanceType")
+    if instance_type == "string" and not isinstance(error.instance, str):
+        return False
+    if instance_type not in (None, "string"):
+        raise ValueError(f"Unsupported exception instance type: {instance_type}")
+    return (
+        exception["family"] == family
+        and re.fullmatch(exception["pathPattern"], name)
+        and re.fullmatch(exception["jsonPathPattern"], str(error.json_path))
+        and exception["validator"] == error.validator
+        and exception["messageContains"] in error.message
+    )
+
+
 def main(archive):
+    from jsonschema import Draft7Validator
+
     validators = {}
     for prefix, relative_schema_path in SCHEMAS.items():
         schema_path = ROOT / "schemas/blockception/behavior" / relative_schema_path
@@ -52,11 +67,7 @@ def main(archive):
                             for error in errors:
                                 exception = next((
                                     item for item in exceptions
-                                    if item["family"] == prefix
-                                    and re.fullmatch(item["pathPattern"], name)
-                                    and re.fullmatch(item["jsonPathPattern"], str(error.json_path))
-                                    and item["validator"] == error.validator
-                                    and item["messageContains"] in error.message
+                                    if matches_exception(item, prefix, name, error)
                                 ), None)
                                 if exception:
                                     exception_counts[exception["id"]] += 1

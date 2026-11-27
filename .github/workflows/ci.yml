@@ -23,6 +23,13 @@ jobs:
         # device or simulator UI and are intentionally excluded from CI.
         run: swift test --parallel
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install jsonschema==4.25.1
+      - name: Test catalog and schema validation scripts
+        run: python3 scripts/test_catalog_schema_tools.py
+
       - name: Verify the vanilla catalog against its pinned Mojang samples
         run: scripts/refresh-vanilla-catalog.sh --check
 

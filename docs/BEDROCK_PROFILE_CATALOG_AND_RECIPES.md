@@ -25,7 +25,7 @@ The current intermediate representation and compiler support these seven recipe 
 | `minecraft:recipe_shaped` | `behavior_pack/recipes/diamond_sword.json` | Crafting-table recipes are exercised by the existing redstone and emerald scenarios. |
 | `minecraft:recipe_shapeless` | `behavior_pack/recipes/mushroom_stew.json` | Crafting-table recipes are exercised by the existing material scenarios. |
 | `minecraft:recipe_furnace` | `behavior_pack/recipes/furnace_beef.json` | Furnace input-to-output behavior is pending focused device acceptance. |
-| `minecraft:recipe_smithing_transform` | `behavior_pack/recipes/smithing_netherite_sword.json` | Sword upgrade is pending; generated transform JSON omits `template` to match this sample. |
+| `minecraft:recipe_smithing_transform` | `behavior_pack/recipes/smithing_netherite_sword.json` | Sword upgrade is pending; generated transform JSON preserves the sample's template, base, addition, and result. |
 | `minecraft:recipe_smithing_trim` | `behavior_pack/recipes/smithing_armor_trim.json` | Visible armor trim is pending focused device acceptance. |
 | `minecraft:recipe_brewing_mix` | `behavior_pack/recipes/brew_awkward_blaze_powder.json` | Brewing-stand mix behavior is pending focused device acceptance. |
 | `minecraft:recipe_brewing_container` | `behavior_pack/recipes/brew_potion_sulphur.json` | Container conversion is pending focused device acceptance. |
