@@ -934,8 +934,9 @@ final class BedrockCompilerTests: XCTestCase {
         // Pinned Mojang block schema 1.21.110 (921fafb0) defines minecraft:tags as an array of strings.
         XCTAssertEqual(components["minecraft:tags"] as? [String], ["minecraft:crop"])
         XCTAssertEqual(components["minecraft:loot"] as? String, "loot_tables/crops/azure_a1b2c3_crop/seeds.json")
-        XCTAssertEqual(components["minecraft:custom_components"] as? [String], [componentID])
-        XCTAssertNil(components[componentID])
+        // Custom components use the Version 2 API (1.21.100+): each component ID is a direct key with {}, not in a minecraft:custom_components array.
+        XCTAssertNil(components["minecraft:custom_components"])
+        XCTAssertNotNil(components[componentID] as? [String: Any])
         for (stage, permutation) in perms.enumerated() {
             XCTAssertEqual(permutation["condition"] as? String, "query.block_state('\(growthStateKey)') == \(stage)")
             let permutationComponents = try XCTUnwrap(permutation["components"] as? [String: Any])
@@ -1165,8 +1166,8 @@ final class BedrockCompilerTests: XCTestCase {
             let states = try XCTUnwrap(description["states"] as? [String: Any])
             XCTAssertNotNil(states[identifiers.0])
             let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
-            XCTAssertEqual(components["minecraft:custom_components"] as? [String], [identifiers.1])
-            XCTAssertNil(components[identifiers.1])
+            XCTAssertNil(components["minecraft:custom_components"])
+            XCTAssertNotNil(components[identifiers.1] as? [String: Any])
             // Mojang's pinned 1.21.110 block schema accepts this built-in cross geometry,
             // avoiding generated crop geometry names and paths that could collide.
             XCTAssertEqual(components["minecraft:geometry"] as? String, "minecraft:geometry.cross")

@@ -612,7 +612,8 @@ struct BlockDocument: Encodable {
         let collisionBox: Bool?
         let placementFilter: PlacementFilter?
         let tags: [String]?
-        let customComponents: [String]?
+        // Custom components registered via the Version 2 API (1.21.100+): each ID emits as a direct key with {}.
+        let cropComponentIDs: [String]?
 
         struct DestructibleByMining: Encodable {
             let secondsToDestroy: Double
@@ -633,7 +634,11 @@ struct BlockDocument: Encodable {
             try container.encodeIfPresent(collisionBox, forKey: DynamicCodingKey("minecraft:collision_box"))
             try container.encodeIfPresent(placementFilter, forKey: DynamicCodingKey("minecraft:placement_filter"))
             try container.encodeIfPresent(tags, forKey: DynamicCodingKey("minecraft:tags"))
-            try container.encodeIfPresent(customComponents, forKey: DynamicCodingKey("minecraft:custom_components"))
+            if let ids = cropComponentIDs {
+                for id in ids {
+                    try container.encode([String: String](), forKey: DynamicCodingKey(id))
+                }
+            }
         }
 
         struct PlacementFilter: Encodable {

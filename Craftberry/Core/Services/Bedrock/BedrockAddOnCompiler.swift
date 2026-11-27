@@ -250,7 +250,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         collisionBox: isCrop ? false : nil,
                         placementFilter: isCrop ? .init(conditions: [.init(allowedFaces: ["up"], blockFilter: ["minecraft:farmland"])]) : nil,
                         tags: isCrop ? ["minecraft:crop"] : nil,
-                        customComponents: cropIdentifiers.map { [$0.componentID] }
+                        cropComponentIDs: cropIdentifiers.map { [$0.componentID] }
                     ),
                     permutations: permutations
                 )
