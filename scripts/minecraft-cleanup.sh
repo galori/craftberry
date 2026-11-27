@@ -178,7 +178,7 @@ read_pack_ids_for_cleanup() {
         end
         | if (.pack_id | type) == "string" and (.pack_id | length) == 36
             and (.pack_id | test("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) then
-            .pack_id
+            .pack_id | ascii_downcase
         else
             error("invalid pack_id UUID")
         end
@@ -352,7 +352,7 @@ cmd_clean() {
             description="$(jq -r '.header.description // ""' "$manifest_local" 2>/dev/null)"
             if [[ "$description" == "$CRAFTBERRY_MARKER" ]]; then
                 if [[ "$PACK_CLEANUP_SCOPE" == "referenced" ]]; then
-                    uuid="$(jq -r '.header.uuid // ""' "$manifest_local" 2>/dev/null)"
+                    uuid="$(jq -r '(.header.uuid // "") | ascii_downcase' "$manifest_local" 2>/dev/null)"
                     if ! is_pack_uuid "$uuid" || [[ -z "$target_ids" ]] || ! grep -Fxq -- "$uuid" <<<"$target_ids"; then
                         skipped=$((skipped + 1))
                         continue

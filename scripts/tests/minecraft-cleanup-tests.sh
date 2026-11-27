@@ -11,8 +11,8 @@ WORLD_PATH="Documents/games/com.mojang/minecraftWorlds"
 BEHAVIOR_PATH="Documents/games/com.mojang/behavior_packs"
 RESOURCE_PATH="Documents/games/com.mojang/resource_packs"
 TARGET_TITLE="Redstone (Survival)"
-TARGET_BEHAVIOR_UUID="00000000-0000-4000-8000-000000000001"
-SHARED_BEHAVIOR_UUID="00000000-0000-4000-8000-000000000002"
+TARGET_BEHAVIOR_UUID="a0000000-0000-4000-8000-000000000001"
+SHARED_BEHAVIOR_UUID="b0000000-0000-4000-8000-000000000002"
 UNREFERENCED_BEHAVIOR_UUID="00000000-0000-4000-8000-000000000003"
 UNTRUSTED_BEHAVIOR_UUID="00000000-0000-4000-8000-000000000004"
 TARGET_RESOURCE_UUID="00000000-0000-4000-8000-000000000005"
@@ -300,6 +300,22 @@ testNewlinePackIDAbortsCleanupBeforeMutation() {
     assert_exists "$CASE_ROOT/resource_packs/target"
 }
 
+testPackUUIDCaseDoesNotBreakSharedReferences() {
+    create_fixture
+    cat > "$CASE_ROOT/minecraftWorlds/target/world_behavior_packs.json" <<'EOF'
+[{"pack_id":"A0000000-0000-4000-8000-000000000001"},{"pack_id":"b0000000-0000-4000-8000-000000000002"}]
+EOF
+    cat > "$CASE_ROOT/minecraftWorlds/other/world_behavior_packs.json" <<'EOF'
+[{"pack_id":"B0000000-0000-4000-8000-000000000002"}]
+EOF
+
+    expect_cleanup_success "mixed-case target and protected pack UUIDs"
+    assert_missing "$CASE_ROOT/minecraftWorlds/target"
+    assert_missing "$CASE_ROOT/behavior_packs/target"
+    assert_exists "$CASE_ROOT/behavior_packs/shared"
+    assert_missing "$CASE_ROOT/resource_packs/target"
+}
+
 testOnlyUnsharedTargetPacksAreRemoved() {
     create_fixture
     expect_cleanup_success "target world with a pack shared by another world"
@@ -337,5 +353,7 @@ testDuplicateExactWorldTitlesAbortCleanup
 echo "PASS: duplicate exact target"
 testNewlinePackIDAbortsCleanupBeforeMutation
 echo "PASS: newline pack ID rejected before mutation"
+testPackUUIDCaseDoesNotBreakSharedReferences
+echo "PASS: mixed-case UUID references match and protect shared packs"
 testOnlyUnsharedTargetPacksAreRemoved
 echo "PASS: shared references and exclusive pack cleanup"
