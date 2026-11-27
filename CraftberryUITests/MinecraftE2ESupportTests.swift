@@ -2,6 +2,11 @@ import ImageIO
 import XCTest
 
 final class MinecraftE2ESupportTests: XCTestCase {
+    func testWorldTitleIncludesTheScenarioGameMode() {
+        XCTAssertEqual(MinecraftWorldGameMode.survival.worldTitle(projectName: "Redstone"), "Redstone (Survival)")
+        XCTAssertEqual(MinecraftWorldGameMode.creative.worldTitle(projectName: "Azure"), "Azure (Creative)")
+    }
+
     func testHostileAcceptanceScenarioUsesAHostileFixtureAndSurvivalDamageAssertion() throws {
         let scenario = MinecraftE2EScenario.redstoneHostileEntitySet
 
@@ -765,6 +770,31 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(inspector.matches(expectation, in: try syntheticImage(redCluster: false)))
     }
 
+    func testItemContrastExpectationsRecognizeItemAndEmptySlot() throws {
+        let inspector = MinecraftPixelInspector()
+        let item = MinecraftPixelExpectation.itemContrastCluster(
+            xRange: 0.2...0.3,
+            yRange: 0.2...0.3,
+            minimumCount: 4
+        )
+        let empty = MinecraftPixelExpectation.itemContrastAbsent(
+            xRange: 0.2...0.3,
+            yRange: 0.2...0.3,
+            maximumCount: 2
+        )
+        let brightItem = try syntheticImage(
+            width: 20,
+            height: 20,
+            brightRect: CGRect(x: 13, y: 4, width: 3, height: 3)
+        )
+        let emptySlot = try syntheticImage(width: 20, height: 20)
+
+        XCTAssertTrue(inspector.matches(item, in: brightItem))
+        XCTAssertFalse(inspector.matches(item, in: emptySlot))
+        XCTAssertFalse(inspector.matches(empty, in: brightItem))
+        XCTAssertTrue(inspector.matches(empty, in: emptySlot))
+    }
+
     func testRedstonePickaxePixelExpectationMatchesOutputCluster() throws {
         let inspector = MinecraftPixelInspector()
         let image = try syntheticImage(
@@ -801,14 +831,24 @@ final class MinecraftE2ESupportTests: XCTestCase {
         )
     }
 
-    private func syntheticImage(width: Int, height: Int, redRect: CGRect?) throws -> CGImage {
+    private func syntheticImage(width: Int, height: Int, redRect: CGRect? = nil, brightRect: CGRect? = nil) throws -> CGImage {
         var bytes = Array(repeating: UInt8(0), count: width * height * 4)
         for y in 0..<height {
             for x in 0..<width {
                 let offset = ((y * width) + x) * 4
-                bytes[offset] = redRect?.contains(CGPoint(x: x, y: y)) == true ? 255 : 20
-                bytes[offset + 1] = 20
-                bytes[offset + 2] = 20
+                if redRect?.contains(CGPoint(x: x, y: y)) == true {
+                    bytes[offset] = 255
+                    bytes[offset + 1] = 20
+                    bytes[offset + 2] = 20
+                } else if brightRect?.contains(CGPoint(x: x, y: y)) == true {
+                    bytes[offset] = 240
+                    bytes[offset + 1] = 240
+                    bytes[offset + 2] = 240
+                } else {
+                    bytes[offset] = 128
+                    bytes[offset + 1] = 128
+                    bytes[offset + 2] = 128
+                }
                 bytes[offset + 3] = 255
             }
         }

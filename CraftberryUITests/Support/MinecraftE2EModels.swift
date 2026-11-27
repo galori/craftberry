@@ -109,6 +109,7 @@ extension KeyedDecodingContainer {
 
 struct MinecraftE2EScenario {
     let launchArgument: String
+    var additionalLaunchArguments: [String] = []
     let prompt: String
     let projectName: String
     let expectedCraftedItemName: String
@@ -122,6 +123,10 @@ struct MinecraftE2EScenario {
 enum MinecraftWorldGameMode: String {
     case creative
     case survival
+
+    func worldTitle(projectName: String) -> String {
+        "\(projectName) (\(rawValue.capitalized))"
+    }
 }
 
 struct MinecraftCraftingPlan {
@@ -181,4 +186,6 @@ enum MinecraftPixelExpectation: Equatable {
     case redCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
     case redAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
     case cyanCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
+    case itemContrastCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
+    case itemContrastAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
 }

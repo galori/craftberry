@@ -203,10 +203,10 @@ final class MinecraftStepExecutor {
             return .success(step)
         case .assertPixels(let expectation):
             let count = pixels.count(expectation) ?? -1
-            print("[MinecraftE2E] \(step.name): pixel assert saw red=\(count) for \(expectation)")
+            print("[MinecraftE2E] \(step.name): pixel assert saw matched=\(count) for \(expectation)")
             guard pixels.matches(expectation) else {
                 onIntermediateScreenshot("\(step.name) - pixel assert failed state")
-                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(count)).")
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (matched=\(count)).")
             }
             return .success(step)
         case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation):
@@ -220,7 +220,7 @@ final class MinecraftStepExecutor {
             ]
             for (index, offset) in candidates.enumerated() {
                 let count = pixels.count(expectation) ?? -1
-                print("[MinecraftE2E] \(step.name): pixel check \(index + 1) saw red=\(count) for \(expectation)")
+                print("[MinecraftE2E] \(step.name): pixel check \(index + 1) saw matched=\(count) for \(expectation)")
                 if pixels.matches(expectation) {
                     return .success(step)
                 }
@@ -234,10 +234,10 @@ final class MinecraftStepExecutor {
                 }
             }
             let finalCount = pixels.count(expectation) ?? -1
-            print("[MinecraftE2E] \(step.name): final pixel check saw red=\(finalCount) for \(expectation)")
+            print("[MinecraftE2E] \(step.name): final pixel check saw matched=\(finalCount) for \(expectation)")
             guard pixels.matches(expectation) else {
                 onIntermediateScreenshot("\(step.name) - pixel check failed state")
-                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (red=\(finalCount)).")
+                return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (matched=\(finalCount)).")
             }
             return .success(step)
         case .calibrationRequired(let reason):

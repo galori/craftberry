@@ -25,7 +25,7 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|brewing|ore|crop|entity|enchant|structure] [--fresh-world|--delete-world]
+  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|fuel|brewing|ore|crop|entity|enchant|structure] [--fresh-world|--delete-world]
           Run a focused Craftberry-to-Minecraft scenario, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
@@ -33,7 +33,7 @@ Commands:
           The enchant scenario verifies an applied sharpness enchantment on a
           crafted material sword.
   minecraft-e2e-all [--fresh-world]
-          Run all fourteen acceptance scenarios sequentially. The regular .mcaddon
+          Run all acceptance scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
           Each prepared-world check removes only its exact named test world.
           --fresh-world clears the reusable "craftberry test" world before
@@ -251,6 +251,7 @@ afc_world_exists() {
 minecraft_e2e_on_device() {
     local scenario="${1:-redstone}"
     local fresh_world="no"
+    local pre_cleanup_status
     # Permit trailing flags after scenario: minecraft-e2e [scenario] [--fresh-world|--delete-world]
     shift || true
     while [[ $# -gt 0 ]]; do
@@ -304,9 +305,14 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         furnace)
-            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneFurnaceSetCanCraftSwordInImportedCreativeWorld"
-            result_name="MinecraftRedstoneFurnaceSetE2EUITests"
-            prepared_world_name="Redstone (Creative)"
+            test_selector="CraftberryUITests/MinecraftFurnaceFuelE2ETests/testRedstoneFurnaceRecipeSmeltsInputToGeneratedIngot"
+            result_name="MinecraftRedstoneFurnaceSmeltE2EUITests"
+            prepared_world_name="Redstone (Survival)"
+            ;;
+        fuel)
+            test_selector="CraftberryUITests/MinecraftFurnaceFuelE2ETests/testGeneratedFuelSmeltsSandIntoGlass"
+            result_name="MinecraftGeneratedFuelSmeltE2EUITests"
+            prepared_world_name="Redstone (Survival)"
             ;;
         brewing)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneBrewingSetCanCraftIngotInImportedCreativeWorld"
@@ -339,7 +345,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="Redstone (Creative)"
             ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, brewing, ore, crop, entity, enchant, or structure)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, fuel, brewing, ore, crop, entity, enchant, or structure)." >&2
             exit 1
             ;;
     esac
@@ -348,11 +354,18 @@ minecraft_e2e_on_device() {
     mkdir -p "$OUTPUT_DIR"
 
     if [[ -n "$prepared_world_name" ]]; then
-        echo "Removing only the prior '$prepared_world_name' test world and generated packs..."
+        echo "Removing only the prior '$prepared_world_name' test world and its exclusively referenced generated packs..."
         terminate_minecraft_on_device "$CORE_DEVICE_ID"
-        CRAFTBERRY_CLEANUP_WORLD_NAME="$prepared_world_name" \
+        if CRAFTBERRY_CLEANUP_WORLD_NAME="$prepared_world_name" \
             CRAFTBERRY_CLEANUP_WORLD_MATCH_MODE=exact \
-            "$CLEANUP_SCRIPT" clean --delete-world --yes
+            CRAFTBERRY_CLEANUP_PACK_SCOPE=referenced \
+            "$CLEANUP_SCRIPT" clean --delete-world --yes; then
+            :
+        else
+            pre_cleanup_status=$?
+            echo "error: pre-test cleanup failed with status $pre_cleanup_status; skipping Minecraft E2E." >&2
+            return "$pre_cleanup_status"
+        fi
     elif [[ "$fresh_world" == "yes" ]]; then
         echo "Fresh-world requested — deleting existing craftberry test world and packs via AFC..."
         terminate_minecraft_on_device "$CORE_DEVICE_ID"
@@ -400,6 +413,7 @@ minecraft_e2e_on_device() {
     if [[ -n "$prepared_world_name" ]]; then
         CRAFTBERRY_CLEANUP_WORLD_NAME="$prepared_world_name" \
             CRAFTBERRY_CLEANUP_WORLD_MATCH_MODE=exact \
+            CRAFTBERRY_CLEANUP_PACK_SCOPE=referenced \
             "$CLEANUP_SCRIPT" clean --delete-world --yes
     else
         "$CLEANUP_SCRIPT" clean --yes
@@ -426,7 +440,7 @@ minecraft_e2e_all_on_device() {
             *) echo "error: unknown flag '$1' for minecraft-e2e-all (expected --fresh-world)" >&2; exit 1 ;;
         esac
     done
-    local scenarios=(redstone emerald weapon armor consumable block smithing furnace brewing ore crop entity enchant structure)
+    local scenarios=(redstone emerald weapon armor consumable block smithing furnace fuel brewing ore crop entity enchant structure)
     local overall_status=0
     local first="yes"
     for scenario in "${scenarios[@]}"; do
@@ -479,4 +493,6 @@ main() {
     esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

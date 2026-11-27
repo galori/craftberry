@@ -25,7 +25,7 @@ final class MinecraftE2EHarness {
             "--ui-testing",
             scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
-        ]
+        ] + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 
@@ -177,7 +177,7 @@ final class MinecraftE2EHarness {
             "--ui-testing",
             scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
-        ]
+        ] + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 
@@ -221,7 +221,7 @@ final class MinecraftE2EHarness {
             "--ui-testing",
             scenario.launchArgument,
             "--ui-testing-fresh-pack-identity"
-        ]
+        ] + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 
@@ -274,7 +274,7 @@ final class MinecraftE2EHarness {
         for step in slices.prefix.phased(as: .config) {
             run(step, using: console)
         }
-        let visibleWorldName = scenario.projectName.split(separator: " ").prefix(2).joined(separator: " ")
+        let visibleWorldName = gameMode.worldTitle(projectName: scenario.projectName)
         testCase.attachScreenshot("World list before opening the imported world")
         let openImportedWorld = MinecraftPhasedStep(
             id: "config:open-imported-world",
