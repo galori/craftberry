@@ -78,7 +78,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Boss scenario chat commands must stay on the calibrated lowercase keyboard plane.")
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Redstone Boss") })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("You died") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Found 1 matching item") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("has 1 items that match the criteria") })
 
         let names = scenario.postCraftingSteps.map(\.name)
         let confirmSpawn = try XCTUnwrap(names.firstIndex { $0.contains("Confirm exactly one hostile boss spawned") })

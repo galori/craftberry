@@ -600,7 +600,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Collect the isolated boss reward", action: .chatCommand("/tp @s @e[type=item]")),
             MinecraftStep(name: "Wait for the redstone ingot to enter inventory", action: .wait(seconds: 2)),
             MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot 0 0")),
-            MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("Found 1 matching item")),
+            MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("has 1 items that match the criteria")),
             MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot"))
         ]
     )
