@@ -130,6 +130,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneEnchantableSwordSet, gameMode: .creative)
         #endif
     }
+
+    func testCraftberryMusicRecordPlaysAndEjectsInJukebox() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.musicRecord, gameMode: .creative)
+        #endif
+    }
 }
 
 /// Where each recipe's output lands in the hotbar.
@@ -610,5 +618,45 @@ extension MinecraftE2EScenario {
             ],
             finalHotbarTap: nil
         )
+    )
+
+    static let musicRecord = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-music-record-set",
+        prompt: "A cyan diamond music record called First Light, dreamy",
+        projectName: "First Light",
+        expectedCraftedItemName: "First Light",
+        behaviorPackName: "First Light Behavior",
+        resourcePackName: "First Light Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "First Light",
+                    ingredients: [
+                        .init(searchText: "diamond", resultColumn: 4, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleRight, .bottomLeft, .bottomCenter, .bottomRight]),
+                        .init(searchText: "redstone", resultColumn: 4, destinations: [.middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("First Light"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for jukebox verification", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Prepare a clear jukebox test platform", action: .chatCommand("/fill 97 79 94 101 79 96 stone")),
+            MinecraftStep(name: "Place a jukebox at the calibrated test station", action: .chatCommand("/setblock 98 80 95 jukebox")),
+            MinecraftStep(name: "Face the jukebox from the calibrated interaction point", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Clear loose items before the jukebox ejection check", action: .chatCommand("/kill @e[type=item]")),
+            MinecraftStep(name: "Select the crafted First Light music record", action: .tap(x: layout.hudHotbarSlot(1).x, y: layout.hudHotbarSlot(1).y)),
+            MinecraftStep(name: "Confirm the First Light record tooltip", action: .assertText("First Light")),
+            MinecraftStep(name: "Insert First Light into the jukebox", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Confirm jukebox playback notification", action: .assertText("Now Playing")),
+            MinecraftStep(name: "Let the original record play", action: .wait(seconds: 3)),
+            MinecraftStep(name: "Eject First Light from the jukebox", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Check that the ejected record is dropped nearby", action: .chatCommand("/testfor @e[type=item]")),
+            MinecraftStep(name: "Confirm the record was ejected", action: .assertText("Found"))
+        ]
     )
 }

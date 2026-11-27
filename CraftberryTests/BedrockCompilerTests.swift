@@ -7,6 +7,71 @@ import XCTest
 #endif
 
 final class BedrockCompilerTests: XCTestCase {
+    func testCompilerEmitsPinnedRecordComponentSoundEventAudioAndCraftingRecipe() throws {
+        let project = try AddOnProject.musicRecordSet(
+            title: "First Light",
+            color: .cyan,
+            style: .dreamy,
+            originalPrompt: "First Light record",
+            identity: makeIdentity()
+        )
+        let scratchRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(path: ".scratch/music-record-tests", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: scratchRoot, withIntermediateDirectories: true)
+        let directory = scratchRoot.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "first_light_a1b2c3_disc_behavior.mcpack", in: outer)
+        let resources = try pack(named: "first_light_a1b2c3_disc_resources.mcpack", in: outer)
+
+        let item = try json(named: "items/first_light_a1b2c3_disc.json", in: behavior)
+        let itemBody = try XCTUnwrap(item["minecraft:item"] as? [String: Any])
+        XCTAssertEqual(item["format_version"] as? String, "1.21.100")
+        let components = try XCTUnwrap(itemBody["components"] as? [String: Any])
+        let recordComponent = try XCTUnwrap(components["minecraft:record"] as? [String: Any])
+        XCTAssertEqual(recordComponent["sound_event"] as? String, "record.craftberry_first_light_a1b2c3")
+        XCTAssertEqual(recordComponent["duration"] as? Double, MusicRecordAudioRenderer.duration)
+        XCTAssertEqual(recordComponent["comparator_signal"] as? Int, 12)
+        XCTAssertEqual(components["minecraft:max_stack_size"] as? Int, 1)
+
+        let recipe = try json(named: "recipes/first_light_a1b2c3_disc_recipe.json", in: behavior)
+        let shaped = try XCTUnwrap(recipe["minecraft:recipe_shaped"] as? [String: Any])
+        XCTAssertEqual(shaped["pattern"] as? [String], ["DDD", "DRD", "DDD"])
+        XCTAssertEqual(shaped["unlock"] as? [[String: String]], [["item": "minecraft:diamond"]])
+        XCTAssertEqual((shaped["result"] as? [String: Any])?["item"] as? String, "craftberry:first_light_a1b2c3_disc")
+
+        let definitions = try json(named: "sounds/sound_definitions.json", in: resources)
+        let sounds = try XCTUnwrap(definitions["sound_definitions"] as? [String: Any])
+        let event = try XCTUnwrap(sounds["record.craftberry_first_light_a1b2c3"] as? [String: Any])
+        XCTAssertEqual(definitions["format_version"] as? String, "1.20.20")
+        XCTAssertEqual(event["category"] as? String, "record")
+        let sound = try XCTUnwrap((event["sounds"] as? [[String: Any]])?.first)
+        XCTAssertEqual(sound["name"] as? String, "sounds/music/craftberry/first_light_a1b2c3")
+        XCTAssertEqual(sound["stream"] as? Bool, true)
+        let audio = try XCTUnwrap(resources.first { $0.path == "sounds/music/craftberry/first_light_a1b2c3.wav" })
+        XCTAssertEqual(String(decoding: audio.data.prefix(4), as: UTF8.self), "RIFF")
+        XCTAssertEqual(String(decoding: audio.data[8..<12], as: UTF8.self), "WAVE")
+        XCTAssertGreaterThan(audio.data.count, 150_000)
+        XCTAssertTrue(resources.contains { $0.path == "textures/items/first_light_a1b2c3_disc.png" })
+    }
+
+    func testMusicRecordAudioRendererCreatesDistinctEightSecondPCMTracks() {
+        let tracks = MusicRecordStyle.allCases.map(MusicRecordAudioRenderer.render(style:))
+
+        XCTAssertEqual(MusicRecordAudioRenderer.duration, 8)
+        XCTAssertEqual(tracks.count, 4)
+        XCTAssertEqual(Set(tracks).count, tracks.count, "Each supported style should synthesize a distinct original track.")
+        for track in tracks {
+            XCTAssertEqual(String(decoding: track.prefix(4), as: UTF8.self), "RIFF")
+            XCTAssertEqual(String(decoding: track[8..<12], as: UTF8.self), "WAVE")
+            XCTAssertEqual(track.count, 44 + Int(MusicRecordAudioRenderer.sampleRate) * 2 * 8)
+        }
+    }
+
     func testCompilerEmitsImportedInventoryPixelsForSelectedItem() throws {
         let base = try AddOnProject.materialSwordSet(
             materialName: "Azure",

@@ -1331,6 +1331,14 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialHostileEntitySet(materialName: "Frostbite", color: .white, sourceItem: "minecraft:quartz", sourceCount: 4, health: 20, shortDescription: "A quartz hostile Frostbite creature that attacks players.", originalPrompt: originalPrompt, identity: identity)
         case "A redstone hostile creature set named Pulse with 24 health":
             project = try AddOnProject.materialHostileEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, health: 24, shortDescription: "A redstone hostile Pulse creature with 24 health.", originalPrompt: originalPrompt, identity: identity)
+        case "A cyan diamond music record called First Light, dreamy":
+            project = try AddOnProject.musicRecordSet(title: "First Light", color: .cyan, style: .dreamy, shortDescription: "A dreamy cyan music record called First Light.", originalPrompt: originalPrompt, identity: identity)
+        case "A gold ingot music disc called Sunroom, bright":
+            project = try AddOnProject.musicRecordSet(title: "Sunroom", color: .gold, style: .bright, shortDescription: "A bright gold music disc called Sunroom.", originalPrompt: originalPrompt, identity: identity)
+        case "A lapis music record called Deep Current, mysterious":
+            project = try AddOnProject.musicRecordSet(title: "Deep Current", color: .blue, style: .mysterious, shortDescription: "A mysterious blue lapis music record called Deep Current.", originalPrompt: originalPrompt, identity: identity)
+        case "An amethyst shard music disc named Stardrift, adventurous":
+            project = try AddOnProject.musicRecordSet(title: "Stardrift", color: .purple, style: .adventurous, shortDescription: "An adventurous amethyst music disc named Stardrift.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1462,7 +1470,11 @@ enum ExamplePromptResponseCache {
             "A lapis hut structure named Deepsea with block hut",
             "A gold hut structure named Gilded with 3x3 hut",
             "An amethyst hut structure named Geode with shelter",
-            "A netherite hut structure named Warden with 3x3 hut"
+            "A netherite hut structure named Warden with 3x3 hut",
+            "A cyan diamond music record called First Light, dreamy",
+            "A gold ingot music disc called Sunroom, bright",
+            "A lapis music record called Deep Current, mysterious",
+            "An amethyst shard music disc named Stardrift, adventurous"
         ]
     }
 }

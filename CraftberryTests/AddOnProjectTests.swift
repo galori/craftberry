@@ -212,6 +212,28 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(spawnEgg.traits.entityPlacer?.entityID, project.entities[0].id)
     }
 
+    func testMusicRecordSetCreatesCraftableSingleStackDiscWithTypedTrackStyle() throws {
+        let project = try AddOnProject.musicRecordSet(
+            title: "First Light",
+            color: .cyan,
+            style: .dreamy,
+            originalPrompt: "A cyan dreamy music record called First Light",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(project.items.count, 1)
+        let record = try XCTUnwrap(project.items.first)
+        XCTAssertEqual(record.displayName, "First Light")
+        XCTAssertEqual(record.traits.maximumStackSize, 1)
+        XCTAssertEqual(record.traits.musicRecord?.style, .dreamy)
+        XCTAssertEqual(project.recipes.count, 1)
+        XCTAssertEqual(project.recipes.first?.pattern, ["DDD", "DRD", "DDD"])
+        XCTAssertEqual(project.recipes.first?.ingredients["D"], .vanilla("minecraft:diamond"))
+        XCTAssertEqual(project.recipes.first?.ingredients["R"], .vanilla("minecraft:redstone"))
+        XCTAssertEqual(project.visualResources.first?.kind, .musicDiscPixelArt)
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+    }
+
     func testMaterialEntitySetLinksBodyTextureResource() throws {
         let project = try AddOnProject.materialEntitySet(
             materialName: "Azure",

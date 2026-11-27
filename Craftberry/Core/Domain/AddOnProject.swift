@@ -201,6 +201,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
     public let fuel: FuelTrait?
     public let enchantment: EnchantmentTrait?
     public let entityPlacer: EntityPlacerTrait?
+    public let musicRecord: MusicRecordTrait?
 
     public init(
         combat: CombatTrait? = nil,
@@ -211,7 +212,8 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         food: FoodTrait? = nil,
         fuel: FuelTrait? = nil,
         enchantment: EnchantmentTrait? = nil,
-        entityPlacer: EntityPlacerTrait? = nil
+        entityPlacer: EntityPlacerTrait? = nil,
+        musicRecord: MusicRecordTrait? = nil
     ) {
         self.combat = combat
         self.durability = durability
@@ -222,6 +224,7 @@ public struct ItemTraits: Codable, Equatable, Sendable {
         self.fuel = fuel
         self.enchantment = enchantment
         self.entityPlacer = entityPlacer
+        self.musicRecord = musicRecord
     }
 }
 
@@ -417,6 +420,7 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable, Hashabl
     case oreTerrain
     case entityPixelArt
     case entityTexture
+    case musicDiscPixelArt
 
     public var supportsImportedPixels: Bool {
         switch self {

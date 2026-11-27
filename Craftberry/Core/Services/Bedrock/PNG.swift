@@ -169,6 +169,7 @@ public enum PixelArtTextureRenderer {
         case .oreTerrain: renderOreTerrain(color: resource.color, pixelScale: pixelScale)
         case .entityPixelArt: renderEntitySpawnEgg(color: resource.color, pixelScale: pixelScale)
         case .entityTexture: renderEntityTexture(color: resource.color, pixelScale: pixelScale)
+        case .musicDiscPixelArt: renderMusicDisc(color: resource.color, pixelScale: pixelScale)
         }
     }
 
@@ -219,6 +220,43 @@ public enum PixelArtTextureRenderer {
         case "raw_gold": return renderRawOreChunk(main: .rawGoldMain, highlight: .rawGoldHighlight, shadow: .rawGoldShadow, pixelScale: pixelScale)
         default: return nil
         }
+    }
+
+    private static func renderMusicDisc(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale)
+        let side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        let center = 15.5
+        for y in 1..<31 {
+            for x in 1..<31 {
+                let dx = Double(x) - center
+                let dy = Double(y) - center
+                let radiusSquared = dx * dx + dy * dy
+                let radius = sqrt(radiusSquared)
+                guard radius <= 14.5 else { continue }
+                let pixel: RGBA
+                if radius >= 13.5 {
+                    pixel = .outline
+                } else if radius >= 10.5 {
+                    pixel = (x + y).isMultiple(of: 2) ? palette.shadow : RGBA(red: 44, green: 48, blue: 62, alpha: 255)
+                } else if radius >= 6.5 {
+                    pixel = (Int(radius) % 2 == 0) ? RGBA(red: 33, green: 37, blue: 50, alpha: 255) : palette.shadow
+                } else if radius >= 4.5 {
+                    pixel = .outline
+                } else if radiusSquared <= 5 {
+                    pixel = palette.highlight
+                } else {
+                    pixel = palette.main
+                }
+                for row in y * scale..<(y + 1) * scale {
+                    for column in x * scale..<(x + 1) * scale {
+                        pixels[row * side + column] = pixel
+                    }
+                }
+            }
+        }
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 
     private static func renderSword(color: PixelArtColor, pixelScale: Int) -> Data {

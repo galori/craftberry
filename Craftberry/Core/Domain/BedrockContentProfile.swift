@@ -23,6 +23,7 @@ public enum ItemTraitKind: String, Codable, CaseIterable, Sendable {
     case fuel
     case enchantment
     case entityPlacer
+    case musicRecord
 }
 
 public enum BlockMapColor: String, CaseIterable, Codable, Sendable {
@@ -112,7 +113,7 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         entityFormatVersion: "1.26.10",
         spawnRuleFormatVersion: "1.8.0",
         clientEntityFormatVersion: "1.10.0",
-        supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel, .enchantment, .entityPlacer],
+        supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel, .enchantment, .entityPlacer, .musicRecord],
         vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
         vanillaItemTags: [GeneratedVanillaItemCatalog.trimmableArmorTag]
     )

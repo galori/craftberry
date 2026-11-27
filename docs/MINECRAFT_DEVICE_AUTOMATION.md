@@ -141,7 +141,8 @@ for unrelated feature checks.
 Run the focused scenario for changed behavior. Run
 `scripts/ios-device.sh minecraft-e2e-all` for a roadmap milestone, a broad
 compiler or packaging change, a Minecraft profile upgrade, or a release. It
-runs fourteen scenarios in sequence. GitHub Actions runs this full suite
+runs sixteen scenarios in sequence, including the custom music-record
+craft/play/eject scenario. GitHub Actions runs this full suite
 nightly; the workflow also supports a manual focused or full run. Pull
 requests use the faster Swift unit-test and lint checks.
 

@@ -380,6 +380,43 @@ public enum AddOnProjectValidator {
                     appendUnsupportedTrait(.entityPlacer, itemPath: itemPath, profile: profile, issues: &issues)
                 }
             }
+            if item.traits.musicRecord != nil {
+                if !profile.supportedItemTraits.contains(.musicRecord) {
+                    appendUnsupportedTrait(.musicRecord, itemPath: itemPath, profile: profile, issues: &issues)
+                }
+                if item.traits.maximumStackSize != 1 {
+                    issues.append(CompilationIssue(
+                        severity: .error,
+                        code: "invalid_music_record_stack_size",
+                        path: "\(itemPath).traits.maximumStackSize",
+                        message: "Music records must have a maximum stack size of one."
+                    ))
+                }
+                let hasConflictingTrait = item.traits.combat != nil
+                    || item.traits.durability != nil
+                    || item.traits.handEquipped
+                    || item.traits.armor != nil
+                    || item.traits.food != nil
+                    || item.traits.fuel != nil
+                    || item.traits.enchantment != nil
+                    || item.traits.entityPlacer != nil
+                if hasConflictingTrait {
+                    issues.append(CompilationIssue(
+                        severity: .error,
+                        code: "invalid_music_record_traits",
+                        path: "\(itemPath).traits",
+                        message: "Music records cannot combine with equipment, food, fuel, enchantment, or entity-placer traits."
+                    ))
+                }
+                if visualResourceIDs.contains(item.visualResourceID), visualResourceKinds[item.visualResourceID] != .musicDiscPixelArt {
+                    issues.append(CompilationIssue(
+                        severity: .error,
+                        code: "invalid_music_record_visual",
+                        path: "\(itemPath).visualResourceID",
+                        message: "Music records require a musicDiscPixelArt visual resource."
+                    ))
+                }
+            }
             if !(1...64).contains(item.traits.maximumStackSize) {
                 issues.append(
                     CompilationIssue(
