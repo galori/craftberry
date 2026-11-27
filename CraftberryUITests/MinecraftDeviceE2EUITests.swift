@@ -657,7 +657,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Move the owner beyond the follow start distance", action: .chatCommand("/tp @s 112 80 95 270 0")),
             MinecraftStep(name: "Allow the tamed companion time to follow", action: .wait(seconds: 15)),
             MinecraftStep(name: "Query for the companion near its distant owner", action: .chatCommand("/execute if entity @e[family=tameable_companion,r=4] run time query daytime")),
-            MinecraftStep(name: "Confirm the companion followed its owner", action: .assertText("The time is"))
+            MinecraftStep(name: "Confirm the companion followed its owner", action: .assertText("Daytime is"))
         ]
     )
 

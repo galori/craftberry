@@ -134,7 +134,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(commands.contains("/execute if entity @e[family=tameable_companion,r=4] run time query daytime"))
         XCTAssertFalse(commands.contains("/testfor @e[family=tameable_companion,r=4]"), "The follow assertion needs output text unique to its own query.")
         // The asserted text is printed only by the executed command; it never appears in the typed input.
-        XCTAssertFalse(commands.contains { $0.lowercased().contains("the time is") })
+        XCTAssertFalse(commands.contains { $0.lowercased().contains("daytime is") })
         XCTAssertTrue(commands.contains("/tp @s 112 80 95 270 0"))
         XCTAssertTrue(commands.contains("/fill 98 79 94 114 79 96 stone"))
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Tameable commands must stay on the calibrated lowercase keyboard plane.")
@@ -155,7 +155,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(moveOwner, queryNearOwner)
         XCTAssertLessThan(queryNearOwner, confirmFollow)
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Found") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("The time is") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Daytime is") })
     }
 
     func testPostCraftingStepsUseTheirOwnStablePhase() {
