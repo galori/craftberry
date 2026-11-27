@@ -211,6 +211,61 @@ final class AddOnRevisionTests: XCTestCase {
         XCTAssertEqual(texture.data, PixelArtTextureRenderer.render(visual))
     }
 
+    func testRevisionDoesNotTransferImportedPixelsWhenBaseHasSameKindSibling() async throws {
+        let base = try AddOnProject.materialSwordSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure sword",
+            identity: testIdentity()
+        )
+        let importedPixels = Data(repeating: 127, count: 32 * 32 * 4)
+        var baseContent = base.content.map { node in
+            guard case .visualResource(let visual) = node, visual.kind == .swordPixelArt else { return node }
+            return .visualResource(VisualResource(
+                id: visual.id,
+                kind: visual.kind,
+                color: visual.color,
+                customPixels: importedPixels
+            ))
+        }
+        baseContent.append(.visualResource(VisualResource(
+            id: ContentID("spare_sword_art"),
+            kind: .swordPixelArt,
+            color: .red
+        )))
+        let ambiguousBase = AddOnProject(
+            id: base.id,
+            namespace: base.namespace,
+            displayName: base.displayName,
+            packUUIDs: base.packUUIDs,
+            buildVersion: base.buildVersion,
+            targetProfileID: base.targetProfileID,
+            originalPrompt: base.originalPrompt,
+            content: baseContent
+        )
+        let draft = try AddOnProject.materialSwordSet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            originalPrompt: "Azure sword revision",
+            identity: testIdentity(suffix: "d4e5f6")
+        )
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let result = try await AddOnRevisionService().reviseWithDraft(
+            baseProject: ambiguousBase,
+            draft: draft,
+            newPrompt: "Azure sword revision",
+            outputDirectory: directory
+        )
+
+        let revisedSword = try XCTUnwrap(result.project.visualResources.first { $0.kind == .swordPixelArt })
+        XCTAssertNil(revisedSword.customPixels, "Imported art must not be guessed across same-kind base resources")
+    }
+
     func testValidatorRejectsMalformedImportedPixelData() throws {
         let base = try makeMaterialProject()
         let invalid = AddOnProject(

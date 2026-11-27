@@ -243,13 +243,13 @@ public final class AddOnRevisionService: @unchecked Sendable {
     }
 
     private func preservingImportedPixels(from base: AddOnProject, in draft: AddOnProject) -> [AddOnContentNode] {
-        let importedByKind = Dictionary(grouping: base.visualResources.filter { $0.customPixels != nil }, by: \.kind)
+        let baseByKind = Dictionary(grouping: base.visualResources, by: \.kind)
         let draftByKind = Dictionary(grouping: draft.visualResources, by: \.kind)
         return draft.content.map { node in
             guard case .visualResource(let visual) = node,
-                  let imported = importedByKind[visual.kind], imported.count == 1,
+                  let baseVisuals = baseByKind[visual.kind], baseVisuals.count == 1,
                   draftByKind[visual.kind]?.count == 1,
-                  let customPixels = imported.first?.customPixels else { return node }
+                  let customPixels = baseVisuals[0].customPixels else { return node }
             return .visualResource(VisualResource(
                 id: visual.id,
                 kind: visual.kind,

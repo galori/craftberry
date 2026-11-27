@@ -91,6 +91,28 @@ final class PixelArtTextureRendererTests: XCTestCase {
         }
     }
 
+    func testPNGFileReaderReturnsSmallFilesAndRejectsOversizedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let png = PixelArtTextureRenderer.render(VisualResource(
+            id: ContentID("file_reader_sword"),
+            kind: .swordPixelArt,
+            color: .cyan
+        ))
+        let validURL = directory.appending(path: "valid.png")
+        try png.write(to: validURL)
+        XCTAssertEqual(try PixelArtTextureImporter.readPNGData(from: validURL), png)
+
+        let oversizedURL = directory.appending(path: "oversized.png")
+        try Data(repeating: 0, count: PixelArtTextureImporter.maximumFileSize + 1).write(to: oversizedURL)
+        XCTAssertThrowsError(try PixelArtTextureImporter.readPNGData(from: oversizedURL)) {
+            XCTAssertEqual($0 as? PixelArtTextureImportError, .fileTooLarge)
+        }
+    }
+
     func testVisualResourceFromOlderSidecarDecodesWithoutImportedPixels() throws {
         let data = Data(#"{"id":"sword","kind":"swordPixelArt","color":"blue"}"#.utf8)
         let visual = try JSONDecoder().decode(VisualResource.self, from: data)

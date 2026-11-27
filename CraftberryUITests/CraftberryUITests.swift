@@ -146,11 +146,15 @@ final class CraftberryUITests: XCTestCase {
         XCTAssertTrue(importButton.waitForExistence(timeout: 3))
         importButton.tap()
 
-        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
+        let itemAction = app.buttons["Saved Cyan Sword"]
+        XCTAssertTrue(itemAction.waitForExistence(timeout: 3))
+        itemAction.tap()
+
         let pickerShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         pickerShot.name = "PNG Files picker calibration (selection not performed)"
         pickerShot.lifetime = .keepAlways
         add(pickerShot)
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["Cancel"].tap()
     }
 

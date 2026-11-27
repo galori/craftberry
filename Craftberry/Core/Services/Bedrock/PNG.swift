@@ -892,8 +892,27 @@ public enum PixelArtTextureImportError: LocalizedError, Equatable {
 }
 
 public enum PixelArtTextureImporter {
+    public static let maximumFileSize = 256 * 1024
+
+    /// Reads at most one byte beyond the accepted file size, even if the URL's contents grow
+    /// after the picker reports their size.
+    public static func readPNGData(from url: URL) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        var data = Data()
+        data.reserveCapacity(min(maximumFileSize, 64 * 1024))
+        while data.count <= maximumFileSize {
+            let remaining = maximumFileSize + 1 - data.count
+            let chunk = try handle.read(upToCount: min(remaining, 64 * 1024)) ?? Data()
+            guard !chunk.isEmpty else { return data }
+            data.append(chunk)
+        }
+        throw PixelArtTextureImportError.fileTooLarge
+    }
+
     public static func canonicalPixels(fromPNG data: Data) throws -> Data {
-        guard data.count <= 256 * 1024 else { throw PixelArtTextureImportError.fileTooLarge }
+        guard data.count <= maximumFileSize else { throw PixelArtTextureImportError.fileTooLarge }
         guard Array(data.prefix(8)) == [137, 80, 78, 71, 13, 10, 26, 10] else {
             throw PixelArtTextureImportError.invalidPNG
         }

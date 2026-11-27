@@ -85,6 +85,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         )
         try SidecarBuildAccessCoordinator.shared.withExclusiveAccess {
             try FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+            // Publish the archive first and the canonical sidecar last.
             try archiveData.write(to: outputURL, options: .atomic)
             try sidecarData.write(to: sidecarURL, options: .atomic)
             let createdAtMarker = buildDirectory.appending(path: SidecarRetentionService.createdAtFilename)

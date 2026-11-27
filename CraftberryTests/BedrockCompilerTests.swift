@@ -55,6 +55,42 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(texture.data, PixelArtTextureRenderer.render(visual))
     }
 
+    func testCompilerKeepsPreviousSidecarWhenArchivePublicationFails() throws {
+        let project = try AddOnProject.sword(
+            displayName: "Azure Sword",
+            originalPrompt: "A blue diamond sword",
+            identity: makeIdentity()
+        )
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let compiler = BedrockAddOnCompiler()
+        let initialResult = try compiler.compile(project: project, profile: .current, outputDirectory: directory)
+        let previousSidecar = try Data(contentsOf: initialResult.artifact.projectSidecarURL)
+
+        let nextVersion = project.buildVersion.nextPatch()
+        let nextBuildDirectory = initialResult.artifact.url
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(path: nextVersion.components.map(String.init).joined(separator: "."), directoryHint: .isDirectory)
+        let blockedArchiveURL = nextBuildDirectory.appending(path: initialResult.artifact.fileName)
+        try FileManager.default.createDirectory(at: blockedArchiveURL, withIntermediateDirectories: true)
+        let revised = AddOnProject(
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: nextVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: "A revised blue diamond sword",
+            content: project.content
+        )
+
+        XCTAssertThrowsError(try compiler.compile(project: revised, profile: .current, outputDirectory: directory))
+        XCTAssertEqual(try Data(contentsOf: initialResult.artifact.projectSidecarURL), previousSidecar)
+    }
+
     func testCompilerEmitsMaterialBrewingSetRecipesAndTextures() throws {
         let project = try AddOnProject.materialBrewingSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "brewing", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

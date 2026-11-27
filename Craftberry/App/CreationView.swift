@@ -75,11 +75,7 @@ struct CreationView: View {
                 }
                 do {
                     guard let textureImportResourceID else { throw PixelArtTextureImportError.invalidPNG }
-                    let fileSize = try imageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize
-                    guard let fileSize, fileSize <= 256 * 1024 else {
-                        throw PixelArtTextureImportError.fileTooLarge
-                    }
-                    let data = try Data(contentsOf: imageURL)
+                    let data = try PixelArtTextureImporter.readPNGData(from: imageURL)
                     Task { await viewModel.importTexture(fromPNG: data, visualResourceID: textureImportResourceID) }
                 } catch {
                     viewModel.reportTextureImportError(error)

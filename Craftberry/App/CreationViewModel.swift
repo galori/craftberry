@@ -235,7 +235,18 @@ final class CreationViewModel: ObservableObject {
             let report = AddOnProjectValidator.validate(importedProject, profile: .current)
             guard report.isSuccessful else { throw BedrockCompilationError.invalidProject(report) }
             projectFileError = nil
-            _ = await buildArtifact(importedProject)
+            let previousState = state
+            guard await buildArtifact(importedProject) != nil else {
+                let buildError: String
+                if case .failed(let message) = state {
+                    buildError = message
+                } else {
+                    buildError = "The item texture could not be built."
+                }
+                state = previousState
+                projectFileError = "Couldn't build imported item art. \(buildError)"
+                return
+            }
         } catch {
             projectFileError = error.localizedDescription
         }
