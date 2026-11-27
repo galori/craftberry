@@ -359,16 +359,56 @@ extension MinecraftE2EScenario {
                 .init(
                     outputName: "Redstone Food",
                     ingredients: [
-                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleRight])
+                        // This prefix uniquely selects the ingot in the consumable fixture.
+                        // The full query repeated a vowel on-device and returned no results.
+                        .init(searchText: "redstone ing", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleRight])
                     ],
-                    beforePickupVerification: nil,
+                    // Captured frames show 1,292 red pixels with food ready and zero with an empty grid.
+                    beforePickupVerification: .pixels(.redCluster(xRange: 0.66...0.73, yRange: 0.63...0.75, minimumCount: 600)),
                     afterPickupVerification: .text("Food"),
                     outputDestination: slotAfterIngredientsReturn,
                     shouldResetTableAfterPickup: false
                 )
             ],
             finalHotbarTap: nil
-        )
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for the food-eating test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Clear weather for the food-eating test", action: .chatCommand("/weather clear")),
+            MinecraftStep(name: "Set normal difficulty so hunger can drain", action: .chatCommand("/difficulty normal")),
+            MinecraftStep(name: "Disable mob spawning for the food-eating test", action: .chatCommand("/gamerule domobspawning false")),
+            MinecraftStep(name: "Enter Survival to eat the crafted food", action: .chatCommand("/gamemode survival @s")),
+            MinecraftStep(name: "Wait to land after entering Survival", action: .wait(seconds: 4)),
+            // Face away from the crafting table, level: the eat press cannot
+            // open it, and the top of the screen (where the hunger row sits)
+            // shows sky, so dirt browns cannot pollute the pixel asserts.
+            MinecraftStep(name: "Face away from the crafting table", action: .chatCommand("/tp @s 100 80 95 270 0")),
+            // The fixture food has canAlwaysEat false, so the player must be
+            // hungry before the eat press can consume anything. Drain to a
+            // known-empty bar, prove it empty, then eat and prove it restored.
+            // Amplifier 255: amplifier 10 drained only 3 drumsticks in 25s
+            // live (2250 to 1575 brown), far too slow for a full drain.
+            MinecraftStep(name: "Drain hunger with the hunger effect", action: .chatCommand("/effect @s hunger 300 255")),
+            MinecraftStep(name: "Wait for hunger to drain", action: .wait(seconds: 60)),
+            // Full drumstick row, measured off a device screenshot: x
+            // 0.80...0.96, y 0.01...0.04. Sky behind it reads 0 brown; dirt
+            // elsewhere in frame does match brown, hence facing away first.
+            MinecraftStep(name: "Confirm the hunger bar is empty", action: .assertPixels(.brownAbsent(xRange: 0.795...0.965, yRange: 0.005...0.045, maximumCount: 80))),
+            MinecraftStep(name: "Clear the hunger effect before eating", action: .chatCommand("/effect @s clear")),
+            MinecraftStep(name: "Select the crafted Redstone Food", action: .tap(x: layout.hudHotbarSlot(6).x, y: layout.hudHotbarSlot(6).y)),
+            MinecraftStep(name: "Confirm the Redstone Food tooltip", action: .assertText("Food")),
+            // Two presses: the engine silently ignores some synthesized
+            // gestures, and the restore assert below passes for any nonzero
+            // number of eats, so a retry only helps.
+            MinecraftStep(name: "Eat the held Redstone Food", action: .pressAndHold(x: 0.5, y: 0.4, seconds: 6)),
+            MinecraftStep(name: "Wait between eat presses", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Eat the held Redstone Food again", action: .pressAndHold(x: 0.5, y: 0.4, seconds: 6)),
+            MinecraftStep(name: "Wait for the eat animation to finish", action: .wait(seconds: 3)),
+            // Nutrition 6 restores exactly three drumsticks from empty, filled
+            // left to right — the left slice of the bar reads ~675 brown
+            // against 0 drained, so it is brown only when the eat consumed.
+            MinecraftStep(name: "Confirm hunger restored after eating", action: .assertPixels(.brownCluster(xRange: 0.795...0.85, yRange: 0.005...0.045, minimumCount: 350))),
+        ]
     )
 
     static let redstoneSmithingSet = MinecraftE2EScenario(
