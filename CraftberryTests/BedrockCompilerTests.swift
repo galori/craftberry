@@ -473,6 +473,44 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(String(decoding: try XCTUnwrap(archive.first { $0.path == "levelname.txt" }).data, as: UTF8.self), "Azure Sword (Survival)")
     }
 
+    func testWorldExportPersistsBesideOriginalBuildWhenInputIsShareSnapshot() throws {
+        let project = try makeProject()
+        let outputDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appending(path: ".scratch/tests/world-share-snapshot", directoryHint: .isDirectory)
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: outputDirectory) }
+
+        let addOn = try BedrockAddOnCompiler().compile(
+            project: project,
+            profile: .current,
+            outputDirectory: outputDirectory
+        )
+        let snapshotDirectory = outputDirectory
+            .appending(path: SidecarRetentionService.shareSnapshotsDirectoryName, directoryHint: .isDirectory)
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: snapshotDirectory, withIntermediateDirectories: true)
+        let snapshotURL = snapshotDirectory.appending(path: addOn.artifact.fileName)
+        try FileManager.default.copyItem(at: addOn.artifact.url, to: snapshotURL)
+        let snapshotArtifact = BedrockAddOnArtifact(
+            url: snapshotURL,
+            identifier: addOn.artifact.identifier,
+            fileName: addOn.artifact.fileName,
+            projectSidecarURL: addOn.artifact.projectSidecarURL
+        )
+        let snapshotAddOn = BedrockCompilationResult(artifact: snapshotArtifact, report: addOn.report)
+
+        let world = try BedrockWorldExporter().compileWorld(
+            project: project,
+            addOn: snapshotAddOn,
+            gameMode: .survival,
+            outputDirectory: outputDirectory
+        )
+        try FileManager.default.removeItem(at: snapshotDirectory)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: world.artifact.url.path))
+        XCTAssertEqual(world.artifact.url.deletingLastPathComponent(), addOn.artifact.url.deletingLastPathComponent())
+    }
+
     func testCompilerPreservesProvidedWorldTemplateDatabaseAndIcon() throws {
         let project = try makeProject()
         let outputDirectory = FileManager.default.temporaryDirectory

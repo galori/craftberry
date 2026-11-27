@@ -8,7 +8,10 @@ import CraftberryCore
 
 struct CreationView: View {
     @ObservedObject var viewModel: CreationViewModel
+    let telemetryManager: TelemetryManager
+    let privacyDisclosure: PrivacyDisclosure
     @State private var presentedSheet: PresentedSheet?
+    @State private var shareSnapshotURL: URL?
     @State private var isProjectImporterPresented = false
     @State private var revisionPrompt = ""
     @State private var suggestions = ExamplePromptLibrary.selection()
@@ -28,12 +31,14 @@ struct CreationView: View {
                     }
                 }
             }
-            .sheet(item: $presentedSheet) { sheet in
+            .sheet(item: $presentedSheet, onDismiss: cleanupShareSnapshot) { sheet in
                 switch sheet {
                 case .share(let item):
-                    ActivitySheet(url: item.url)
+                    ActivitySheet(url: item.url, onCompletion: cleanupShareSnapshot)
                 case .revision(let project, _):
                     revisionSheet(for: project)
+                case .privacy:
+                    PrivacySettingsSheet(disclosure: privacyDisclosure, telemetryManager: telemetryManager)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -60,7 +65,7 @@ struct CreationView: View {
             }
         }
         .alert(
-            "Project file issue",
+            "File issue",
             isPresented: Binding(
                 get: { viewModel.projectFileError != nil },
                 set: { if !$0 { viewModel.clearProjectFileError() } }
@@ -69,6 +74,9 @@ struct CreationView: View {
             Button("OK", role: .cancel) { viewModel.clearProjectFileError() }
         } message: {
             Text(viewModel.projectFileError ?? "Choose a valid Craftberry project.json sidecar.")
+        }
+        .task {
+            await viewModel.pruneStoredBuilds()
         }
     }
 
@@ -91,11 +99,17 @@ struct CreationView: View {
 
             Spacer()
 
-            Circle()
-                .fill(Color.craftberrySurface)
-                .frame(width: 34, height: 34)
-                .overlay(Image(systemName: "person.fill").font(.caption).foregroundStyle(Color.craftberryMuted))
-                .accessibilityLabel("Profile")
+            Button {
+                presentedSheet = .privacy(UUID())
+            } label: {
+                Circle()
+                    .fill(Color.craftberrySurface)
+                    .frame(width: 34, height: 34)
+                    .overlay(Image(systemName: "hand.raised.fill").font(.caption).foregroundStyle(Color.craftberryMuted))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Privacy and data settings")
+            .accessibilityIdentifier("craftberry.privacySettings")
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)
@@ -336,7 +350,7 @@ struct CreationView: View {
 
                 if result != nil {
                     Button {
-                        presentedSheet = .share(ShareItem(url: result!.artifact.url))
+                        shareArtifact(result!.artifact.url)
                     } label: {
                         Label("Save .mcaddon", systemImage: "square.and.arrow.down")
                     }
@@ -348,7 +362,7 @@ struct CreationView: View {
 
                 Button {
                     if let sidecarURL = viewModel.saveProjectSidecar(for: project) {
-                        presentedSheet = .share(ShareItem(url: sidecarURL))
+                        shareArtifact(sidecarURL)
                     }
                 } label: {
                     Label("Save project.json", systemImage: "doc.text")
@@ -467,7 +481,7 @@ struct CreationView: View {
                 result = await viewModel.buildArtifact(project)
             }
             guard let result else { return }
-            presentedSheet = .share(ShareItem(url: result.artifact.url))
+            shareArtifact(result.artifact.url)
         }
     }
 
@@ -486,8 +500,20 @@ struct CreationView: View {
             guard let addOn,
                   let world = await viewModel.buildWorld(project: project, addOn: addOn, gameMode: gameMode)
             else { return }
-            presentedSheet = .share(ShareItem(url: world.artifact.url))
+            shareArtifact(world.artifact.url)
         }
+    }
+
+    private func shareArtifact(_ artifactURL: URL) {
+        guard let snapshotURL = viewModel.makeShareSnapshot(of: artifactURL) else { return }
+        shareSnapshotURL = snapshotURL
+        presentedSheet = .share(ShareItem(url: snapshotURL))
+    }
+
+    private func cleanupShareSnapshot() {
+        guard let shareSnapshotURL else { return }
+        viewModel.removeShareSnapshot(at: shareSnapshotURL)
+        self.shareSnapshotURL = nil
     }
 
     private func hero(_ visualResource: VisualResource) -> some View {
@@ -1106,8 +1132,17 @@ private extension IngredientSummary {
 
 private struct ActivitySheet: UIViewControllerRepresentable {
     let url: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: [url], applicationActivities: nil) }
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+    let onCompletion: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onCompletion() }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {
+        controller.completionWithItemsHandler = { _, _, _, _ in onCompletion() }
+    }
 }
 
 private struct ShareItem: Identifiable {
@@ -1115,14 +1150,134 @@ private struct ShareItem: Identifiable {
     var id: String { url.absoluteString }
 }
 
+private struct PrivacySettingsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var telemetryEnabled: Bool
+    @State private var statusMessage: String?
+
+    private let disclosure: PrivacyDisclosure
+    private let telemetryManager: TelemetryManager
+
+    init(disclosure: PrivacyDisclosure, telemetryManager: TelemetryManager) {
+        self.disclosure = disclosure
+        self.telemetryManager = telemetryManager
+        _telemetryEnabled = State(initialValue: telemetryManager.isOptedIn)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(disclosure.summary)
+                        .font(.body)
+                        .foregroundStyle(.white)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("What Craftberry handles")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        ForEach(disclosure.dataCollected, id: \.self) { item in
+                            Label(item, systemImage: "checkmark.circle")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.craftberryMuted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Privacy safeguards")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        ForEach(disclosure.dataNotCollected, id: \.self) { item in
+                            Label(item, systemImage: "xmark.circle")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.craftberryMuted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    Toggle(isOn: Binding(
+                        get: { telemetryEnabled },
+                        set: { isEnabled in
+                            telemetryEnabled = isEnabled
+                            telemetryManager.setOptedIn(isEnabled)
+                            if !isEnabled {
+                                statusMessage = "Stored usage events were deleted."
+                            }
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Save anonymous usage events on this device")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                            Text("When enabled, Craftberry stores generation attempts and outcomes plus build outcomes on this device. Events older than 30 days are removed the next time the app performs cleanup. Events are never uploaded and never include prompts, artwork, project names, or files.")
+                                .font(.footnote)
+                                .foregroundStyle(Color.craftberryMuted)
+                        }
+                    }
+                    .tint(.craftberryOrange)
+                    .accessibilityIdentifier("craftberry.telemetryOptIn")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Data retention")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        Text(disclosure.retentionSummary)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.craftberryMuted)
+                    }
+
+                    Button("Delete stored usage events") {
+                        telemetryManager.deleteStoredEvents()
+                        statusMessage = "Stored usage events were deleted."
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.craftberryOrange)
+                    .accessibilityIdentifier("craftberry.deleteTelemetry")
+
+                    if let contactURL = disclosure.contactURL {
+                        Link("Privacy contact", destination: contactURL)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.craftberryBlue)
+                    } else {
+                        Text("Privacy contact information will be configured before distribution.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.craftberryMuted)
+                            .accessibilityIdentifier("craftberry.privacyContactPlaceholder")
+                    }
+
+                    if let statusMessage {
+                        Text(statusMessage)
+                            .font(.footnote)
+                            .foregroundStyle(Color.craftberryGold)
+                            .accessibilityIdentifier("craftberry.privacyStatus")
+                    }
+                }
+                .padding(22)
+            }
+            .background(Color.craftberryBackground.ignoresSafeArea())
+            .navigationTitle("Privacy & Data")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 private enum PresentedSheet: Identifiable {
     case share(ShareItem)
     case revision(AddOnProject, UUID)
+    case privacy(UUID)
 
     var id: String {
         switch self {
         case .share(let item): "share:\(item.id)"
         case .revision(_, let id): "revision:\(id.uuidString)"
+        case .privacy(let id): "privacy:\(id.uuidString)"
         }
     }
 }
