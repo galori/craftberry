@@ -54,7 +54,14 @@ struct MinecraftFurnacePlanCompiler {
             .tap("Pick \(fuelName) from the hotbar", fuelHotbarSlot),
             .tap("Place \(fuelName) into the furnace fuel slot", fuelSlot),
             MinecraftStep(name: "Wait for \(expectedOutputName) to smelt", action: .wait(seconds: smeltDuration)),
-            MinecraftStep(name: "Confirm furnace produced \(expectedOutputName)", action: .assertText(expectedOutputName)),
+            MinecraftStep(
+                name: "Confirm \(expectedOutputName) is visible in the furnace result slot",
+                action: .assertPixels(.itemContrastCluster(
+                    xRange: (outputSlot.x - 0.018)...(outputSlot.x + 0.018),
+                    yRange: (outputSlot.y - 0.034)...(outputSlot.y + 0.034),
+                    minimumCount: 20
+                ))
+            ),
             .tap("Collect \(expectedOutputName) from the furnace output slot", outputSlot),
             MinecraftStep(name: "Wait for collected \(expectedOutputName)", action: .wait(seconds: 2)),
             MinecraftStep(
@@ -65,6 +72,8 @@ struct MinecraftFurnacePlanCompiler {
                     maximumCount: 2
                 ))
             ),
+            .tap("Close furnace interface", closeButton),
+            MinecraftStep(name: "Wait for the world HUD", action: .wait(seconds: 2)),
             MinecraftStep(
                 name: "Confirm collected \(expectedOutputName) in the HUD hotbar",
                 action: .assertPixels(.itemContrastCluster(
@@ -72,9 +81,7 @@ struct MinecraftFurnacePlanCompiler {
                     yRange: (layout.outputHUDHotbarSlot.y - 0.025)...(layout.outputHUDHotbarSlot.y + 0.05),
                     minimumCount: 20
                 ))
-            ),
-            .tap("Close furnace interface", closeButton),
-            MinecraftStep(name: "Wait for the world HUD", action: .wait(seconds: 2))
+            )
         ]
         return steps
     }

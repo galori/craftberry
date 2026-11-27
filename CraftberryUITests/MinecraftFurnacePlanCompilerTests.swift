@@ -29,7 +29,15 @@ final class MinecraftFurnacePlanCompilerTests: XCTestCase {
         XCTAssertEqual(steps[5].action, .tap(x: 0.33, y: 0.44))
         XCTAssertEqual(steps[6].action, .tap(x: 0.5, y: 0.6))
         XCTAssertEqual(steps[7].action, .wait(seconds: 12))
-        XCTAssertEqual(steps[8].action, .assertText("Glass"))
+        XCTAssertEqual(steps[8].name, "Confirm Glass is visible in the furnace result slot")
+        XCTAssertEqual(
+            steps[8].action,
+            .assertPixels(.itemContrastCluster(
+                xRange: (outputSlot.x - 0.018)...(outputSlot.x + 0.018),
+                yRange: (outputSlot.y - 0.034)...(outputSlot.y + 0.034),
+                minimumCount: 20
+            ))
+        )
         XCTAssertEqual(steps[9].action, .tap(x: 0.7, y: 0.8))
         XCTAssertEqual(steps[10].action, .wait(seconds: 2))
         XCTAssertEqual(
@@ -40,15 +48,16 @@ final class MinecraftFurnacePlanCompilerTests: XCTestCase {
                 maximumCount: 2
             ))
         )
+        XCTAssertEqual(steps[12].action, .tap(x: 0.9, y: 0.1))
+        XCTAssertEqual(steps[13].action, .wait(seconds: 2))
         XCTAssertEqual(
-            steps[12].action,
+            steps[14].action,
             .assertPixels(.itemContrastCluster(
                 xRange: (hudSlot.x - 0.02)...(hudSlot.x + 0.02),
                 yRange: (hudSlot.y - 0.025)...(hudSlot.y + 0.05),
                 minimumCount: 20
             ))
         )
-        XCTAssertEqual(steps[13].action, .tap(x: 0.9, y: 0.1))
         XCTAssertFalse(steps.suffix(from: 9).contains { $0.action == .assertText("Glass") })
     }
 
@@ -97,7 +106,12 @@ final class MinecraftFurnacePlanCompilerTests: XCTestCase {
         ])
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Furnace") })
         let waitForOutput = try XCTUnwrap(scenario.postCraftingSteps.firstIndex { $0.name == "Wait for Redstone Ingot to smelt" })
-        XCTAssertEqual(scenario.postCraftingSteps[waitForOutput + 1].action, .assertText("Redstone Ingot"))
+        let outputAssertion = scenario.postCraftingSteps[waitForOutput + 1]
+        XCTAssertEqual(outputAssertion.name, "Confirm Redstone Ingot is visible in the furnace result slot")
+        XCTAssertTrue({
+            guard case .assertPixels(.itemContrastCluster) = outputAssertion.action else { return false }
+            return true
+        }())
         XCTAssertFalse(scenario.postCraftingSteps.suffix(from: waitForOutput + 2).contains { $0.action == .assertText("Redstone Ingot") })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.name == "Confirm furnace output slot is empty" })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.name == "Confirm collected Redstone Ingot in the HUD hotbar" })
@@ -117,7 +131,13 @@ final class MinecraftFurnacePlanCompilerTests: XCTestCase {
         XCTAssertTrue(commands.contains("/give @s craftberry:redstone_fueltest_fuel"))
         XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_fueltest_fuel"))
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Furnace") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Glass") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { step in
+            step.name == "Confirm Glass is visible in the furnace result slot"
+                && {
+                    guard case .assertPixels(.itemContrastCluster) = step.action else { return false }
+                    return true
+                }()
+        })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.name == "Confirm furnace output slot is empty" })
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.name == "Confirm collected Glass in the HUD hotbar" })
         XCTAssertFalse(scenario.postCraftingSteps.contains { $0.name == "Wait for Glass tooltip" })
