@@ -114,7 +114,7 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertEqual(generation.project?.entities.first?.health, 24)
     }
 
-    func testClientAssemblesMusicRecordSetFromTypedStructuredIntent() async throws {
+    func testClientReturnsUnsupportedForMusicRecordIntentInStableProfile() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A dreamy music record.","musicRecordSet":{"title":"First Light","color":"cyan","style":"dreamy"}}
         """
@@ -130,10 +130,9 @@ final class OpenAIResponsesClientTests: XCTestCase {
 
         let generation = try await client.generateProject(from: "Make a dreamy cyan record called First Light")
 
-        XCTAssertEqual(generation.outcome, .ready)
-        XCTAssertEqual(generation.project?.items.first?.displayName, "First Light")
-        XCTAssertEqual(generation.project?.items.first?.traits.musicRecord?.style, .dreamy)
-        XCTAssertEqual(generation.project?.recipes.first?.pattern, ["DDD", "DRD", "DDD"])
+        XCTAssertEqual(generation.outcome, .unsupported)
+        XCTAssertTrue(generation.message.contains("Beta APIs experiment"))
+        XCTAssertNil(generation.project)
     }
 
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {

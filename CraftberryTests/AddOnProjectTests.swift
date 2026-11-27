@@ -212,7 +212,7 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(spawnEgg.traits.entityPlacer?.entityID, project.entities[0].id)
     }
 
-    func testMusicRecordSetCreatesCraftableSingleStackDiscWithTypedTrackStyle() throws {
+    func testMusicRecordSetIsRejectedByTheExperimentsOffStableProfile() throws {
         let project = try AddOnProject.musicRecordSet(
             title: "First Light",
             color: .cyan,
@@ -231,7 +231,8 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertEqual(project.recipes.first?.ingredients["D"], .vanilla("minecraft:diamond"))
         XCTAssertEqual(project.recipes.first?.ingredients["R"], .vanilla("minecraft:redstone"))
         XCTAssertEqual(project.visualResources.first?.kind, .musicDiscPixelArt)
-        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+        let report = AddOnProjectValidator.validate(project, profile: .current)
+        XCTAssertTrue(report.errors.contains { $0.code == "unsupported_item_trait" })
     }
 
     func testMaterialEntitySetLinksBodyTextureResource() throws {

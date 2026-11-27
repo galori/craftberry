@@ -13,8 +13,7 @@ let samples = try [
     AddOnProject.materialConsumableSet(materialName: "Schema Food", originalPrompt: "Schema fixture"),
     AddOnProject.materialArmorSet(materialName: "Schema Armor", originalPrompt: "Schema fixture"),
     AddOnProject.materialOreSet(materialName: "Schema Ore", originalPrompt: "Schema fixture"),
-    AddOnProject.materialBlockSet(materialName: "Schema Block", originalPrompt: "Schema fixture"),
-    AddOnProject.musicRecordSet(title: "Schema Record", style: .dreamy, originalPrompt: "Schema fixture")
+    AddOnProject.materialBlockSet(materialName: "Schema Block", originalPrompt: "Schema fixture")
 ]
 let identity = AddOnProjectIdentity.generate()
 let project = AddOnProject(

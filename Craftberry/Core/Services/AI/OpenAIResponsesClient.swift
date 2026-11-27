@@ -105,8 +105,12 @@ public struct OpenAIResponsesClient: LLMClient {
                 project = try AddOnProject.materialStructureSet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, destroyTime: material.destroyTime, mapColor: material.mapColor, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
             case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(material), nil):
                 project = try AddOnProject.materialHostileEntitySet(materialName: material.materialName, color: material.color, sourceItem: material.sourceItem.bedrockIdentifier, sourceCount: material.sourceCount, health: material.health, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
-            case let (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(record)):
-                project = try AddOnProject.musicRecordSet(title: record.title, color: record.color, style: record.style, shortDescription: shortDescription, originalPrompt: prompt, identity: identity, profile: .current)
+            case (nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, .some(_)):
+                return ProjectGeneration(
+                    outcome: .unsupported,
+                    message: "Custom music records require the Beta APIs experiment, which is unavailable in Craftberry's stable profile.",
+                    project: nil
+                )
             default: throw LLMClientError.invalidResponse
             }
             let report = AddOnProjectValidator.validate(project, profile: .current)
@@ -509,7 +513,7 @@ private struct OpenAIRequestDocument: Encodable {
     }
 
     private static let instructions = """
-    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, one named material ingot plus a matching helmet/chestplate/leggings/boots armor set, one named material ingot plus food and fuel consumables, one named material ingot plus its storage block, one named material ingot plus a furnace-smelted ingot and its sword, one named material ingot plus a smithing-upgraded sword and armor trim using that ingot, one named material ingot plus a brewing-stand elixir that upgrades a potion via the ingot, one named material ingot plus its ore block, one named material seed plus its crop block and produce, one named material ingot plus its storage block and a 3x3 hut structure built from that block, one named material ingot plus a hostile creature that attacks players, or one original, craftable music record.
+    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, one named material ingot plus a matching helmet/chestplate/leggings/boots armor set, one named material ingot plus food and fuel consumables, one named material ingot plus its storage block, one named material ingot plus a furnace-smelted ingot and its sword, one named material ingot plus a smithing-upgraded sword and armor trim using that ingot, one named material ingot plus a brewing-stand elixir that upgrades a potion via the ingot, one named material ingot plus its ore block, one named material seed plus its crop block and produce, one named material ingot plus its storage block and a 3x3 hut structure built from that block, or one named material ingot plus a hostile creature that attacks players.
     A material set makes a shapeless ingot from 1 through 9 copies of one supported vanilla material, then a sword from two ingots and a stick. Defaults are Azure, blue, diamond x4, attack 10, durability 500, names "Azure Ingot" and "Azure Sword". Never output Bedrock JSON, identifiers, UUIDs, filenames, code, markdown, or fields outside the schema.
     Material sword set swords can be enchanted at an enchanting table; requests for enchantable material sword sets are supported. Specific pre-applied enchantments are not supported.
     A material tool set uses the same ingot recipe and additionally crafts pickaxe, axe, shovel, and hoe variants from that ingot and sticks.
@@ -524,7 +528,6 @@ private struct OpenAIRequestDocument: Encodable {
     A material crop set makes seeds from 1 through 9 copies of one supported vanilla material (4 seeds), plus a produce food and a crop block with 8 growth stages (0..7) that drops produce when broken.
     A material structure set extends the block set with a 3x3 hut structure built from that block and placed via a structure template feature; it uses the same ingot/block defaults and limits as the block set.
     A material hostile creature set uses the same ingot recipe and additionally crafts a spawn egg for a hostile creature that attacks players. Health is 4 through 40 (default 20). Use the built-in pig geometry; do not generate scripts or custom geometry.
-    A music record set creates one original custom music disc, crafted from 8 diamonds and one redstone in the center of a crafting table. Provide a title of 32 characters or fewer, one supported pixel color, and one style: dreamy, bright, mysterious, or adventurous. The game audio is synthesized by Craftberry from the style choice; never output lyrics, existing songs, audio references, raw sound data, Bedrock JSON, or filenames.
     If unsupported, set all intents and shortDescription to null. If ready, populate exactly one intent and write shortDescription as one short user-facing pack overview sentence.
     """
 
@@ -698,14 +701,9 @@ private struct OpenAIRequestDocument: Encodable {
         ])])
     ])])
 
-    private static let musicRecordSetProperty: JSONValue = .object(["anyOf": .array([
-        .object(["type": .string("null")]),
-        .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["title", "color", "style"].map(JSONValue.string)), "properties": .object([
-            "title": .object(["type": .string("string"), "minLength": .integer(1), "maxLength": .integer(32)]),
-            "color": .object(["type": .string("string"), "enum": .array(PixelArtColor.allCases.map { .string($0.rawValue) })]),
-            "style": .object(["type": .string("string"), "enum": .array(MusicRecordStyle.allCases.map { .string($0.rawValue) })])
-        ])])
-    ])])
+    // 1.26.30 requires Beta APIs for custom `minecraft:record` sound-event names.
+    // Keep the model intent disabled while Craftberry's stable profile remains experiments-off.
+    private static let musicRecordSetProperty: JSONValue = .object(["type": .string("null")])
 
     private static let materialCropSetProperty: JSONValue = .object(["anyOf": .array([
         .object(["type": .string("null")]),

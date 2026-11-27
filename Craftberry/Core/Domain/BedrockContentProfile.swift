@@ -113,7 +113,9 @@ public struct BedrockContentProfile: Codable, Equatable, Sendable, Identifiable 
         entityFormatVersion: "1.26.10",
         spawnRuleFormatVersion: "1.8.0",
         clientEntityFormatVersion: "1.10.0",
-        supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel, .enchantment, .entityPlacer, .musicRecord],
+        // Custom `minecraft:record` sound_event strings require Beta APIs in 1.26.30.
+        // Keep music records out of the experiments-off stable profile until that changes.
+        supportedItemTraits: [.combat, .durability, .handEquipped, .armor, .food, .fuel, .enchantment, .entityPlacer],
         vanillaItemIdentifiers: GeneratedVanillaItemCatalog.identifiers,
         vanillaItemTags: [GeneratedVanillaItemCatalog.trimmableArmorTag]
     )

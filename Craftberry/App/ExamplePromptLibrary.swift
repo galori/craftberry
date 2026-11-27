@@ -14,9 +14,9 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// Every prompt must stay inside the active capability profile: only materials from
 /// `GeneratedVanillaItemCatalog.materialSources`, attack 1–30, durability 50–2,000, protection
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
-/// set, armor set, consumable set, block set, furnace set, smithing set, music record). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
+/// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + structureSets + musicRecordSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + structureSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -208,10 +208,4 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🗼", text: "A netherite hut structure named Warden with 3x3 hut")
     ]
 
-    private static let musicRecordSets: [ExamplePrompt] = [
-        ExamplePrompt(emoji: "🎵", text: "A cyan diamond music record called First Light, dreamy"),
-        ExamplePrompt(emoji: "💿", text: "A gold ingot music disc called Sunroom, bright"),
-        ExamplePrompt(emoji: "🌌", text: "A lapis music record called Deep Current, mysterious"),
-        ExamplePrompt(emoji: "✨", text: "An amethyst shard music disc named Stardrift, adventurous")
-    ]
 }

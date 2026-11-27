@@ -19,8 +19,7 @@ enum MusicRecordAudioRenderer {
     }
 
     static func trackIdentifier(for itemID: ContentID) -> String {
-        let value = itemID.rawValue
-        return value.hasSuffix("_disc") ? String(value.dropLast("_disc".count)) : value
+        itemID.rawValue
     }
 
     static func render(style: MusicRecordStyle) -> Data {

@@ -35,7 +35,7 @@ Commands:
           The music-record scenario crafts a disc, checks jukebox playback,
           and confirms the disc is ejected.
   minecraft-e2e-all [--fresh-world]
-          Run all sixteen acceptance scenarios sequentially. The regular .mcaddon
+          Run all fifteen stable acceptance scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
           Each prepared-world check removes only its exact named test world.
           --fresh-world clears the reusable "craftberry test" world before
@@ -447,7 +447,7 @@ minecraft_e2e_all_on_device() {
             *) echo "error: unknown flag '$1' for minecraft-e2e-all (expected --fresh-world)" >&2; exit 1 ;;
         esac
     done
-    local scenarios=(redstone emerald weapon armor consumable block smithing furnace fuel brewing ore crop entity enchant structure music-record)
+    local scenarios=(redstone emerald weapon armor consumable block smithing furnace fuel brewing ore crop entity enchant structure)
     local overall_status=0
     local first="yes"
     for scenario in "${scenarios[@]}"; do
