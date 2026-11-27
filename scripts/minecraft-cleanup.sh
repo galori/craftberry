@@ -85,6 +85,10 @@ require_tool() {
     fi
 }
 
+is_pack_uuid() {
+    [[ "${#1}" -eq 36 && "$1" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+}
+
 afc() {
     # Confirmed live: afcclient's getopt-style parser reorders arguments and
     # trips over subcommand flags like `rm -rf` (misreads -rf as an unknown
@@ -172,10 +176,11 @@ read_pack_ids_for_cleanup() {
         else
             .[0][]
         end
-        | if (.pack_id | type) == "string" and (.pack_id | length) > 0 then
+        | if (.pack_id | type) == "string" and (.pack_id | length) == 36
+            and (.pack_id | test("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) then
             .pack_id
         else
-            error("invalid pack_id")
+            error("invalid pack_id UUID")
         end
     ' "$local_path"
 }
@@ -348,7 +353,7 @@ cmd_clean() {
             if [[ "$description" == "$CRAFTBERRY_MARKER" ]]; then
                 if [[ "$PACK_CLEANUP_SCOPE" == "referenced" ]]; then
                     uuid="$(jq -r '.header.uuid // ""' "$manifest_local" 2>/dev/null)"
-                    if [[ -z "$target_ids" ]] || ! grep -Fxq -- "$uuid" <<<"$target_ids"; then
+                    if ! is_pack_uuid "$uuid" || [[ -z "$target_ids" ]] || ! grep -Fxq -- "$uuid" <<<"$target_ids"; then
                         skipped=$((skipped + 1))
                         continue
                     fi
