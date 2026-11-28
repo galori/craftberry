@@ -307,8 +307,12 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let base = try XCTUnwrap(layout.baseSlot)
         let template = try XCTUnwrap(layout.templateSlot)
         let result = try XCTUnwrap(layout.resultSlot)
-        XCTAssertTrue(template.y < base.y && base.y < addition.y)
-        XCTAssertEqual(result.y, base.y, accuracy: 0.001)
+        XCTAssertEqual(addition.x, base.x, accuracy: 0.001)
+        XCTAssertEqual(base.x, template.x, accuracy: 0.001)
+        XCTAssertTrue(addition.y < base.y && base.y < template.y,
+                      "Bedrock order is template (left), equipment, material (right): landscape y must run addition < base < template.")
+        XCTAssertEqual(result.x, 0.6996, accuracy: 0.002)
+        XCTAssertEqual(result.y, 0.4021, accuracy: 0.002)
         assertTap(named: "Place the redstone ingot in the smithing material slot", in: steps, x: addition.x, y: addition.y)
     }
 

@@ -764,22 +764,27 @@ struct MinecraftSmithingLayout {
     let trimResultHUDSlot: MinecraftCoordinate
     let trimTemplateHotbarSlot: MinecraftCoordinate
 
-    /// Panel cells measured off the failed device runs 46100557227 and 46110335108
-    /// (1170x2532 portrait capture of the landscape UI): landscape x = capture y / height,
-    /// landscape y = 1 - capture x / width. Run 46110335108 proves the swap: the base tap
-    /// at y 0.4026 landed (diamond sword visible in the middle slot) while the template tap
-    /// at y 0.539 and the ingot tap at y 0.265 both left their slots empty and the result
-    /// slot empty. Left-to-right in the capture is addition, base, template (ghost template
-    /// outline on the rightmost slot), so in landscape coords the template is at y 0.265
-    /// and the addition/material at y 0.539.
+    /// Panel cells measured off the failed run 46123470566 screenshots (1170x2532 portrait
+    /// capture of the landscape UI): landscape x = capture y / height,
+    /// landscape y = 1 - capture x / width. Slot interiors measured off white-border runs:
+    /// inputs share row y 1391...1520 (centre 1455.5 -> x 0.5748), A 475...569 (centre
+    /// 519.5 -> y 0.5560), B 635...704 (centre 669.5 -> y 0.4278), C 795...890 (centre
+    /// 819.5 -> y 0.2996); result 635...764 x 1707...1836 (centre 699.5, 1771.5
+    /// -> 0.6996, 0.4021). Run 46123470566 proves the 9b5a84d swap went the wrong way:
+    /// the template tap at y 0.265 landed in the rightmost slot (netherite template
+    /// sitting in C) while A (the true template slot, ghost outline) stayed empty and
+    /// the ingot tap at y 0.539 aimed at A's edge. Bedrock order is template (A),
+    /// equipment (B), material (C) left-to-right, so template is y 0.556 and addition
+    /// y 0.300. The pixel detector was correct (result slot verified at 0.6996, 0.4021;
+    /// matched=0 because no recipe ever completed).
     static var measured: MinecraftSmithingLayout {
         let calibrated = MinecraftCalibratedLayout()
         return MinecraftSmithingLayout(
             smithingTableBlock: calibrated.reopenCraftingTable,
-            templateSlot: MinecraftCoordinate(x: 0.5745, y: 0.265),
-            baseSlot: MinecraftCoordinate(x: 0.5745, y: 0.4026),
-            additionSlot: MinecraftCoordinate(x: 0.5745, y: 0.539),
-            resultSlot: MinecraftCoordinate(x: 0.6998, y: 0.4026),
+            templateSlot: MinecraftCoordinate(x: 0.5748, y: 0.5560),
+            baseSlot: MinecraftCoordinate(x: 0.5748, y: 0.4278),
+            additionSlot: MinecraftCoordinate(x: 0.5748, y: 0.2996),
+            resultSlot: MinecraftCoordinate(x: 0.6996, y: 0.4021),
             closeButton: calibrated.closeCraftingTable,
             ingotHotbarSlot: calibrated.hotbarSlot(1),
             swordBaseHotbarSlot: calibrated.hotbarSlot(4),
