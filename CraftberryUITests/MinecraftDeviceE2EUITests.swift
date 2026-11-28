@@ -123,6 +123,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryBiomeIsLocatedAndVisitedInFreshTerrain() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.customBiome, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneBossChangesPhaseAndDropsIngot() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -584,6 +592,29 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Verify hostile damage reaches zero health", action: .assertText("You died")),
             MinecraftStep(name: "Respawn after verifying hostile damage", action: .tapTextRow(x: 0.5, text: "Respawn")),
             MinecraftStep(name: "Wait for the player to respawn", action: .wait(seconds: 8))
+        ]
+    )
+
+    /// The biome has no crafting: the staged crafting table is closed, then `/locate biome` finds the
+    /// biome in terrain the world has not generated yet and the player is teleported above it.
+    /// The fixed content suffix comes from `--ui-testing-stable-fuel-identifier`.
+    static let customBiome = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-biome-set",
+        additionalLaunchArguments: ["--ui-testing-stable-fuel-identifier"],
+        prompt: "Generate a red sand biome named Crimson Dunes",
+        projectName: "Crimson Dunes",
+        expectedCraftedItemName: "Crimson Dunes Biome Token",
+        behaviorPackName: "Crimson Dunes Behavior",
+        resourcePackName: "Crimson Dunes Resources",
+        craftingPlan: MinecraftCraftingPlan(recipes: [], finalHotbarTap: nil),
+        postCraftingSteps: [
+            MinecraftStep(name: "Close the staged crafting interface", action: .tap(x: layout.closeCraftingTable.x, y: layout.closeCraftingTable.y)),
+            MinecraftStep(name: "Wait for the creative HUD", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Locate the generated biome", action: .chatCommand("/locate biome craftberry:crimson_dunes_fueltest_biome")),
+            MinecraftStep(name: "Confirm the located biome identity", action: .assertText("craftberry:crimson_dunes_fueltest_biome|crimson_dunes_fueltest_biome|crimson dunes fueltest biome")),
+            MinecraftStep(name: "Teleport above the located biome facing down", action: .teleportToLocatedBiome),
+            MinecraftStep(name: "Wait for new terrain to generate and the player to land", action: .wait(seconds: 12)),
+            MinecraftStep(name: "Confirm the red sand surface under the player", action: .assertPixels(.redSandCluster(xRange: 0.2...0.8, yRange: 0.2...0.8, minimumCount: 20_000)))
         ]
     )
 

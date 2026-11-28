@@ -25,7 +25,7 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|fuel|brewing|ore|crop|entity|boss|enchant|structure|music-record] [--fresh-world|--delete-world]
+  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|fuel|brewing|ore|crop|entity|boss|biome|enchant|structure|music-record] [--fresh-world|--delete-world]
           Run a focused Craftberry-to-Minecraft scenario, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
@@ -344,6 +344,11 @@ minecraft_e2e_on_device() {
             result_name="MinecraftRedstoneBossEncounterE2EUITests"
             prepared_world_name="Redstone (Creative)"
             ;;
+        biome)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryBiomeIsLocatedAndVisitedInFreshTerrain"
+            result_name="MinecraftBiomeE2EUITests"
+            prepared_world_name="Crimson Dunes (Creative)"
+            ;;
         enchant)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneSwordCanBeEnchanted"
             result_name="MinecraftRedstoneEnchantableSwordE2EUITests"
@@ -360,7 +365,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="First Light (Creative)"
             ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, fuel, brewing, ore, crop, entity, boss, enchant, structure, or music-record)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, fuel, brewing, ore, crop, entity, boss, biome, enchant, structure, or music-record)." >&2
             exit 1
             ;;
     esac

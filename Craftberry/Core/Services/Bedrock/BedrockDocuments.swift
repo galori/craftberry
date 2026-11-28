@@ -858,6 +858,100 @@ struct BlocksDocument: Encodable {
     }
 }
 
+/// `biomes/<id>.biome.json`, shaped like the pinned `minecraft:plains` biome plus
+/// `minecraft:replace_biomes` (stable since 1.21.110, no experiment toggle).
+struct BiomeDocument: Encodable {
+    let formatVersion: String
+    let biome: Biome
+
+    struct Biome: Encodable {
+        let description: Description
+        let components: Components
+    }
+
+    struct Description: Encodable { let identifier: String }
+
+    struct Components: Encodable {
+        let climate: Climate
+        let overworldHeight: OverworldHeight
+        let replaceBiomes: ReplaceBiomes
+        let surfaceBuilder: SurfaceBuilder
+        let tags: Tags
+
+        enum CodingKeys: String, CodingKey {
+            case climate = "minecraft:climate"
+            case overworldHeight = "minecraft:overworld_height"
+            case replaceBiomes = "minecraft:replace_biomes"
+            case surfaceBuilder = "minecraft:surface_builder"
+            case tags = "minecraft:tags"
+        }
+    }
+
+    struct Climate: Encodable {
+        let downfall: Double
+        let snowAccumulation: [Double]
+        let temperature: Double
+
+        enum CodingKeys: String, CodingKey {
+            case downfall
+            case snowAccumulation = "snow_accumulation"
+            case temperature
+        }
+    }
+
+    struct OverworldHeight: Encodable {
+        let noiseType: String
+        enum CodingKeys: String, CodingKey { case noiseType = "noise_type" }
+    }
+
+    struct ReplaceBiomes: Encodable {
+        let replacements: [Replacement]
+
+        struct Replacement: Encodable {
+            let dimension: String
+            let targets: [String]
+            let amount: Double
+            let noiseFrequencyScale: Double
+
+            enum CodingKeys: String, CodingKey {
+                case dimension, targets, amount
+                case noiseFrequencyScale = "noise_frequency_scale"
+            }
+        }
+    }
+
+    struct SurfaceBuilder: Encodable {
+        let builder: Builder
+
+        struct Builder: Encodable {
+            let type: String
+            let seaFloorDepth: Int
+            let seaFloorMaterial: String
+            let foundationMaterial: String
+            let midMaterial: String
+            let topMaterial: String
+            let seaMaterial: String
+
+            enum CodingKeys: String, CodingKey {
+                case type
+                case seaFloorDepth = "sea_floor_depth"
+                case seaFloorMaterial = "sea_floor_material"
+                case foundationMaterial = "foundation_material"
+                case midMaterial = "mid_material"
+                case topMaterial = "top_material"
+                case seaMaterial = "sea_material"
+            }
+        }
+    }
+
+    struct Tags: Encodable { let tags: [String] }
+
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version"
+        case biome = "minecraft:biome"
+    }
+}
+
 struct StructureTemplateFeatureDocument: Encodable {
     let formatVersion: String
     let feature: Feature

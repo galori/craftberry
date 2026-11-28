@@ -22,6 +22,8 @@ struct MinecraftStep: Equatable {
         case chatCommand(String)
         case assertText(String)
         case assertPixels(MinecraftPixelExpectation)
+        /// Reads the `/locate biome` result already on screen and teleports above it, looking straight down.
+        case teleportToLocatedBiome
         case tapUntilPixels(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, expectation: MinecraftPixelExpectation)
         case calibrationRequired(String)
     }
@@ -191,6 +193,7 @@ enum MinecraftPixelExpectation: Equatable {
     case redCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
     case redAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
     case cyanCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
+    case redSandCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
     case itemContrastCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
     case itemContrastAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
     case brownCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)

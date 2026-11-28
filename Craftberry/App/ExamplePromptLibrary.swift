@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + bossEntitySets + structureSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + bossEntitySets + structureSets + biomeSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -199,6 +199,13 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🐉", text: "A redstone boss named Pulse with 40 health and a faster second phase"),
         ExamplePrompt(emoji: "👑", text: "An emerald two-phase boss named Verdant that drops its ingot"),
         ExamplePrompt(emoji: "💎", text: "A diamond boss encounter that grows stronger below half health")
+    ]
+
+    private static let biomeSets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "🏜", text: "A biome named Crimson Dunes with a red sand surface"),
+        ExamplePrompt(emoji: "❄️", text: "A snowy biome named Frostveil with a snow block surface"),
+        ExamplePrompt(emoji: "🍄", text: "A mycelium biome named Spore Hollow with a purple floor"),
+        ExamplePrompt(emoji: "🔥", text: "A red sand biome named Ember Flats in plains and forests")
     ]
 
     private static let structureSets: [ExamplePrompt] = [

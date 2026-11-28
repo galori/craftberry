@@ -124,6 +124,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesMusicRecordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-music-record-set")
+        let usesBiomeSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-biome-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
         let usesStableFuelIdentifier = ProcessInfo.processInfo.arguments.contains("--ui-testing-stable-fuel-identifier")
         let usesRevisionFlow = ProcessInfo.processInfo.arguments.contains("--ui-testing-revision-flow")
@@ -143,6 +144,14 @@ private struct UITestingLLMClient: LLMClient {
                 color: .cyan,
                 style: .dreamy,
                 shortDescription: "A dreamy cyan music record called First Light.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesBiomeSet {
+            project = try AddOnProject.biomeSet(
+                biomeName: "Crimson Dunes",
+                surface: .redSand,
+                shortDescription: "A red sand biome that replaces part of the plains and forests.",
                 originalPrompt: prompt,
                 identity: identity
             )

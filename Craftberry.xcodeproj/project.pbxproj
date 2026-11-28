@@ -16,6 +16,7 @@
 		A10000000000000000000066 /* PrivacyTelemetryRetentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */; };
 		A10000000000000000000067 /* MusicRecordAudioRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000067 /* MusicRecordAudioRenderer.swift */; };
 		A10000000000000000000068 /* MusicRecordProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000068 /* MusicRecordProject.swift */; };
+		A1B10E000000000000000001 /* BiomeProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B10E000000000000000001 /* BiomeProject.swift */; };
 		A10000000000000000000001 /* CraftberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CraftberryApp.swift */; };
 		A10000000000000000000002 /* CreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* CreationView.swift */; };
 		A10000000000000000000003 /* CreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CreationViewModel.swift */; };
@@ -57,6 +58,7 @@
 		A10000000000000000000031 /* MinecraftCraftingPlanCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* MinecraftCraftingPlanCompiler.swift */; };
 		A10000000000000000000032 /* XCTestEvidenceHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* XCTestEvidenceHelpers.swift */; };
 		A10000000000000000000033 /* MinecraftCommandKeyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* MinecraftCommandKeyboard.swift */; };
+		A1B10E000000000000000002 /* MinecraftLocateOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B10E000000000000000002 /* MinecraftLocateOutput.swift */; };
 		A10000000000000000000034 /* MinecraftInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* MinecraftInspection.swift */; };
 		A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* MinecraftE2EHarness.swift */; };
 		FE63C29E57D149A59A239B6B /* MinecraftFurnacePlanCompilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B54F7B973E45A9BF1618A5 /* MinecraftFurnacePlanCompilerTests.swift */; };
@@ -100,6 +102,7 @@
 		A20000000000000000000066 /* PrivacyTelemetryRetentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTelemetryRetentionTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000067 /* MusicRecordAudioRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicRecordAudioRenderer.swift; sourceTree = "<group>"; };
 		A20000000000000000000068 /* MusicRecordProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicRecordProject.swift; sourceTree = "<group>"; };
+		A2B10E000000000000000001 /* BiomeProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiomeProject.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* CraftberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CraftberryApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* CreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* CreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationViewModel.swift; sourceTree = "<group>"; };
@@ -146,6 +149,7 @@
 		A20000000000000000000036 /* MinecraftCraftingPlanCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCraftingPlanCompiler.swift; sourceTree = "<group>"; };
 		A20000000000000000000037 /* XCTestEvidenceHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XCTestEvidenceHelpers.swift; sourceTree = "<group>"; };
 		A20000000000000000000038 /* MinecraftCommandKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftCommandKeyboard.swift; sourceTree = "<group>"; };
+		A2B10E000000000000000002 /* MinecraftLocateOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftLocateOutput.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* MinecraftInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftInspection.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* MinecraftE2EHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftE2EHarness.swift; sourceTree = "<group>"; };
 		D9F8424A66C447D3841D7DF1 /* MinecraftFurnacePlanCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftFurnacePlanCompiler.swift; sourceTree = "<group>"; };
@@ -237,6 +241,7 @@
 				A20000000000000000000041 /* RecipeBook.swift */,
 				A20000000000000000000056 /* AddOnRevision.swift */,
 				A20000000000000000000068 /* MusicRecordProject.swift */,
+				A2B10E000000000000000001 /* BiomeProject.swift */,
 			);
 			path = Core/Domain;
 			sourceTree = "<group>";
@@ -294,6 +299,7 @@
 				D9F8424A66C447D3841D7DF1 /* MinecraftFurnacePlanCompiler.swift */,
 				A20000000000000000000037 /* XCTestEvidenceHelpers.swift */,
 				A20000000000000000000038 /* MinecraftCommandKeyboard.swift */,
+				A2B10E000000000000000002 /* MinecraftLocateOutput.swift */,
 				A20000000000000000000039 /* MinecraftInspection.swift */,
 				A20000000000000000000040 /* MinecraftE2EHarness.swift */,
 				A20000000000000000000045 /* MinecraftStepExecutor.swift */,
@@ -521,6 +527,7 @@
 				A10000000000000000000065 /* SidecarRetentionPolicy.swift in Sources */,
 				A10000000000000000000067 /* MusicRecordAudioRenderer.swift in Sources */,
 				A10000000000000000000068 /* MusicRecordProject.swift in Sources */,
+				A1B10E000000000000000001 /* BiomeProject.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -559,6 +566,7 @@
 				08248B5E06324396858B5B6B /* MinecraftFurnacePlanCompiler.swift in Sources */,
 				A10000000000000000000032 /* XCTestEvidenceHelpers.swift in Sources */,
 				A10000000000000000000033 /* MinecraftCommandKeyboard.swift in Sources */,
+				A1B10E000000000000000002 /* MinecraftLocateOutput.swift in Sources */,
 				A10000000000000000000034 /* MinecraftInspection.swift in Sources */,
 				A10000000000000000000035 /* MinecraftE2EHarness.swift in Sources */,
 				A10000000000000000000040 /* MinecraftStepExecutor.swift in Sources */,

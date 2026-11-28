@@ -274,7 +274,8 @@ final class MinecraftE2EHarness {
         for step in slices.prefix.phased(as: .config) {
             run(step, using: console)
         }
-        let visibleWorldName = scenario.preconfiguredWorldName(for: gameMode)
+        // The tile truncates long titles ("Crimson Dunes (Creativ…"), so match the project-name prefix.
+        let visibleWorldName = scenario.projectName
         testCase.attachScreenshot("World list before opening the imported world")
         // Minecraft's 3-column world grid ignores a tap on the name row (it reports success but
         // stays on PLAY); tapping the tile thumbnail opens the world. The imported world is the

@@ -227,7 +227,8 @@ final class MinecraftCalibrationHarness {
             }
         }
 
-        let visibleWorldName = scenario.preconfiguredWorldName(for: gameMode)
+        // The tile truncates long titles ("Crimson Dunes (Creativ…"), so match the project-name prefix.
+        let visibleWorldName = scenario.projectName
         let openImportedWorld = MinecraftPhasedStep(
             id: "config:open-imported-world",
             name: "Open the imported \(visibleWorldName) world from its OCR-matched row",

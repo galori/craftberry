@@ -142,6 +142,7 @@ struct MinecraftPixelInspector {
                 yRange: yRange,
                 cyan: isCyan(expectation),
                 itemContrast: isItemContrast(expectation),
+                redSand: isRedSand(expectation),
                 brown: isBrown(expectation)
             )
         }
@@ -160,6 +161,7 @@ struct MinecraftPixelInspector {
                     yRange: yRange,
                     cyan: cyan,
                     itemContrast: isItemContrast(expectation),
+                    redSand: isRedSand(expectation),
                     brown: brown
                 )
             }
@@ -168,6 +170,11 @@ struct MinecraftPixelInspector {
 
     private func isCyan(_ expectation: MinecraftPixelExpectation) -> Bool {
         if case .cyanCluster = expectation { return true }
+        return false
+    }
+
+    private func isRedSand(_ expectation: MinecraftPixelExpectation) -> Bool {
+        if case .redSandCluster = expectation { return true }
         return false
     }
 
@@ -195,7 +202,7 @@ struct MinecraftPixelInspector {
 
     private func decide(count: Int, for expectation: MinecraftPixelExpectation) -> Bool {
         switch expectation {
-        case .redstonePickaxeOutput, .redCluster, .cyanCluster, .itemContrastCluster, .brownCluster:
+        case .redstonePickaxeOutput, .redCluster, .cyanCluster, .redSandCluster, .itemContrastCluster, .brownCluster:
             return count >= minimumCount(for: expectation)
         case .redAbsent, .itemContrastAbsent, .brownAbsent:
             return count <= maximumCount(for: expectation)
@@ -223,6 +230,8 @@ struct MinecraftPixelInspector {
             return (xRange, yRange)
         case .cyanCluster(let xRange, let yRange, _):
             return (xRange, yRange)
+        case .redSandCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
         case .itemContrastCluster(let xRange, let yRange, _):
             return (xRange, yRange)
         case .itemContrastAbsent(let xRange, let yRange, _):
@@ -242,6 +251,8 @@ struct MinecraftPixelInspector {
             return minimumCount
         case .cyanCluster(_, _, let minimumCount):
             return minimumCount
+        case .redSandCluster(_, _, let minimumCount):
+            return minimumCount
         case .itemContrastCluster(_, _, let minimumCount):
             return minimumCount
         case .brownCluster(_, _, let minimumCount):
@@ -259,6 +270,8 @@ struct MinecraftPixelInspector {
             return Int.max
         case .cyanCluster:
             return Int.max
+        case .redSandCluster:
+            return Int.max
         case .itemContrastCluster:
             return Int.max
         case .brownCluster:
@@ -273,6 +286,12 @@ struct MinecraftPixelInspector {
         return CIContext().createCGImage(ciImage, from: ciImage.extent)
     }
 
+    /// Red sand's top face reads orange-red with almost no blue. Dirt, grass and logs fail the
+    /// red-to-green ratio, so a plains or forest surface does not count.
+    static func isRedSand(red: Int, green: Int, blue: Int) -> Bool {
+        red > 110 && red * 10 > green * 16 && green > blue * 2
+    }
+
     private func redPixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>) -> Int {
         pixelCount(in: image, xRange: xRange, yRange: yRange, cyan: false, itemContrast: false, brown: false)
     }
@@ -283,6 +302,7 @@ struct MinecraftPixelInspector {
         yRange: ClosedRange<CGFloat>,
         cyan: Bool,
         itemContrast: Bool,
+        redSand: Bool = false,
         brown: Bool
     ) -> Int {
         let width = image.width
@@ -308,7 +328,9 @@ struct MinecraftPixelInspector {
                 let red = Int(pixels[offset])
                 let green = Int(pixels[offset + 1])
                 let blue = Int(pixels[offset + 2])
-                if itemContrast {
+                if redSand {
+                    if Self.isRedSand(red: red, green: green, blue: blue) { matchedPixels += 1 }
+                } else if itemContrast {
                     let brightest = max(red, green, blue)
                     let darkest = min(red, green, blue)
                     if brightest > 205 || darkest < 72 { matchedPixels += 1 }
