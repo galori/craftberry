@@ -66,12 +66,12 @@ final class MinecraftE2ESupportTests: XCTestCase {
             guard case .chatCommand(let command) = step.action else { return nil }
             return command
         }
-        XCTAssertTrue(commands.contains("/testfor @e[family=redstone_uitest_creature]"))
+        XCTAssertTrue(commands.contains("/testfor @e[family=redstone_fueltest_creature]"))
         XCTAssertTrue(commands.contains("/testfor @e[family=animal]"))
         XCTAssertTrue(commands.contains("/testfor @e[family=monster]"))
         XCTAssertTrue(commands.contains("/gamemode survival @s"))
         XCTAssertTrue(commands.contains("/testfor @a[m=survival]"))
-        XCTAssertTrue(commands.contains("/damage @e[family=redstone_uitest_creature] 100 entity_attack entity @s"))
+        XCTAssertTrue(commands.contains("/damage @e[family=redstone_fueltest_creature] 100 entity_attack entity @s"))
         XCTAssertTrue(commands.contains("/clear @s minecraft:feather 0 0"))
         XCTAssertFalse(commands.contains("/testfor @e[type=item]"), "The loot check must verify the item ID and count.")
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Passive scenario chat commands must stay on the calibrated lowercase keyboard plane.")
@@ -107,9 +107,9 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(commands.contains("/gamemode survival @s"))
         XCTAssertTrue(commands.contains("/damage @e[family=monster] 100 entity_attack entity @s"))
         XCTAssertTrue(commands.contains("/kill @e[type=item]"))
-        XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_uitest_ingot"))
+        XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_fueltest_ingot"))
         XCTAssertTrue(commands.contains("/tp @s @e[type=item]"))
-        XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_uitest_ingot 0 0"))
+        XCTAssertTrue(commands.contains("/clear @s craftberry:redstone_fueltest_ingot 0 0"))
         XCTAssertFalse(commands.contains("/testfor @e[type=item]"), "The reward check must verify the generated ingot ID and item count.")
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Boss scenario chat commands must stay on the calibrated lowercase keyboard plane.")
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Redstone Boss") })
