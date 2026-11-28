@@ -683,12 +683,12 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Remove any effect before the charm is used", action: .chatCommand("/effect @s clear")),
             MinecraftStep(name: "Confirm no effect is active before use", action: .assertText("do not have any")),
             MinecraftStep(name: "Select the crafted Redstone Charm", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
-            MinecraftStep(name: "Use the charm in the air", action: .tap(x: 0.5, y: 0.5)),
+            MinecraftStep(name: "Use the charm in the air (press and hold)", action: .pressAndHold(x: 0.5, y: 0.4, seconds: 1)),
             MinecraftStep(name: "Wait for the script to apply the effect", action: .wait(seconds: 1)),
             MinecraftStep(name: "Probe for the charm effect", action: .chatCommand("/effect @s clear")),
             MinecraftStep(name: "Confirm the charm applied an effect", action: .assertText("Took all effects")),
             MinecraftStep(name: "Use the charm a second time", action: .tap(x: 0.5, y: 0.5)),
-            MinecraftStep(name: "Wait past the five-second effect duration", action: .wait(seconds: 8)),
+            MinecraftStep(name: "Wait past the twenty-second effect duration", action: .wait(seconds: 25)),
             MinecraftStep(name: "Probe for the expired effect", action: .chatCommand("/effect @s clear")),
             MinecraftStep(name: "Confirm the effect expired", action: .assertText("do not have any"))
         ]

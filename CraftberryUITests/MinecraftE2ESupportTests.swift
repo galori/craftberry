@@ -119,14 +119,18 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let before = try XCTUnwrap(names.firstIndex { $0.contains("no effect is active before use") })
         let use = try XCTUnwrap(names.firstIndex { $0.contains("Use the charm in the air") })
         let applied = try XCTUnwrap(names.firstIndex { $0.contains("applied an effect") })
-        let wait = try XCTUnwrap(names.firstIndex { $0.contains("Wait past the five-second") })
+        let wait = try XCTUnwrap(names.firstIndex { $0.contains("Wait past the twenty-second") })
         let expired = try XCTUnwrap(names.firstIndex { $0.contains("effect expired") })
+        // A plain tap in air only swings the item; itemUse needs a press-and-hold.
+        guard case .pressAndHold = scenario.postCraftingSteps[use].action else {
+            return XCTFail("Using the charm must be a press-and-hold, not a tap.")
+        }
         XCTAssertLessThan(before, use)
         XCTAssertLessThan(use, applied)
         XCTAssertLessThan(applied, wait)
         XCTAssertLessThan(wait, expired)
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Took all effects") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .wait(seconds: 8) })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .wait(seconds: 25) })
     }
 
     func testEnchantTableOpenRetriesAcrossTheTableBody() {
