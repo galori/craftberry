@@ -118,7 +118,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
             return command
         }
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Effect scenario chat commands must stay on the calibrated lowercase keyboard plane.")
-        XCTAssertTrue(commands.contains("/testfor @e[family=redstone_uitest_creature]"))
+        XCTAssertTrue(commands.contains("/testfor @e[family=redstone_fueltest_creature]"))
     }
 
     func testEnchantTableOpenRetriesAcrossTheTableBody() {

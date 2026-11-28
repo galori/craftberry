@@ -618,6 +618,7 @@ extension MinecraftE2EScenario {
     /// listener and the sound stays pending manual confirmation. Pixel regions are not yet calibrated on the phone.
     static let redstoneEffectEntitySet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-effect-set",
+        additionalLaunchArguments: ["--ui-testing-stable-fuel-identifier"],
         prompt: "Generate a redstone creature that bursts into sparks and chimes when summoned",
         projectName: "Redstone",
         expectedCraftedItemName: "Redstone Spawn Egg",
@@ -651,9 +652,9 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Use the spawn egg on the nearby block", action: .tap(x: 0.5075, y: 0.265)),
             MinecraftStep(name: "Confirm the red particle burst is visible", action: .assertPixels(.redCluster(xRange: 0.35...0.65, yRange: 0.2...0.6, minimumCount: 150))),
             MinecraftStep(name: "Wait for the creature to settle", action: .wait(seconds: 2)),
-            MinecraftStep(name: "Query for the spawned effect creature", action: .chatCommand("/testfor @e[family=redstone_uitest_creature]")),
+            MinecraftStep(name: "Query for the spawned effect creature", action: .chatCommand("/testfor @e[family=redstone_fueltest_creature]")),
             MinecraftStep(name: "Confirm exactly one effect creature spawned", action: .assertText("Found")),
-            MinecraftStep(name: "Play the registered effect sound for a listener", action: .chatCommand("/playsound craftberry.redstone_uitest_creature.effect @s"))
+            MinecraftStep(name: "Play the registered effect sound for a listener", action: .chatCommand("/playsound craftberry.redstone_fueltest_creature.effect @s"))
         ]
     )
 
