@@ -142,7 +142,7 @@ Run the focused scenario for changed behavior. Run
 `scripts/ios-device.sh minecraft-e2e-all` for a roadmap milestone, a broad
 compiler or packaging change, a Minecraft profile upgrade, or a release. It
 runs the sixteen stable scenarios, including the boss health phase, Survival
-attack, and deterministic reward check. The focused music-record scenario is blocked
+attack, and deterministic reward check. The focused effect scenario (particle burst by pixel sampling, sound played but not observed) is outside this suite until calibrated. The focused music-record scenario is blocked
 because custom `minecraft:record` sound-event names require the Beta APIs
 experiment, which the stable profile keeps off; it is excluded from this suite
 and has not passed device acceptance. GitHub Actions runs the stable suite

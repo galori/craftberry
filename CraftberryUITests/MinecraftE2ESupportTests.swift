@@ -103,6 +103,24 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(countReward, confirmReward)
     }
 
+    func testEffectScenarioChecksParticlesBeforeAndAfterSpawnAndKeepsSoundPending() throws {
+        let scenario = MinecraftE2EScenario.redstoneEffectEntitySet
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-effect-set")
+        let steps = scenario.postCraftingSteps
+        let names = steps.map(\.name)
+        let before = try XCTUnwrap(names.firstIndex { $0.contains("no red sparks before") })
+        let spawn = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
+        let after = try XCTUnwrap(names.firstIndex { $0.contains("particle burst is visible") })
+        XCTAssertLessThan(before, spawn)
+        XCTAssertEqual(after, spawn + 1, "The burst is short-lived, so the pixel check must run right after the egg is used.")
+        let commands = steps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Effect scenario chat commands must stay on the calibrated lowercase keyboard plane.")
+        XCTAssertTrue(commands.contains("/testfor @e[family=redstone_uitest_creature]"))
+    }
+
     func testEnchantTableOpenRetriesAcrossTheTableBody() {
         let steps = MinecraftE2EScenario.redstoneEnchantableSwordSet.postCraftingSteps
         // A single tap point misses the table's narrow upper body on some runs, so the

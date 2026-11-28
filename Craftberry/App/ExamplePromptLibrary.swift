@@ -16,7 +16,7 @@ struct ExamplePrompt: Identifiable, Equatable, Sendable {
 /// 4–20, and one of the supported project kinds (single sword, ingot + sword, tool set, weapon
 /// set, armor set, consumable set, block set, furnace set, smithing set). Add a handful of prompts here whenever a new capability ships — see AGENTS.md.
 enum ExamplePromptLibrary {
-    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + bossEntitySets + structureSets
+    static let all: [ExamplePrompt] = singleSwords + materialSwordSets + toolSets + weaponSets + armorSets + consumableSets + blockSets + furnaceSets + smithingSets + brewingSets + oreSets + cropSets + entitySets + hostileEntitySets + bossEntitySets + effectEntitySets + structureSets
 
     /// Picks `count` prompts at random, preferring ones the user is not already looking at.
     static func selection(
@@ -193,6 +193,12 @@ enum ExamplePromptLibrary {
         ExamplePrompt(emoji: "🧟", text: "An emerald hostile entity set named Verdant that attacks players"),
         ExamplePrompt(emoji: "❄️", text: "A quartz hostile mob set named Frostbite that attacks the player"),
         ExamplePrompt(emoji: "⚡", text: "A redstone hostile creature set named Pulse with 24 health")
+    ]
+
+    private static let effectEntitySets: [ExamplePrompt] = [
+        ExamplePrompt(emoji: "✨", text: "A redstone sparkle creature named Pulse that bursts and chimes when summoned"),
+        ExamplePrompt(emoji: "🔔", text: "An emerald fountain creature named Verdant that rings a bell when it appears"),
+        ExamplePrompt(emoji: "⚡", text: "A diamond creature named Azure with drifting sparks and a zap sound")
     ]
 
     private static let bossEntitySets: [ExamplePrompt] = [

@@ -859,6 +859,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let blocksDocument = BlocksDocument(entries: blockEntries)
             entries.append(ZipArchiveEntry(path: "blocks.json", data: try BedrockDocumentEncoder.encode(blocksDocument)))
         }
+        var effectSoundDefinitions: [String: SoundDefinitionsDocument.SoundDefinition] = [:]
         for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: entity.id, namespace: project.namespace)
             let spawnEggTextureName = entity.spawnEggResourceID.rawValue
@@ -872,7 +873,11 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                         textures: ["default": "textures/entity/\(entity.id.rawValue)"],
                         geometry: ["default": "geometry.pig"],
                         renderControllers: [controllerID],
-                        spawnEgg: ClientEntityDocument.SpawnEgg(texture: spawnEggTextureName)
+                        spawnEgg: ClientEntityDocument.SpawnEgg(texture: spawnEggTextureName),
+                        animations: entity.effect.map { _ in ["spawn_effect": EntityEffectAssets.animationIdentifier(for: entity.id)] },
+                        scripts: entity.effect.map { _ in ClientEntityDocument.Scripts(animate: ["spawn_effect"]) },
+                        particleEffects: entity.effect.map { _ in ["spawn_burst": EntityEffectAssets.particleIdentifier(for: entity.id, namespace: project.namespace)] },
+                        soundEffects: entity.effect.map { _ in ["spawn_sound": EntityEffectAssets.soundEvent(for: entity.id)] }
                     )
                 )
             )
@@ -909,8 +914,49 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     data: PixelArtTextureRenderer.render(bodyTexture)
                 )
             )
+            if let effect = entity.effect {
+                // Custom resource-pack sound events and particles need no experiments; only the
+                // `minecraft:record` item component's sound_event needs Beta APIs (see music records).
+                entries.append(ZipArchiveEntry(
+                    path: "particles/\(entity.id.rawValue).particle.json",
+                    data: try BedrockDocumentEncoder.encode(EntityEffectAssets.particleDocument(for: entity.id, namespace: project.namespace, style: effect.particle))
+                ))
+                entries.append(ZipArchiveEntry(
+                    path: "\(EntityEffectAssets.particleTexturePath(for: entity.id)).png",
+                    data: EntityEffectAssets.renderParticleTexture(color: bodyTexture.color)
+                ))
+                entries.append(ZipArchiveEntry(
+                    path: "animations/\(entity.id.rawValue).animation.json",
+                    data: try BedrockDocumentEncoder.encode(EffectAnimationDocument(
+                        formatVersion: "1.8.0",
+                        animations: [EntityEffectAssets.animationIdentifier(for: entity.id): EffectAnimationDocument.Animation(
+                            loop: false,
+                            animationLength: 1,
+                            particleEffects: ["0.0": EffectAnimationDocument.Keyframe(effect: "spawn_burst")],
+                            soundEffects: ["0.0": EffectAnimationDocument.Keyframe(effect: "spawn_sound")]
+                        )]
+                    ))
+                ))
+                entries.append(ZipArchiveEntry(
+                    path: "\(EntityEffectAssets.soundPath(for: entity.id)).wav",
+                    data: EntityEffectAssets.renderSound(effect.sound)
+                ))
+                effectSoundDefinitions[EntityEffectAssets.soundEvent(for: entity.id)] = SoundDefinitionsDocument.SoundDefinition(
+                    category: "neutral",
+                    maxDistance: 32,
+                    sounds: [SoundDefinitionsDocument.Sound(name: EntityEffectAssets.soundPath(for: entity.id), stream: false, volume: 1)]
+                )
+            }
             localizationLines.append("entity.\(identifier).name=\(entity.displayName)")
             localizationLines.append("item.spawn_egg.entity.\(identifier).name=\(entity.displayName) Spawn Egg")
+        }
+        if !effectSoundDefinitions.isEmpty {
+            // shortcut: shares sounds/sound_definitions.json with music records; merge the two if
+            // music records ever return to the stable profile.
+            entries.append(ZipArchiveEntry(
+                path: "sounds/sound_definitions.json",
+                data: try BedrockDocumentEncoder.encode(SoundDefinitionsDocument(formatVersion: "1.20.20", soundDefinitions: effectSoundDefinitions))
+            ))
         }
         let textureMap = ItemTextureDocument(
             resourcePackName: resourcePackDisplayName,

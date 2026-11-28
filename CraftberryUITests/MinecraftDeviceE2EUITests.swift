@@ -131,6 +131,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryRedstoneEffectCreatureShowsParticlesOnSpawn() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneEffectEntitySet, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneSwordCanBeEnchanted() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -602,6 +610,50 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot 0 0")),
             MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("has 1 items that match the criteria")),
             MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot"))
+        ]
+    )
+
+    /// Visual evidence is a red-pixel check around the spawn point before and right after the egg is used.
+    /// Sound evidence: the harness cannot observe audio, so the sound step only plays the event for a
+    /// listener and the sound stays pending manual confirmation. Pixel regions are not yet calibrated on the phone.
+    static let redstoneEffectEntitySet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-effect-set",
+        prompt: "Generate a redstone creature that bursts into sparks and chimes when summoned",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Spawn Egg",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Spawn Egg",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleLeft, .middleRight, .bottomCenter]),
+                        .init(searchText: "egg", resultColumn: 1, destinations: [.middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Spawn"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for a controlled effect test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Clear weather for a controlled effect test", action: .chatCommand("/weather clear")),
+            MinecraftStep(name: "Disable natural mob spawning for a deterministic effect test", action: .chatCommand("/gamerule domobspawning false")),
+            MinecraftStep(name: "Build a deterministic effect platform", action: .chatCommand("/fill 90 79 85 110 79 105 stone")),
+            MinecraftStep(name: "Place a solid spawn-egg target block", action: .chatCommand("/setblock 98 80 95 stone")),
+            MinecraftStep(name: "Return to the calibrated spawn position", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Select the crafted Redstone Spawn Egg", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
+            MinecraftStep(name: "Confirm no red sparks before the spawn", action: .assertPixels(.redAbsent(xRange: 0.35...0.65, yRange: 0.2...0.6, maximumCount: 150))),
+            MinecraftStep(name: "Use the spawn egg on the nearby block", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Confirm the red particle burst is visible", action: .assertPixels(.redCluster(xRange: 0.35...0.65, yRange: 0.2...0.6, minimumCount: 150))),
+            MinecraftStep(name: "Wait for the creature to settle", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Query for the spawned effect creature", action: .chatCommand("/testfor @e[family=redstone_uitest_creature]")),
+            MinecraftStep(name: "Confirm exactly one effect creature spawned", action: .assertText("Found")),
+            MinecraftStep(name: "Play the registered effect sound for a listener", action: .chatCommand("/playsound craftberry.redstone_uitest_creature.effect @s"))
         ]
     )
 

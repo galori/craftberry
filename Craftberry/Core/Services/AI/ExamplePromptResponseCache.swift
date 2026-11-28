@@ -1337,6 +1337,12 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialBossEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 40, shortDescription: "An emerald boss that changes phase below half health and drops a verdant ingot.", originalPrompt: originalPrompt, identity: identity)
         case "A diamond boss encounter that grows stronger below half health":
             project = try AddOnProject.materialBossEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 40, shortDescription: "A diamond boss that gains size, speed, and attack damage below half health.", originalPrompt: originalPrompt, identity: identity)
+        case "A redstone sparkle creature named Pulse that bursts and chimes when summoned":
+            project = try AddOnProject.materialEffectEntitySet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, particle: .burst, sound: .chime, shortDescription: "A redstone creature that bursts into sparks and chimes when summoned.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald fountain creature named Verdant that rings a bell when it appears":
+            project = try AddOnProject.materialEffectEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, particle: .fountain, sound: .bell, shortDescription: "An emerald creature that sprays a fountain of sparks and rings a bell when summoned.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond creature named Azure with drifting sparks and a zap sound":
+            project = try AddOnProject.materialEffectEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, particle: .drift, sound: .zap, shortDescription: "A diamond creature that releases drifting sparks and a zap when summoned.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1462,6 +1468,9 @@ enum ExamplePromptResponseCache {
             "A redstone boss named Pulse with 40 health and a faster second phase",
             "An emerald two-phase boss named Verdant that drops its ingot",
             "A diamond boss encounter that grows stronger below half health",
+            "A redstone sparkle creature named Pulse that bursts and chimes when summoned",
+            "An emerald fountain creature named Verdant that rings a bell when it appears",
+            "A diamond creature named Azure with drifting sparks and a zap sound",
             "A diamond hut structure from 4 diamonds, with Azure Block hut",
             "An emerald hut named Verdant with 3x3 shelter structure",
             "A blaze rod structure hut named Ember with block shelter",

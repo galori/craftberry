@@ -482,8 +482,9 @@ public struct EntityDefinition: Codable, Equatable, Sendable {
     public let spawnEggResourceID: ContentID
     public let textureResourceID: ContentID
     public let archetype: EntityArchetype
+    public let effect: EntityEffectTrait?
 
-    public init(id: ContentID, displayName: String, health: Int, movement: Double, scale: Double, spawnEggResourceID: ContentID, textureResourceID: ContentID, archetype: EntityArchetype = .passive) {
+    public init(id: ContentID, displayName: String, health: Int, movement: Double, scale: Double, spawnEggResourceID: ContentID, textureResourceID: ContentID, archetype: EntityArchetype = .passive, effect: EntityEffectTrait? = nil) {
         self.id = id
         self.displayName = displayName
         self.health = health
@@ -492,9 +493,10 @@ public struct EntityDefinition: Codable, Equatable, Sendable {
         self.spawnEggResourceID = spawnEggResourceID
         self.textureResourceID = textureResourceID
         self.archetype = archetype
+        self.effect = effect
     }
 
-    private enum CodingKeys: String, CodingKey { case id, displayName, health, movement, scale, spawnEggResourceID, textureResourceID, archetype }
+    private enum CodingKeys: String, CodingKey { case id, displayName, health, movement, scale, spawnEggResourceID, textureResourceID, archetype, effect }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -507,7 +509,8 @@ public struct EntityDefinition: Codable, Equatable, Sendable {
             scale: try values.decode(Double.self, forKey: .scale),
             spawnEggResourceID: try values.decode(ContentID.self, forKey: .spawnEggResourceID),
             textureResourceID: try values.decodeIfPresent(ContentID.self, forKey: .textureResourceID) ?? id,
-            archetype: try values.decodeIfPresent(EntityArchetype.self, forKey: .archetype) ?? .passive
+            archetype: try values.decodeIfPresent(EntityArchetype.self, forKey: .archetype) ?? .passive,
+            effect: try values.decodeIfPresent(EntityEffectTrait.self, forKey: .effect)
         )
     }
 }
