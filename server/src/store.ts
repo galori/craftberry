@@ -21,6 +21,8 @@ export const PROCESSING_TIMEOUT_MS = 120_000;
 const DAY_MS = 86_400_000;
 /** shortcut: fixed per-client challenge cap, tune when real traffic shows the right number. */
 export const CHALLENGE_RATE_LIMIT_PER_MINUTE = 30;
+/** shortcut: fixed per-client enroll cap, tune when real traffic shows the right number. */
+export const ENROLL_RATE_LIMIT_PER_MINUTE = 10;
 const MAX_OUTSTANDING_CHALLENGES = 20_000;
 
 export interface Credential {
@@ -146,6 +148,28 @@ export class GenerationStore extends DurableObject<Env> {
 			);
 			return "ok";
 		});
+	}
+
+	/** Counts an enroll attempt for this client (shares the 1-minute window table) and says whether it may proceed. */
+	allowEnroll(clientKey: string, now: number): boolean {
+		return this.ctx.storage.transactionSync(() => {
+			this.sql.exec("DELETE FROM challenge_requests WHERE occurred_at <= ?", now - 60_000);
+			const key = `enroll:${clientKey}`;
+			const recent = this.sql
+				.exec("SELECT COUNT(*) AS n FROM challenge_requests WHERE client_key = ?", key)
+				.one().n as number;
+			if (recent >= ENROLL_RATE_LIMIT_PER_MINUTE) return false;
+			this.sql.exec(
+				"INSERT INTO challenge_requests(client_key, occurred_at) VALUES(?, ?)",
+				key,
+				now,
+			);
+			return true;
+		});
+	}
+
+	deleteChallenge(id: string): void {
+		this.sql.exec("DELETE FROM challenges WHERE challenge_id = ?", id);
 	}
 
 	getChallenge(id: string, now: number): { challenge: Uint8Array; expiresAt: number } | null {
