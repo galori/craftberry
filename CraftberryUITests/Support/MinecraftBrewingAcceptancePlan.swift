@@ -23,6 +23,21 @@ struct MinecraftBrewingAcceptanceLayout {
         closeStand: nil,
         brewingScreenHotbarSlots: [:]
     )
+
+    /// First measured touch target on the dedicated iPhone 13 Pro.
+    /// standWorldTap is the centre of the brewing stand's yellow column in the
+    /// staged world view (run 46122751416 screenshots after "/setblock 98 80 95
+    /// brewing_stand"). Remaining slots stay nil until the stand UI is observed.
+    /// shortcut: single-run measurement; re-measure if staging moves the camera.
+    static let deviceCalibrated = MinecraftBrewingAcceptanceLayout(
+        standWorldTap: MinecraftCoordinate(x: 0.72, y: 0.47),
+        fuelSlot: nil,
+        reagentSlot: nil,
+        bottleSlot: nil,
+        outputSlot: nil,
+        closeStand: nil,
+        brewingScreenHotbarSlots: [:]
+    )
 }
 
 enum MinecraftBrewingAcceptanceFixture {
@@ -160,6 +175,6 @@ extension MinecraftE2EScenario {
             ],
             finalHotbarTap: nil
         ),
-        postCraftingSteps: MinecraftBrewingAcceptancePlan.make()
+        postCraftingSteps: MinecraftBrewingAcceptancePlan.make(layout: .deviceCalibrated)
     )
 }

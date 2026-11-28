@@ -41,7 +41,7 @@ final class MinecraftBrewingE2ESupportTests: XCTestCase {
     }
 
     func testUncalibratedBrewingPlanStopsAtEveryUnmeasuredTouchTarget() {
-        let steps = MinecraftE2EScenario.craftberryBrewingVerification.postCraftingSteps
+        let steps = MinecraftBrewingAcceptancePlan.make(layout: .uncalibrated)
         let stops = steps.compactMap { step -> String? in
             guard case .calibrationRequired(let reason) = step.action else { return nil }
             return reason
@@ -55,6 +55,19 @@ final class MinecraftBrewingE2ESupportTests: XCTestCase {
         XCTAssertTrue(stops.contains { $0.localizedCaseInsensitiveContains("hotbar slot") })
         XCTAssertTrue(steps.contains { $0.name == "Confirm the brewing stand screen is open" && $0.action == .assertText("Brewing Stand") })
         XCTAssertTrue(steps.contains { $0.name == "Confirm the container-recipe stand screen is open" && $0.action == .assertText("Brewing Stand") })
+    }
+
+    func testBrewingScenarioCalibratesStandWorldTap() {
+        let steps = MinecraftE2EScenario.craftberryBrewingVerification.postCraftingSteps
+        let opens = steps.filter { $0.name == "Open the brewing stand for the elixir recipe" || $0.name == "Reopen the brewing stand for the container recipe" }
+        XCTAssertEqual(opens.count, 2)
+        for step in opens {
+            guard case .tap(let x, let y) = step.action else {
+                return XCTFail("\(step.name) must be a calibrated tap, not \(step.action).")
+            }
+            XCTAssertEqual(x, 0.72, accuracy: 0.001)
+            XCTAssertEqual(y, 0.47, accuracy: 0.001)
+        }
     }
 
     func testBrewingPlanReusesOnlyTheExistingGeneratedIngotRecipe() {
