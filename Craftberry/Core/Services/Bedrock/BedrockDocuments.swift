@@ -605,7 +605,10 @@ struct EntityDocument: Encodable {
         let attack: Attack?
         let movement: Movement?
         let environmentSensor: EnvironmentSensor?
-        enum CodingKeys: String, CodingKey { case isBaby = "minecraft:is_baby"; case scale = "minecraft:scale"; case ageable = "minecraft:ageable"; case experienceReward = "minecraft:experience_reward"; case loot = "minecraft:loot"; case breedable = "minecraft:breedable"; case attack = "minecraft:attack"; case movement = "minecraft:movement"; case environmentSensor = "minecraft:environment_sensor" }
+        let tameable: Tameable?
+        let isTamed: EmptyComponent?
+        let behaviorFollowOwner: BehaviorFollowOwner?
+        enum CodingKeys: String, CodingKey { case isBaby = "minecraft:is_baby"; case scale = "minecraft:scale"; case ageable = "minecraft:ageable"; case experienceReward = "minecraft:experience_reward"; case loot = "minecraft:loot"; case breedable = "minecraft:breedable"; case attack = "minecraft:attack"; case movement = "minecraft:movement"; case environmentSensor = "minecraft:environment_sensor"; case tameable = "minecraft:tameable"; case isTamed = "minecraft:is_tamed"; case behaviorFollowOwner = "minecraft:behavior.follow_owner" }
 
         init(
             isBaby: EmptyComponent?,
@@ -616,7 +619,10 @@ struct EntityDocument: Encodable {
             breedable: Breedable?,
             attack: Attack? = nil,
             movement: Movement? = nil,
-            environmentSensor: EnvironmentSensor? = nil
+            environmentSensor: EnvironmentSensor? = nil,
+            tameable: Tameable? = nil,
+            isTamed: EmptyComponent? = nil,
+            behaviorFollowOwner: BehaviorFollowOwner? = nil
         ) {
             self.isBaby = isBaby
             self.scale = scale
@@ -627,6 +633,9 @@ struct EntityDocument: Encodable {
             self.attack = attack
             self.movement = movement
             self.environmentSensor = environmentSensor
+            self.tameable = tameable
+            self.isTamed = isTamed
+            self.behaviorFollowOwner = behaviorFollowOwner
         }
     }
     struct Event: Encodable {
@@ -638,6 +647,20 @@ struct EntityDocument: Encodable {
         enum CodingKeys: String, CodingKey { case componentGroups = "component_groups" }
     }
     struct EmptyComponent: Encodable {}
+    struct Tameable: Encodable {
+        let probability: Double
+        let tameItems: String
+        let tameEvent: EventTrigger
+        enum CodingKeys: String, CodingKey { case probability; case tameItems = "tame_items"; case tameEvent = "tame_event" }
+    }
+    struct EventTrigger: Encodable { let event: String; let target: String }
+    struct BehaviorFollowOwner: Encodable {
+        let priority: Int
+        let speedMultiplier: Double
+        let startDistance: Int
+        let stopDistance: Int
+        enum CodingKeys: String, CodingKey { case priority; case speedMultiplier = "speed_multiplier"; case startDistance = "start_distance"; case stopDistance = "stop_distance" }
+    }
     struct Scale: Encodable { let value: Double }
     struct Boss: Encodable { let hudRange: Int; let shouldDarkenSky: Bool; enum CodingKeys: String, CodingKey { case hudRange = "hud_range"; case shouldDarkenSky = "should_darken_sky" } }
     struct Ageable: Encodable { let duration: Int; let feedItems: [String]; let growUp: GrowUp; enum CodingKeys: String, CodingKey { case duration; case feedItems = "feed_items"; case growUp = "grow_up" } }

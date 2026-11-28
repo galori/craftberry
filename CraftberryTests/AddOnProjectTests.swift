@@ -300,6 +300,25 @@ final class AddOnProjectTests: XCTestCase {
         }
     }
 
+    func testMaterialTameableEntitySetCreatesBoneTameableCompanion() throws {
+        let project = try AddOnProject.materialTameableEntitySet(
+            materialName: "Azure",
+            sourceItem: "minecraft:diamond",
+            sourceCount: 4,
+            health: 24,
+            originalPrompt: "a bone-tamed Azure companion",
+            identity: testIdentity()
+        )
+
+        XCTAssertEqual(project.entities.count, 1)
+        XCTAssertEqual(project.entities[0].archetype, .tameable)
+        XCTAssertEqual(project.entities[0].health, 24)
+        XCTAssertEqual(project.entities[0].displayName, "Azure Creature")
+        let spawnEgg = try XCTUnwrap(project.items.first { $0.id.rawValue.hasSuffix("_spawn_egg") })
+        XCTAssertEqual(spawnEgg.traits.entityPlacer?.entityID, project.entities[0].id)
+        XCTAssertEqual(project.shapelessRecipes.first?.ingredients, Array(repeating: .vanilla("minecraft:diamond"), count: 4))
+    }
+
     func testMaterialEntitySetLinksBodyTextureResource() throws {
         let project = try AddOnProject.materialEntitySet(
             materialName: "Azure",

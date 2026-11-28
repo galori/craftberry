@@ -122,6 +122,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesRedstoneBossSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-boss-set")
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
+        let usesRedstoneTameableEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-tameable-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesMusicRecordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-music-record-set")
         let usesFreshPackIdentity = ProcessInfo.processInfo.arguments.contains("--ui-testing-fresh-pack-identity")
@@ -154,6 +155,17 @@ private struct UITestingLLMClient: LLMClient {
                 sourceCount: 4,
                 health: 40,
                 shortDescription: "A summoned redstone boss with a health-triggered second phase and a guaranteed ingot drop.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneTameableEntitySet {
+            project = try AddOnProject.materialTameableEntitySet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                health: 24,
+                shortDescription: "A redstone companion tamed with bone that follows its owner.",
                 originalPrompt: prompt,
                 identity: identity
             )

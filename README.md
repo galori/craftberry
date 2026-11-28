@@ -132,10 +132,11 @@ Minecraft coordinate UI changes with the device and Minecraft release. The check
 ```sh
 scripts/ios-device.sh minecraft-e2e redstone
 scripts/ios-device.sh minecraft-e2e emerald
+scripts/ios-device.sh minecraft-e2e tameable
 scripts/ios-device.sh minecraft-e2e-all
 ```
 
-Run one focused scenario while developing. Run the full sixteen-scenario stable suite for a roadmap milestone, a broad compiler or packaging change, a Minecraft update, or a release. The `boss` scenario exercises a health-triggered second phase, a Survival attack, and the deterministic reward drop. The `music-record` scenario is currently blocked: custom `minecraft:record` sound-event names require the Beta APIs experiment, while Craftberry's stable profile keeps experiments off. Its physical acceptance has not been run and is not part of the stable full suite. GitHub Actions runs the stable suite nightly. A manual workflow run can select one focused scenario or the full suite. The workflow does not run the phone suite on every pull request; pull requests still run the Swift unit tests and linter.
+Run one focused scenario while developing. Run the full seventeen-scenario stable suite for a roadmap milestone, a broad compiler or packaging change, a Minecraft update, or a release. The `boss` scenario exercises a health-triggered second phase, a Survival attack, and the deterministic reward drop. The `tameable` scenario confirms bone taming and owner-follow behavior. The `music-record` scenario is currently blocked: custom `minecraft:record` sound-event names require the Beta APIs experiment, while Craftberry's stable profile keeps experiments off. Its physical acceptance has not been run and is not part of the stable full suite. GitHub Actions runs the stable suite nightly. A manual workflow run can select one focused scenario or the full suite. The workflow does not run the phone suite on every pull request; pull requests still run the Swift unit tests and linter.
 
 Each prepared-world scenario removes its exact named test world before and after the run. The regular `.mcaddon` scenario reuses `craftberry test` and removes only generated packs after the run. In both paths XCTest terminates Minecraft before the Mac-side AFC cleanup. The cleanup script matches prepared test worlds by exact name, so a partial-name match cannot select another world.
 
