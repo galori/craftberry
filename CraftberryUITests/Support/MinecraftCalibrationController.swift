@@ -149,6 +149,11 @@ final class MinecraftCalibrationController {
             return handleAdHoc(.drag(x: CGFloat(x), y: CGFloat(y), endX: CGFloat(endX), endY: CGFloat(endY)))
         case "swipe_up", "swipe-up":
             return handleAdHoc(.swipeUp)
+        case "press_and_hold", "press-and-hold":
+            guard let x = request.x, let y = request.y, let seconds = request.seconds else {
+                return errorResponse("press_and_hold requires x, y, and seconds")
+            }
+            return handleAdHoc(.pressAndHold(x: CGFloat(x), y: CGFloat(y), seconds: seconds))
         case "keyboard_text", "keyboard-text":
             guard let text = request.text else {
                 return errorResponse("keyboard_text requires text")
