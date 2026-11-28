@@ -123,6 +123,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryRedstonePassiveCreatureSpawnsStaysPeacefulAndDropsLoot() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstonePassiveEntitySet, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneBossChangesPhaseAndDropsIngot() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -587,6 +595,66 @@ extension MinecraftE2EScenario {
         ]
     )
 
+    static let redstonePassiveEntitySet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-passive-entity-set",
+        additionalLaunchArguments: ["--ui-testing-stable-fuel-identifier"],
+        prompt: "Generate a passive redstone creature with a craftable spawn egg",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Spawn Egg",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Spawn Egg",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topCenter, .middleLeft, .middleRight, .bottomCenter]),
+                        .init(searchText: "egg", resultColumn: 1, destinations: [.middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Spawn"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        postCraftingSteps: [
+            MinecraftStep(name: "Set daytime for a controlled passive test", action: .chatCommand("/time set day")),
+            MinecraftStep(name: "Clear weather for a controlled passive test", action: .chatCommand("/weather clear")),
+            MinecraftStep(name: "Set a non-peaceful difficulty so a hostile creature would attack", action: .chatCommand("/difficulty normal")),
+            MinecraftStep(name: "Disable natural mob spawning for a deterministic passive test", action: .chatCommand("/gamerule domobspawning false")),
+            MinecraftStep(name: "Clear existing monsters and generated creatures", action: .chatCommand("/kill @e[family=monster]")),
+            MinecraftStep(name: "Clear any earlier generated creature", action: .chatCommand("/kill @e[family=redstone_fueltest_creature]")),
+            MinecraftStep(name: "Build a safe, deterministic platform", action: .chatCommand("/fill 98 79 94 101 79 96 stone")),
+            MinecraftStep(name: "Place a solid, non-interactable spawn-egg target block", action: .chatCommand("/setblock 98 80 95 stone")),
+            MinecraftStep(name: "Return to the calibrated spawn-egg position", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Select the crafted Redstone Spawn Egg", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
+            MinecraftStep(name: "Use the spawn egg on the nearby block", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Wait for the passive creature to spawn", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Query for exactly one generated creature", action: .chatCommand("/testfor @e[family=redstone_fueltest_creature]")),
+            MinecraftStep(name: "Confirm the egg spawned one creature", action: .assertText("Found")),
+            MinecraftStep(name: "Query for the animal family the passive template assigns", action: .chatCommand("/testfor @e[family=animal]")),
+            MinecraftStep(name: "Confirm the creature is a passive animal", action: .assertText("Found")),
+            MinecraftStep(name: "Query for any hostile monster", action: .chatCommand("/testfor @e[family=monster]")),
+            MinecraftStep(name: "Confirm the passive creature is not a monster", action: .assertText("No targets")),
+            MinecraftStep(name: "Enter Survival so a hostile creature would attack", action: .chatCommand("/gamemode survival @s")),
+            MinecraftStep(name: "Wait beside the creature on Normal difficulty", action: .wait(seconds: 20)),
+            MinecraftStep(name: "Query for the surviving Survival player", action: .chatCommand("/testfor @a[m=survival]")),
+            MinecraftStep(name: "Confirm the player was not attacked to death", action: .assertText("Found")),
+            MinecraftStep(name: "Return to Creative for the loot check", action: .chatCommand("/gamemode creative @s")),
+            MinecraftStep(name: "Remove any earlier feathers from the test inventory", action: .chatCommand("/clear @s minecraft:feather")),
+            MinecraftStep(name: "Clear item drops before defeating the creature", action: .chatCommand("/kill @e[type=item]")),
+            MinecraftStep(name: "Defeat the creature with player-attributed damage", action: .chatCommand("/damage @e[family=redstone_fueltest_creature] 100 entity_attack entity @s")),
+            MinecraftStep(name: "Wait for the loot to drop", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Collect the isolated loot drop", action: .chatCommand("/tp @s @e[type=item]")),
+            MinecraftStep(name: "Wait for the feather to enter inventory", action: .wait(seconds: 2)),
+            MinecraftStep(name: "Count the dropped feathers", action: .chatCommand("/clear @s minecraft:feather 0 0")),
+            MinecraftStep(name: "Confirm exactly one feather dropped", action: .assertText("1 items that match the criteria")),
+            MinecraftStep(name: "Remove the verified loot from the test inventory", action: .chatCommand("/clear @s minecraft:feather"))
+        ]
+    )
+
     static let redstoneBossEntitySet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-boss-set",
         prompt: "Generate a redstone boss with a health-triggered second phase and a guaranteed ingot reward",
@@ -633,15 +701,15 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Respawn after verifying the phase-two attack", action: .tapTextRow(x: 0.5, text: "Respawn")),
             MinecraftStep(name: "Wait for the player to respawn", action: .wait(seconds: 8)),
             MinecraftStep(name: "Return to Creative to finish the reward check safely", action: .chatCommand("/gamemode creative @s")),
-            MinecraftStep(name: "Remove any earlier generated ingot from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot")),
+            MinecraftStep(name: "Remove any earlier generated ingot from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_fueltest_ingot")),
             MinecraftStep(name: "Clear item drops before defeating the boss", action: .chatCommand("/kill @e[type=item]")),
             MinecraftStep(name: "Defeat the boss with player-attributed damage", action: .chatCommand("/damage @e[family=monster] 100 entity_attack entity @s")),
             MinecraftStep(name: "Wait for the boss reward to drop", action: .wait(seconds: 2)),
             MinecraftStep(name: "Collect the isolated boss reward", action: .chatCommand("/tp @s @e[type=item]")),
             MinecraftStep(name: "Wait for the redstone ingot to enter inventory", action: .wait(seconds: 2)),
-            MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot 0 0")),
+            MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_fueltest_ingot 0 0")),
             MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("has 1 items that match the criteria")),
-            MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot"))
+            MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_fueltest_ingot"))
         ]
     )
 

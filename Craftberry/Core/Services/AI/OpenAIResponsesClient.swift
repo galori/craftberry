@@ -83,7 +83,7 @@ public struct OpenAIResponsesClient: LLMClient {
 
         switch intent.outcome {
         case .unsupported:
-            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil, intent.materialConsumableSet == nil, intent.materialBlockSet == nil, intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil, intent.materialBrewingSet == nil, intent.materialOreSet == nil, intent.materialCropSet == nil, intent.materialStructureSet == nil, intent.materialHostileEntitySet == nil, intent.materialBossEntitySet == nil, intent.musicRecordSet == nil else { throw LLMClientError.invalidResponse }
+            guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil, intent.materialWeaponSet == nil, intent.materialArmorSet == nil, intent.materialConsumableSet == nil, intent.materialBlockSet == nil, intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil, intent.materialBrewingSet == nil, intent.materialOreSet == nil, intent.materialCropSet == nil, intent.materialStructureSet == nil, intent.materialHostileEntitySet == nil, intent.materialBossEntitySet == nil, intent.materialPassiveEntitySet == nil, intent.musicRecordSet == nil else { throw LLMClientError.invalidResponse }
             return ProjectGeneration(outcome: .unsupported, message: intent.message, project: nil)
         case .ready:
             let shortDescription = intent.shortDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -97,8 +97,28 @@ public struct OpenAIResponsesClient: LLMClient {
                       intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil,
                       intent.materialBrewingSet == nil, intent.materialOreSet == nil,
                       intent.materialCropSet == nil, intent.materialStructureSet == nil,
-                      intent.materialHostileEntitySet == nil, intent.musicRecordSet == nil else { throw LLMClientError.invalidResponse }
+                      intent.materialHostileEntitySet == nil, intent.materialPassiveEntitySet == nil, intent.musicRecordSet == nil else { throw LLMClientError.invalidResponse }
                 project = try AddOnProject.materialBossEntitySet(
+                    materialName: material.materialName,
+                    color: material.color,
+                    sourceItem: material.sourceItem.bedrockIdentifier,
+                    sourceCount: material.sourceCount,
+                    health: material.health,
+                    shortDescription: shortDescription,
+                    originalPrompt: prompt,
+                    identity: identity,
+                    profile: .current
+                )
+            } else if let material = intent.materialPassiveEntitySet {
+                guard intent.sword == nil, intent.materialSwordSet == nil, intent.materialToolSet == nil,
+                      intent.materialWeaponSet == nil, intent.materialArmorSet == nil,
+                      intent.materialConsumableSet == nil, intent.materialBlockSet == nil,
+                      intent.materialFurnaceSet == nil, intent.materialSmithingSet == nil,
+                      intent.materialBrewingSet == nil, intent.materialOreSet == nil,
+                      intent.materialCropSet == nil, intent.materialStructureSet == nil,
+                      intent.materialHostileEntitySet == nil, intent.materialBossEntitySet == nil,
+                      intent.musicRecordSet == nil else { throw LLMClientError.invalidResponse }
+                project = try AddOnProject.materialPassiveEntitySet(
                     materialName: material.materialName,
                     color: material.color,
                     sourceItem: material.sourceItem.bedrockIdentifier,
@@ -1001,6 +1021,7 @@ private struct ProjectIntentGeneration: Decodable {
     let materialStructureSet: MaterialStructureSetIntent?
     let materialHostileEntitySet: MaterialHostileEntitySetIntent?
     let materialBossEntitySet: MaterialHostileEntitySetIntent?
+    let materialPassiveEntitySet: MaterialHostileEntitySetIntent?
     let musicRecordSet: MusicRecordSetIntent?
 }
 
@@ -1195,7 +1216,7 @@ private struct OpenAIRequestDocument: Encodable {
     }
 
     private static let instructions = """
-    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, one named material ingot plus a matching helmet/chestplate/leggings/boots armor set, one named material ingot plus food and fuel consumables, one named material ingot plus its storage block, one named material ingot plus a furnace-smelted ingot and its sword, one named material ingot plus a smithing-upgraded sword and armor trim using that ingot, one named material ingot plus a brewing-stand elixir that upgrades a potion via the ingot, one named material ingot plus its ore block, one named material seed plus its crop block and produce, one named material ingot plus its storage block and a 3x3 hut structure built from that block, one named material ingot plus a hostile creature that attacks players, or one named material ingot plus a summoned boss with a health-triggered second phase and fixed matching-ingot reward.
+    Convert the request into exactly one supported Craftberry intent: a single custom sword, one named material ingot plus its matching sword, one named material ingot plus a matching sword/pickaxe/axe/shovel/hoe tool set, one named material ingot plus a matching sword/dagger/spear/hammer melee weapon set, one named material ingot plus a matching helmet/chestplate/leggings/boots armor set, one named material ingot plus food and fuel consumables, one named material ingot plus its storage block, one named material ingot plus a furnace-smelted ingot and its sword, one named material ingot plus a smithing-upgraded sword and armor trim using that ingot, one named material ingot plus a brewing-stand elixir that upgrades a potion via the ingot, one named material ingot plus its ore block, one named material seed plus its crop block and produce, one named material ingot plus its storage block and a 3x3 hut structure built from that block, one named material ingot plus a hostile creature that attacks players, one named material ingot plus a passive creature that never attacks, or one named material ingot plus a summoned boss with a health-triggered second phase and fixed matching-ingot reward.
     A material set makes a shapeless ingot from 1 through 9 copies of one supported vanilla material, then a sword from two ingots and a stick. Defaults are Azure, blue, diamond x4, attack 10, durability 500, names "Azure Ingot" and "Azure Sword". Never output Bedrock JSON, identifiers, UUIDs, filenames, code, markdown, or fields outside the schema.
     Material sword set swords can be enchanted at an enchanting table; requests for enchantable material sword sets are supported. Specific pre-applied enchantments are not supported.
     A material tool set uses the same ingot recipe and additionally crafts pickaxe, axe, shovel, and hoe variants from that ingot and sticks.
@@ -1210,6 +1231,7 @@ private struct OpenAIRequestDocument: Encodable {
     A material crop set makes seeds from 1 through 9 copies of one supported vanilla material (4 seeds), plus a produce food and a crop block with 8 growth stages (0..7) that drops produce when broken.
     A material structure set extends the block set with a 3x3 hut structure built from that block and placed via a structure template feature; it uses the same ingot/block defaults and limits as the block set.
     A material hostile creature set uses the same ingot recipe and additionally crafts a spawn egg for a hostile creature that attacks players. Health is 4 through 40 (default 20). Use the built-in pig geometry; do not generate scripts or custom geometry.
+    A material passive creature set uses the same ingot recipe and additionally crafts a spawn egg for a peaceful animal that never attacks, can be bred with wheat, spawns naturally on grass, and drops one feather when killed. Health is 4 through 40 (default 10). Use the built-in pig geometry; do not generate scripts or custom geometry.
     A boss encounter uses the same ingot recipe and crafts a spawn egg for a named hostile boss with health 20 through 40. At half health it grows and attacks and moves faster. Defeating it always drops one matching ingot. Bosses are summoned from their egg, not naturally spawned. Do not request extra powers, repeated stages, or companion behavior.
     If unsupported, set all intents and shortDescription to null. If ready, populate exactly one intent and write shortDescription as one short user-facing pack overview sentence.
     """
@@ -1384,6 +1406,18 @@ private struct OpenAIRequestDocument: Encodable {
         ])])
     ])])
 
+    // Passive creatures share the hostile intent shape; the archetype is chosen by the field name.
+    private static let materialPassiveEntitySetProperty: JSONValue = .object(["anyOf": .array([
+        .object(["type": .string("null")]),
+        .object(["type": .string("object"), "additionalProperties": .bool(false), "required": .array(["materialName", "color", "sourceItem", "sourceCount", "health"].map(JSONValue.string)), "properties": .object([
+            "materialName": .object(["type": .string("string"), "minLength": .integer(1), "maxLength": .integer(24)]),
+            "color": .object(["type": .string("string"), "enum": .array(PixelArtColor.allCases.map { .string($0.rawValue) })]),
+            "sourceItem": .object(["type": .string("string"), "enum": .array(FoundationSwordIngredient.allCases.map { .string($0.rawValue) })]),
+            "sourceCount": .object(["type": .string("integer"), "minimum": .integer(1), "maximum": .integer(9)]),
+            "health": .object(["type": .string("integer"), "minimum": .integer(4), "maximum": .integer(40)])
+        ])])
+    ])])
+
     // 1.26.30 requires Beta APIs for custom `minecraft:record` sound-event names.
     // Keep the model intent disabled while Craftberry's stable profile remains experiments-off.
     private static let musicRecordSetProperty: JSONValue = .object(["type": .string("null")])
@@ -1411,7 +1445,7 @@ private struct OpenAIRequestDocument: Encodable {
     private static let schema: JSONValue = .object([
         "type": .string("object"),
         "additionalProperties": .bool(false),
-        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet", "materialConsumableSet", "materialBlockSet", "materialFurnaceSet", "materialSmithingSet", "materialBrewingSet", "materialOreSet", "materialCropSet", "materialStructureSet", "materialHostileEntitySet", "materialBossEntitySet", "musicRecordSet"].map(JSONValue.string)),
+        "required": .array(["schemaVersion", "outcome", "message", "shortDescription", "sword", "materialSwordSet", "materialToolSet", "materialWeaponSet", "materialArmorSet", "materialConsumableSet", "materialBlockSet", "materialFurnaceSet", "materialSmithingSet", "materialBrewingSet", "materialOreSet", "materialCropSet", "materialStructureSet", "materialHostileEntitySet", "materialBossEntitySet", "materialPassiveEntitySet", "musicRecordSet"].map(JSONValue.string)),
         "properties": .object([
             "schemaVersion": .object(["type": .string("integer"), "const": .integer(1)]),
             "outcome": .object([
@@ -1448,7 +1482,8 @@ private struct OpenAIRequestDocument: Encodable {
             "materialStructureSet": materialStructureSetProperty,
             "materialHostileEntitySet": materialHostileEntitySetProperty,
             "musicRecordSet": musicRecordSetProperty,
-            "materialBossEntitySet": materialBossEntitySetProperty
+            "materialBossEntitySet": materialBossEntitySetProperty,
+            "materialPassiveEntitySet": materialPassiveEntitySetProperty
         ])
     ])
 }
