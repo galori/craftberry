@@ -116,21 +116,33 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(commands.filter { $0 == "/effect @s clear" }.count, 3)
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Mechanic scenario chat commands must stay on the calibrated lowercase keyboard plane.")
         let names = scenario.postCraftingSteps.map(\.name)
+        let clear = try XCTUnwrap(names.firstIndex { $0.contains("Clear the canopy") })
+        let look = try XCTUnwrap(names.firstIndex { $0.contains("open sky") })
         let before = try XCTUnwrap(names.firstIndex { $0.contains("no effect is active before use") })
-        let use = try XCTUnwrap(names.firstIndex { $0.contains("Use the charm in the air") })
+        let uses = names.indices.filter { names[$0].contains("Use the charm in the air") }
+        XCTAssertEqual(uses.count, 2, "Two charm presses: the engine silently ignores some synthesized gestures.")
         let applied = try XCTUnwrap(names.firstIndex { $0.contains("applied an effect") })
-        let wait = try XCTUnwrap(names.firstIndex { $0.contains("Wait past the twenty-second") })
+        let reapplies = names.indices.filter { names[$0].contains("Re-apply the charm") }
+        XCTAssertEqual(reapplies.count, 2, "The effect probe clears the effect, so expiry needs a re-applied effect with the same retry.")
+        let wait = try XCTUnwrap(names.firstIndex { $0.contains("Wait past the sixty-second") })
         let expired = try XCTUnwrap(names.firstIndex { $0.contains("effect expired") })
         // A plain tap in air only swings the item; itemUse needs a press-and-hold.
-        guard case .pressAndHold = scenario.postCraftingSteps[use].action else {
-            return XCTFail("Using the charm must be a press-and-hold, not a tap.")
+        // The canopy clear must run before looking up: screenshots showed the old
+        // pitch facing leaves, and the ~25s chat probe outlasted the old 20s effect.
+        for index in uses + reapplies {
+            guard case .pressAndHold = scenario.postCraftingSteps[index].action else {
+                return XCTFail("Using the charm must be a press-and-hold, not a tap.")
+            }
         }
-        XCTAssertLessThan(before, use)
-        XCTAssertLessThan(use, applied)
-        XCTAssertLessThan(applied, wait)
+        XCTAssertLessThan(clear, look)
+        XCTAssertLessThan(look, before)
+        XCTAssertLessThan(before, uses.min()!)
+        XCTAssertLessThan(uses.max()!, applied)
+        XCTAssertLessThan(applied, reapplies.min()!)
+        XCTAssertLessThan(reapplies.max()!, wait)
         XCTAssertLessThan(wait, expired)
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Took all effects") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .wait(seconds: 25) })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .wait(seconds: 65) })
     }
 
     func testEnchantTableOpenRetriesAcrossTheTableBody() {

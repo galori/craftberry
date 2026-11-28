@@ -155,9 +155,9 @@ private struct UITestingLLMClient: LLMClient {
                 sourceCount: 4,
                 condition: .none,
                 effect: .speed,
-                durationSeconds: 20,
+                durationSeconds: 60,
                 amplifier: 1,
-                shortDescription: "A redstone charm that gives a twenty-second speed boost when used.",
+                shortDescription: "A redstone charm that gives a sixty-second speed boost when used.",
                 originalPrompt: prompt,
                 identity: identity
             )
