@@ -938,7 +938,7 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertNil(components["minecraft:custom_components"])
         XCTAssertNotNil(components[componentID] as? [String: Any])
         for (stage, permutation) in perms.enumerated() {
-            XCTAssertEqual(permutation["condition"] as? String, "query.block_state('\(growthStateKey)') == \(stage)")
+            XCTAssertEqual(permutation["condition"] as? String, "q.block_state('\(growthStateKey)') == \(stage)")
             let permutationComponents = try XCTUnwrap(permutation["components"] as? [String: Any])
             let materialInstances = try XCTUnwrap(permutationComponents["minecraft:material_instances"] as? [String: Any])
             let allFaces = try XCTUnwrap(materialInstances["*"] as? [String: Any])

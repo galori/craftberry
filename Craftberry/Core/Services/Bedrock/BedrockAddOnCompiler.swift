@@ -214,9 +214,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             let cropIdentifiers = block.growthStages.map { _ in
                 CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
             }
-            // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
-            // behavior_pack blocks use description.states with range {min,max} and permutations on query.block_state.
-            // See resource_pack/blocks.json and metadata/json_schemas/server/block/1.21.110/States.json at 921fafb0.
+            // Crop blocks use growth states 0..(stages-1): behavior_pack blocks use description.states
+            // with range {min,max} and permutations on q.block_state. The official Custom Crops tutorial
+            // (wiki.bedrock.dev/blocks/custom-crops) and the Block Permutations reference use the `q.`
+            // prefix in permutation conditions; `query.block_state` fails to parse there, which drops the
+            // whole block from the registry (Content Log: "Block couldn't be found in the registry") and
+            // leaves a Content Log dialog open that blocks chat-open on device.
             let states: [String: BlockDocument.Description.StateValue]? = {
                 guard let stages = block.growthStages, let cropIdentifiers else { return nil }
                 return [cropIdentifiers.growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
@@ -227,7 +230,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     let materialInstances = ["*": BlockDocument.MaterialInstance(texture: stageTextureAliases[stage], renderMethod: "alpha_test")]
                     let loot = stage == stages - 1 ? cropLootPath(blockID: block.id, table: .harvest) : nil
                     return .init(
-                        condition: "query.block_state('\(cropIdentifiers.growthStateKey)') == \(stage)",
+                        condition: "q.block_state('\(cropIdentifiers.growthStateKey)') == \(stage)",
                         components: .init(loot: loot, materialInstances: materialInstances)
                     )
                 }
