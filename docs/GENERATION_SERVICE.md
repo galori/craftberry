@@ -52,8 +52,9 @@ The runnable host is intentionally macOS-only today. Certificate-chain trust use
 `server/` holds a TypeScript port of the same service for Cloudflare Workers. The HTTP contract (routes, headers, status codes, error codes, quota defaults of 5 per minute, 10 per hour and 30 per day) is unchanged, so the iOS client needs no change beyond `CRAFTBERRY_BACKEND_BASE_URL`. `GET /health` returns `{"ok":true,"configured":<bool>}` for monitoring.
 
 - State lives in one SQLite-backed Durable Object (`GenerationStore`). Each store method runs without awaits, so reservations, counter updates and challenge consumption are atomic, as `BEGIN IMMEDIATE` plus the process lock were for the Swift store. An in-flight generation older than two minutes is treated as abandoned and may be retried (it spends a new quota event).
-- The unauthenticated challenge endpoint is rate-limited to 30 requests per minute per client address (only a short hash of the address is stored) and answers `429 quota_exceeded`.
+- The unauthenticated challenge endpoint is rate-limited to 30 requests per minute per client address (only a short hash of the address is stored) and answers `429 quota_exceeded`. `/v1/session/enroll` is limited to 10 attempts per minute per client address, and a failed attestation burns its challenge. Request bodies are size-limited while streaming, so a missing `Content-Length` does not bypass the limit.
 - `cloudflare.config.ts` defines two modes. `staging` deploys `craftberry-generation-staging` with the `development` App Attest environment. `production` deploys `craftberry-generation-production` with `production`. Each Worker has its own Durable Object namespace and its own secrets.
+- `OPENAI_API_KEY` is not declared in `cloudflare.config.ts`, so a deploy never writes or overwrites it (`cf deploy` also keeps existing secrets). If `APP_ATTEST_ALLOWED_BUNDLE_VERSIONS` is empty the Worker answers `503 service_not_configured`, like the Swift server refusing to start.
 - Until `OPENAI_API_KEY` is set, authenticated generation returns `503 service_not_configured` and spends no quota. Set it once per environment. Read the key without echo so it never enters shell history or the repo:
 
 ```sh
@@ -64,6 +65,6 @@ unset OPENAI_KEY
 ```
 
 - `server/scripts/smoke.sh <base-url>` checks health, challenge issue and that unattested generation is rejected.
-- `.github/workflows/server.yml` builds, type-checks, tests and dry-runs both modes on pull requests, deploys staging on push to `main`, and deploys production only by manual dispatch. It needs repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- `.github/workflows/server.yml` builds, type-checks, tests and dry-runs both modes on pull requests, deploys staging on push to `main`, and deploys production only by manual dispatch from `main` (the dispatch default is `staging`). It needs repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 - The Worker does not run the full Swift project validator on the model output. It checks the intent envelope and relies on the strict JSON schema sent to OpenAI (generated from the Swift client). The iOS client still assembles and validates the intent locally.
 - Receipt-to-fraud-risk handling and the other limits listed above are unchanged.
