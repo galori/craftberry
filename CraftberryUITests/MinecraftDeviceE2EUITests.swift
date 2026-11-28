@@ -412,7 +412,7 @@ extension MinecraftE2EScenario {
     )
 
     static var redstoneSmithingSet: MinecraftE2EScenario {
-        MinecraftSmithingScenarioFactory.redstoneSmithingSet(layout: .uncalibrated)
+        MinecraftSmithingScenarioFactory.redstoneSmithingSet(layout: .measured)
     }
 
     static let redstoneFurnaceSet = MinecraftE2EScenario(
@@ -747,8 +747,7 @@ extension MinecraftE2EScenario {
     )
 }
 
-/// Only the smithing-panel cell centres are deliberately optional: they must come from a fresh
-/// iPhone screenshot calibration. The world interaction, close button, hotbar and HUD positions
+/// The smithing-panel cell centres stay optional so an unmeasured layout stops at a calibration step. The world interaction, close button, hotbar and HUD positions
 /// reuse coordinates already measured for this same device and landscape layout.
 struct MinecraftSmithingLayout {
     let smithingTableBlock: MinecraftCoordinate
@@ -765,14 +764,18 @@ struct MinecraftSmithingLayout {
     let trimResultHUDSlot: MinecraftCoordinate
     let trimTemplateHotbarSlot: MinecraftCoordinate
 
-    static var uncalibrated: MinecraftSmithingLayout {
+    /// Panel cells measured off the failed device run 46100557227 screenshot (1170x2532 portrait
+    /// capture of the landscape UI): landscape x = capture y / height, landscape y = 1 - capture x / width.
+    /// Cross-checked against the close button (0.9215, 0.080 vs calibrated 0.9232, 0.0709) and the hotbar pitch.
+    /// The cells stack top to bottom as addition, base, template; the ghost ingot icon marks the addition cell.
+    static var measured: MinecraftSmithingLayout {
         let calibrated = MinecraftCalibratedLayout()
         return MinecraftSmithingLayout(
             smithingTableBlock: calibrated.reopenCraftingTable,
-            templateSlot: nil,
-            baseSlot: nil,
-            additionSlot: nil,
-            resultSlot: nil,
+            templateSlot: MinecraftCoordinate(x: 0.5745, y: 0.539),
+            baseSlot: MinecraftCoordinate(x: 0.5745, y: 0.4026),
+            additionSlot: MinecraftCoordinate(x: 0.5745, y: 0.265),
+            resultSlot: MinecraftCoordinate(x: 0.6998, y: 0.4026),
             closeButton: calibrated.closeCraftingTable,
             ingotHotbarSlot: calibrated.hotbarSlot(1),
             swordBaseHotbarSlot: calibrated.hotbarSlot(4),

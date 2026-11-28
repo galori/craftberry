@@ -296,17 +296,20 @@ final class MinecraftE2ESupportTests: XCTestCase {
         }, "A fully calibrated layout must execute both smithing operations.")
     }
 
-    func testDefaultSmithingLayoutStopsBeforeAnyUncalibratedPanelTap() throws {
+    func testDefaultSmithingLayoutUsesMeasuredPanelCells() throws {
         let steps = MinecraftE2EScenario.redstoneSmithingSet.postCraftingSteps
-        let station = try XCTUnwrap(steps.firstIndex { $0.action == .assertText("Upgrade Gear|Smithing Table") })
-        let calibration = try XCTUnwrap(steps.firstIndex { step in
+        XCTAssertFalse(steps.contains { step in
             if case .calibrationRequired = step.action { return true }
             return false
-        })
-
-        XCTAssertLessThan(station, calibration)
-        XCTAssertEqual(steps.last?.action, steps[calibration].action)
-        XCTAssertTrue(steps.suffix(from: calibration + 1).isEmpty, "The default layout must stop before any inventory or smithing-panel interaction.")
+        }, "The default smithing layout is measured, so it must not stop at a calibration step.")
+        let layout = MinecraftSmithingLayout.measured
+        let addition = try XCTUnwrap(layout.additionSlot)
+        let base = try XCTUnwrap(layout.baseSlot)
+        let template = try XCTUnwrap(layout.templateSlot)
+        let result = try XCTUnwrap(layout.resultSlot)
+        XCTAssertTrue(addition.y < base.y && base.y < template.y)
+        XCTAssertEqual(result.y, base.y, accuracy: 0.001)
+        assertTap(named: "Place the redstone ingot in the smithing material slot", in: steps, x: addition.x, y: addition.y)
     }
 
     private var testSmithingLayout: MinecraftSmithingLayout {
