@@ -276,13 +276,14 @@ final class MinecraftE2EHarness {
         }
         let visibleWorldName = gameMode.worldTitle(projectName: scenario.projectName)
         testCase.attachScreenshot("World list before opening the imported world")
-        let openImportedWorld = MinecraftPhasedStep(
-            id: "config:open-imported-world",
-            name: "Open the imported \(visibleWorldName) world from its OCR-matched row",
-            action: .tapTextRow(x: 0.16, text: visibleWorldName)
+        // Minecraft's 3-column world grid ignores a tap on the name row (it reports success but
+        // stays on PLAY); tapping the tile thumbnail opens the world. The imported world is the
+        // newest, so it is the first tile. shortcut: fixed first-tile position, replace with an
+        // OCR-derived tile if the list order or layout changes.
+        XCTAssertNotNil(
+            ocr.waitForRecognizedTextCenter(visibleWorldName, timeout: 4),
+            "The imported preconfigured world was not visible in Minecraft's world list."
         )
-        // EXPERIMENT: confirm the row is present, then tap the first tile's thumbnail.
-        XCTAssertNotNil(ocr.waitForRecognizedTextCenter(visibleWorldName, timeout: 4), "World row not visible.")
         minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).tap()
         Thread.sleep(forTimeInterval: 45)
         testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
