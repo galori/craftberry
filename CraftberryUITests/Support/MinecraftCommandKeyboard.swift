@@ -112,6 +112,14 @@ struct MinecraftCommandKeyboard {
                 events.append(symbolCoordinate)
                 currentPage = .symbols
                 events.append(.wait(300_000))
+            } else if character == ":" {
+                // Numbers plane, row 2, third key. Device run 46103139417 tapped ":" by accessibility
+                // lookup but Minecraft never received it (`craftberry:x` arrived as `craftberryx`),
+                // like `_` above. Measured from that run's screen recording with the same mapping
+                // that reproduces the `#+=` and `_` coordinates.
+                switchTo(.numbers)
+                events.append(.coordinate(0.30, 0.7165))
+                events.append(.wait(300_000))
             } else if character.isLetter {
                 switchTo(.letters)
                 events.append(.key(String(character)))
