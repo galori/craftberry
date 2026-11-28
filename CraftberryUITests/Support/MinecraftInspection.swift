@@ -88,10 +88,13 @@ struct MinecraftOCRInspector {
     /// Some of the text this waits on is transient — an item-name tooltip fades after about a
     /// second — so a full four-orientation pass per poll would risk spending the tooltip's whole
     /// lifetime inside a single poll of Vision.
+    /// Chat lines wrap mid-message (run 46124610130: "has 1 items that match the" +
+    /// "criteria"), and Vision returns each visual line separately, so join with a
+    /// space: joining with newline breaks every multi-word assert that wraps.
     private func contains(_ expected: String, in image: CGImage) -> Bool {
         orientations.contains { orientation in
             recognizedLines(in: image, orientation: orientation)
-                .joined(separator: "\n")
+                .joined(separator: " ")
                 .localizedCaseInsensitiveContains(expected)
         }
     }
