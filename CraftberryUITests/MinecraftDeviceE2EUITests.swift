@@ -650,7 +650,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Collect the isolated loot drop", action: .chatCommand("/tp @s @e[type=item]")),
             MinecraftStep(name: "Wait for the feather to enter inventory", action: .wait(seconds: 2)),
             MinecraftStep(name: "Count the dropped feathers", action: .chatCommand("/clear @s minecraft:feather 0 0")),
-            MinecraftStep(name: "Confirm exactly one feather dropped", action: .assertText("has 1 items that match the criteria")),
+            MinecraftStep(name: "Confirm exactly one feather dropped", action: .assertText("1 items that match the criteria")),
             MinecraftStep(name: "Remove the verified loot from the test inventory", action: .chatCommand("/clear @s minecraft:feather"))
         ]
     )

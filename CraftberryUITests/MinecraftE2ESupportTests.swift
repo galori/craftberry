@@ -76,7 +76,9 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertFalse(commands.contains("/testfor @e[type=item]"), "The loot check must verify the item ID and count.")
         XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Passive scenario chat commands must stay on the calibrated lowercase keyboard plane.")
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("No targets") })
-        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("has 1 items that match the criteria") })
+        // Bedrock's clear-count reply has no "has" prefix (observed on device); the shorter
+        // string also still matches if a prefix ever appears, since OCR matching is substring.
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("1 items that match the criteria") })
 
         let names = scenario.postCraftingSteps.map(\.name)
         let useEgg = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
