@@ -543,7 +543,7 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Walk onto the drop to pick it up", action: .chatCommand("/tp @s 98 81 95")),
             MinecraftStep(name: "Wait for the pickup", action: .wait(seconds: 2)),
             MinecraftStep(name: "Count the \(dropLabel) now in the inventory", action: .chatCommand("/clear @s \(dropID) 0 0")),
-            MinecraftStep(name: "Confirm the \(dropLabel) was dropped and collected", action: .assertText("1 items that match the criteria"))
+            MinecraftStep(name: "Confirm the \(dropLabel) was dropped and collected", action: .assertText("has 1 items that match"))
         ]
     }
 
