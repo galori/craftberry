@@ -421,6 +421,15 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(events[..<bracketIndex].contains(.coordinate(0.1435, 0.8117)), "Reaching '[' must tap the #+= plane switch.")
     }
 
+    func testCommandKeyboardReturnsFromSymbolsToNumbersViaPlaneToggleNotMoreKey() {
+        // On the #+= plane the bottom-left "more" key is ABC (letters); only the shift-slot 123 key reaches numbers.
+        let events = MinecraftCommandKeyboard().events(for: "r=5")
+        let equalsIndex = events.firstIndex(of: .coordinate(0.8620, 0.630))!
+        let afterEquals = Array(events[(equalsIndex + 1)...])
+        XCTAssertFalse(afterEquals.contains(.key("numbers")), "'more' on the symbols plane switches to letters.")
+        XCTAssertTrue(afterEquals.contains(.coordinate(0.1435, 0.8117)), "Expected the 123 key in the shift slot.")
+    }
+
     func testPhasedStepsGetStableRunLocalIDsStartingAtOnePerPhase() {
         let steps = [
             MinecraftStep(name: "First", action: .wait(seconds: 1)),

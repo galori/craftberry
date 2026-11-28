@@ -93,7 +93,9 @@ struct MinecraftCommandKeyboard {
             case (.numbers, .symbols):
                 events.append(toSymbols)
             case (.symbols, .numbers):
-                events.append(toNumbers)
+                // On the #+= plane the bottom-left "more" key reads ABC (letters), so toNumbers would
+                // land on letters. The 123 key sits in the shift slot, same spot as #+= on numbers.
+                events.append(toSymbols)
             default:
                 break
             }
