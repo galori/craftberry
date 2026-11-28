@@ -94,6 +94,11 @@ final class MinecraftDebuggerConsole {
     }
 
     @discardableResult
+    func pressAndHold(_ x: Double, _ y: Double, _ seconds: Double) -> MinecraftStepResult {
+        runAdHoc(.pressAndHold(x: CGFloat(x), y: CGFloat(y), seconds: seconds))
+    }
+
+    @discardableResult
     func swipeUp() -> MinecraftStepResult {
         runAdHoc(.swipeUp)
     }
