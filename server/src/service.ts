@@ -26,7 +26,7 @@ export interface Verifier {
 export interface ServiceConfig {
 	appId: string;
 	environment: AppAttestEnvironment;
-	allowedBundleVersions?: string[];
+	allowedBundleVersions: string[];
 	appleRootCA: string;
 	profileID: string;
 	maxPromptCharacters: number;
@@ -62,11 +62,31 @@ function fail(status: number, error: string, headers: Record<string, string> = {
 
 const UNAVAILABLE = () => fail(503, "service_unavailable");
 
+/** Reads at most `limit` bytes; returns null when the body is larger, without buffering past the limit. */
 async function readBody(request: Request, limit: number): Promise<Uint8Array | null> {
 	const declared = Number(request.headers.get("Content-Length") ?? "0");
 	if (declared > limit) return null;
-	const body = new Uint8Array(await request.arrayBuffer());
-	return body.length > limit ? null : body;
+	if (request.body === null) return new Uint8Array(0);
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.length;
+		if (total > limit) {
+			await reader.cancel();
+			return null;
+		}
+		chunks.push(value);
+	}
+	const body = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		body.set(chunk, offset);
+		offset += chunk.length;
+	}
+	return body;
 }
 
 function parseJSONObject(body: Uint8Array): Record<string, unknown> | null {
@@ -144,7 +164,7 @@ export async function handleRequest(
 			case "/v1/session/challenge":
 				return await issueChallenge(request, deps, clientKey);
 			case "/v1/session/enroll":
-				return await enroll(request, deps);
+				return await enroll(request, deps, clientKey);
 			case "/v1/generate":
 				return await generate(request, deps);
 			default:
@@ -176,8 +196,12 @@ async function issueChallenge(
 	});
 }
 
-async function enroll(request: Request, deps: ServiceDeps): Promise<Response> {
+async function enroll(request: Request, deps: ServiceDeps, clientKey: string): Promise<Response> {
 	const { config } = deps;
+	// Attestation verification is CPU heavy, so limit it per client before reading or parsing anything.
+	if (!(await deps.store.allowEnroll(clientKey, deps.now()))) {
+		return fail(429, "quota_exceeded", { "Retry-After": "60" });
+	}
 	const raw = await readBody(request, config.maxRequestBytes);
 	if (raw === null) return fail(413, "request_too_large");
 	const body = parseJSONObject(raw);
@@ -208,11 +232,17 @@ async function enroll(request: Request, deps: ServiceDeps): Promise<Response> {
 			appleRootCA: config.appleRootCA,
 		});
 	} catch (error) {
-		if (error instanceof AppAttestError) return fail(401, "unauthorized");
+		if (error instanceof AppAttestError) {
+			// One challenge allows one attempt: a failed attestation burns it.
+			await deps.store.deleteChallenge(challengeID);
+			return fail(401, "unauthorized");
+		}
 		throw error;
 	}
-	if (verified.publicKeyDer.length === 0 || verified.receipt.length === 0)
+	if (verified.publicKeyDer.length === 0 || verified.receipt.length === 0) {
+		await deps.store.deleteChallenge(challengeID);
 		return fail(401, "unauthorized");
+	}
 
 	const sessionToken = base64URL(randomBytes(32));
 	const registered = await deps.store.registerInstallation({

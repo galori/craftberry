@@ -16,7 +16,10 @@ on:
         description: "Environment to deploy"
         type: choice
         options: [staging, production]
-        default: production
+        default: staging
+
+permissions:
+  contents: read
 
 concurrency:
   group: server-${{ github.event_name }}-${{ github.ref }}
@@ -48,9 +51,12 @@ jobs:
           npx cf deploy --prebuilt --mode production --dry-run
 
   deploy:
-    # Staging deploys on every push to main; production only on manual dispatch.
+    # Staging deploys on every push to main; production only by manual dispatch from main.
     needs: build
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+        (inputs.environment != 'production' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
     env:

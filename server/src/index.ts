@@ -17,10 +17,12 @@ export function serviceConfig(env: Env): ServiceConfig | null {
 		.split(",")
 		.map((value) => value.trim())
 		.filter(Boolean);
+	// Fail closed like the Swift server: an empty allowlist must never mean "accept any build".
+	if (versions.length === 0) return null;
 	return {
 		appId,
 		environment,
-		allowedBundleVersions: versions.length > 0 ? versions : undefined,
+		allowedBundleVersions: versions,
 		appleRootCA: APPLE_APP_ATTESTATION_ROOT_CA_PEM,
 		profileID: PROFILE_ID,
 		maxPromptCharacters: 600,
@@ -39,7 +41,7 @@ export default {
 				{ status: 503, headers: { "Cache-Control": "no-store" } },
 			);
 		}
-		// "UNSET" is the placeholder the first deploy uses (cf requires the secret to exist); treat it as missing.
+		// The secret is set out of band; "UNSET" is an old placeholder value, still treated as missing.
 		const rawKey = env.OPENAI_API_KEY?.trim();
 		const apiKey = rawKey === "UNSET" ? "" : rawKey;
 		const store = storeStub(env, STORE_NAME);
