@@ -493,6 +493,15 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(events[..<bracketIndex].contains(.coordinate(0.1435, 0.8117)), "Reaching '[' must tap the #+= plane switch.")
     }
 
+    func testCommandKeyboardPlanningTapsColonByCoordinateOnNumbersPlane() {
+        let events = MinecraftCommandKeyboard().events(for: "craftberry:redstone")
+
+        let colonIndex = events.firstIndex(of: .coordinate(0.30, 0.7165))!
+        XCTAssertFalse(events.contains(.key(":")), "The accessibility key lookup dropped ':' on device.")
+        XCTAssertTrue(events[..<colonIndex].contains(.key("numbers")))
+        XCTAssertEqual(events[colonIndex + 2], .key("letters"))
+    }
+
     func testCommandKeyboardReturnsFromSymbolsToNumbersViaPlaneToggleNotMoreKey() {
         // On the #+= plane the bottom-left "more" key is ABC (letters); only the shift-slot 123 key reaches numbers.
         let events = MinecraftCommandKeyboard().events(for: "r=5")
