@@ -777,7 +777,7 @@ struct MinecraftSmithingPlanCompiler {
             return [
                 .tap("Open smithing table for Redstone Sword", layout.smithingTableBlock),
                 MinecraftStep(name: "Wait for smithing table interface", action: .wait(seconds: 4)),
-                MinecraftStep(name: "Confirm smithing table interface", action: .assertText("Smithing Table")),
+                MinecraftStep(name: "Confirm smithing table interface", action: .assertText("Upgrade Gear|Smithing Table")),
                 MinecraftStep(
                     name: "Calibrate smithing panel controls",
                     action: .calibrationRequired("Missing calibrated smithing coordinates: \(missingControls.joined(separator: ", ")).")
@@ -797,7 +797,7 @@ struct MinecraftSmithingPlanCompiler {
         var steps: [MinecraftStep] = [
             .tap("Open smithing table for \(name)", layout.smithingTableBlock),
             MinecraftStep(name: "Wait for smithing table interface", action: .wait(seconds: 4)),
-            MinecraftStep(name: "Confirm smithing table interface", action: .assertText("Smithing Table"))
+            MinecraftStep(name: "Confirm smithing table interface", action: .assertText("Upgrade Gear|Smithing Table"))
         ]
 
         steps += [
