@@ -93,7 +93,9 @@ struct MinecraftCommandKeyboard {
             case (.numbers, .symbols):
                 events.append(toSymbols)
             case (.symbols, .numbers):
-                events.append(toNumbers)
+                // On the #+= plane the bottom-left "more" key reads ABC (letters), so toNumbers would
+                // land on letters. The 123 key sits in the shift slot, same spot as #+= on numbers.
+                events.append(toSymbols)
             default:
                 break
             }
@@ -109,6 +111,14 @@ struct MinecraftCommandKeyboard {
                 switchTo(.symbols)
                 events.append(symbolCoordinate)
                 currentPage = .symbols
+                events.append(.wait(300_000))
+            } else if character == ":" {
+                // Numbers plane, row 2, third key. Device run 46103139417 tapped ":" by accessibility
+                // lookup but Minecraft never received it (`craftberry:x` arrived as `craftberryx`),
+                // like `_` above. Measured from that run's screen recording with the same mapping
+                // that reproduces the `#+=` and `_` coordinates.
+                switchTo(.numbers)
+                events.append(.coordinate(0.30, 0.7165))
                 events.append(.wait(300_000))
             } else if character.isLetter {
                 switchTo(.letters)

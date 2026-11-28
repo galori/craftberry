@@ -237,6 +237,7 @@ paused at a checkpoint:
 (lldb) expr MinecraftDebuggerConsole.current?.screenshot()
 (lldb) expr MinecraftDebuggerConsole.current?.tap(0.5, 0.443)
 (lldb) expr MinecraftDebuggerConsole.current?.drag(0.5, 0.8, 0.5, 0.3)
+(lldb) expr MinecraftDebuggerConsole.current?.pressAndHold(0.5, 0.4, 6)
 (lldb) expr MinecraftDebuggerConsole.current?.swipeUp()
 (lldb) expr MinecraftDebuggerConsole.current?.keyboardText("emerald")
 (lldb) expr MinecraftDebuggerConsole.current?.numericKeyboardText("100")
@@ -247,7 +248,7 @@ paused at a checkpoint:
 (lldb) continue
 ```
 
-- `tap`/`drag`/`swipeUp`/`keyboardText`/`numericKeyboardText`/`chatCommand`
+- `tap`/`drag`/`pressAndHold`/`swipeUp`/`keyboardText`/`numericKeyboardText`/`chatCommand`
   are ad hoc: they run through the same `MinecraftStepExecutor` as planned
   steps, but never mark `currentStep` as executed — use them to explore or
   nudge past a stuck screen without disturbing the plan.
@@ -293,7 +294,7 @@ indefinitely for controller commands instead of auto-running the steps.
   successful `step`/`run-until`; failed planned steps retain the cursor so the
   operator can retry or inspect. `select-step` moves only the cursor and
   explicitly does not restore Minecraft UI state. Arbitrary actions
-  (`tap`/`drag`/`swipe-up`/`keyboard-text`/`numeric-keyboard-text`/`chat-command`/`wait`)
+  (`tap`/`drag`/`press-and-hold`/`swipe-up`/`keyboard-text`/`numeric-keyboard-text`/`chat-command`/`wait`)
   never advance the cursor, even on success.
 
 ### CLI lifecycle
@@ -317,6 +318,7 @@ scripts/minecraft-calibrate.sh select-step config:3     # move cursor only
 # Ad hoc probing (never advances cursor)
 scripts/minecraft-calibrate.sh tap 0.5 0.443
 scripts/minecraft-calibrate.sh drag 0.5 0.8 0.5 0.3
+scripts/minecraft-calibrate.sh press-and-hold 0.5 0.4 6
 scripts/minecraft-calibrate.sh swipe-up
 scripts/minecraft-calibrate.sh keyboard-text emerald
 scripts/minecraft-calibrate.sh numeric-keyboard-text 12345678
