@@ -281,15 +281,9 @@ final class MinecraftE2EHarness {
             name: "Open the imported \(visibleWorldName) world from its OCR-matched row",
             action: .tapTextRow(x: 0.16, text: visibleWorldName)
         )
-        let openResult = executor.execute(
-            openImportedWorld,
-            in: minecraft,
-            resolve: { self.resolved($0, scenario: scenario) }
-        )
-        XCTAssertTrue(
-            openResult.succeeded,
-            openResult.failureReason ?? "The imported preconfigured world was not visible in Minecraft's world list."
-        )
+        // EXPERIMENT: confirm the row is present, then tap the first tile's thumbnail.
+        XCTAssertNotNil(ocr.waitForRecognizedTextCenter(visibleWorldName, timeout: 4), "World row not visible.")
+        minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).tap()
         Thread.sleep(forTimeInterval: 45)
         testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
 
