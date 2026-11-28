@@ -20,6 +20,7 @@ final class PrivacyTelemetryRetentionTests: XCTestCase {
         let privacy = PrivacyDisclosure.configured(contactURLString: "https://privacy-contact.craftberry.com/contact")
 
         XCTAssertNoThrow(try privacy.validateForDistributableBuild())
+        XCTAssertNoThrow(try PrivacyDisclosure.configured(contactURLString: "https://craftberry.cc/privacy").validateForDistributableBuild())
     }
 
     #if os(macOS)

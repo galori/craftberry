@@ -11,5 +11,5 @@
     "Craftberry does not read Minecraft worlds or world-folder contents, contacts, or precise location."
   ],
   "retentionSummary": "Project sidecars, including submitted prompt text, stay on this device unless you export or share them. Generated build folders keep the 5 most recently built versions per project and expire after 30 days; cleanup runs when the app launches or finishes a build. Optional local telemetry is kept for up to 30 days; expired events are removed the next time the app performs cleanup, and all events are deleted when you opt out.",
-  "contactURL": ""
+  "contactURL": "https://craftberry.cc/privacy"
 }
