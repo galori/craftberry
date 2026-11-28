@@ -133,6 +133,17 @@ final class MinecraftStepExecutor {
             }
             tap(minecraft, CGVector(dx: x, dy: center.y))
             return .success(step)
+        case .tapTextRowWithContext(let x, let rawTitle, let rawContext):
+            let title = resolve(rawTitle)
+            let context = resolve(rawContext)
+            guard let center = ocr.waitForRecognizedTextRowCenter(title: title, context: context, timeout: 4) else {
+                return .failure(
+                    step,
+                    reason: "OCR could not locate a single world row containing both '\(title)' and '\(context)'."
+                )
+            }
+            tap(minecraft, CGVector(dx: x, dy: center.y))
+            return .success(step)
         case .tapUntilText(let x, let y, let fallbackX, let fallbackY, let rawExpected):
             let expected = resolve(rawExpected)
             let candidates = [

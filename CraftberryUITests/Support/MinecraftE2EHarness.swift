@@ -188,6 +188,10 @@ final class MinecraftE2EHarness {
         try dismissKeyboard(in: craftberry)
         craftberry.buttons["craftberry.generate"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+        XCTAssertTrue(
+            craftberry.staticTexts[scenario.projectName].waitForExistence(timeout: 2),
+            "The deterministic fixture did not generate the expected project for \(scenario.projectName)."
+        )
 
         craftberry.buttons["craftberry.exportWorld"].tap()
         let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
@@ -232,6 +236,10 @@ final class MinecraftE2EHarness {
         try dismissKeyboard(in: craftberry)
         craftberry.buttons["craftberry.generate"].tap()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.ready", in: craftberry, timeout: 8))
+        XCTAssertTrue(
+            craftberry.staticTexts[scenario.projectName].waitForExistence(timeout: 2),
+            "The deterministic fixture did not generate the expected project for \(scenario.projectName)."
+        )
 
         craftberry.buttons["craftberry.exportWorld"].tap()
         let modeButton = craftberry.buttons["craftberry.exportWorld.\(gameMode.rawValue)"]
@@ -281,7 +289,9 @@ final class MinecraftE2EHarness {
         // newest, so it is the first tile. shortcut: fixed first-tile position, replace with an
         // OCR-derived tile if the list order or layout changes.
         XCTAssertNotNil(
-            ocr.waitForRecognizedTextCenter(visibleWorldName, timeout: 4),
+            // shortcut: tiles truncate long names ("Craftberry Brewing E2…"), so match only the
+            // first 18 characters; revisit if two worlds share that prefix.
+            ocr.waitForRecognizedTextCenter(String(visibleWorldName.prefix(18)), timeout: 4),
             "The imported preconfigured world was not visible in Minecraft's world list."
         )
         minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).tap()

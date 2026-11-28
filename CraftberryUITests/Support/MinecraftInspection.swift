@@ -50,6 +50,65 @@ struct MinecraftOCRInspector {
         return nil
     }
 
+    /// Locates a text row only when its title and context label appear near each
+    /// other. Imported-world rows can render the mode on a separate line, so a
+    /// full concatenated-string match would either miss the row or match a
+    /// same-named world in another mode.
+    func waitForRecognizedTextRowCenter(title: String, context: String, timeout: TimeInterval) -> CGPoint? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            guard let image = XCUIScreen.main.screenshot().image.cgImage else {
+                usleep(150_000)
+                continue
+            }
+            for orientation in orientations {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = true
+                do {
+                    try VNImageRequestHandler(cgImage: image, orientation: orientation).perform([request])
+                } catch {
+                    XCTFail("Minecraft OCR failed: \(error)")
+                    return nil
+                }
+                let candidates = (request.results ?? []).compactMap { observation -> (text: String, boundingBox: CGRect)? in
+                    guard let text = observation.topCandidates(1).first?.string else { return nil }
+                    return (text, observation.boundingBox)
+                }
+                if let box = Self.matchingRowBoundingBox(title: title, context: context, among: candidates) {
+                    return CGPoint(x: box.midX, y: 1 - box.midY)
+                }
+            }
+            usleep(150_000)
+        } while Date() < deadline
+        return nil
+    }
+
+    static func matchingRowBoundingBox(
+        title: String,
+        context: String,
+        among candidates: [(text: String, boundingBox: CGRect)]
+    ) -> CGRect? {
+        let titleCandidates = candidates.filter { $0.text.localizedCaseInsensitiveContains(title) }
+        let contextCandidates = candidates.filter { candidate in
+            candidate.text
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .contains { $0.localizedCaseInsensitiveCompare(context) == .orderedSame }
+        }
+
+        return titleCandidates
+            .flatMap { titleCandidate in
+                contextCandidates.compactMap { contextCandidate -> (box: CGRect, distance: CGFloat)? in
+                    let verticalDistance = abs(titleCandidate.boundingBox.midY - contextCandidate.boundingBox.midY)
+                    let horizontalDistance = abs(titleCandidate.boundingBox.midX - contextCandidate.boundingBox.midX)
+                    guard verticalDistance <= 0.12, horizontalDistance <= 0.45 else { return nil }
+                    return (titleCandidate.boundingBox, verticalDistance + horizontalDistance * 0.1)
+                }
+            }
+            .min { $0.distance < $1.distance }?
+            .box
+    }
+
     private func recognizedTextCenter(_ expected: String, in image: CGImage) -> CGPoint? {
         for orientation in orientations {
             let request = VNRecognizeTextRequest()
