@@ -17,6 +17,8 @@ public enum ProfileMigrationError: LocalizedError, Equatable {
 }
 
 public struct ProfileMigrationGate: Sendable {
+    private static let supportedLegacyProfileIDs: Set<String> = ["bedrock-stable-1.21.80"]
+
     public let currentProfile: BedrockContentProfile
 
     public init(currentProfile: BedrockContentProfile = .current) {
@@ -28,7 +30,7 @@ public struct ProfileMigrationGate: Sendable {
     }
 
     public func validate(_ project: AddOnProject) throws {
-        if project.schemaVersion > AddOnProject.currentSchemaVersion {
+        guard Self.isKnownSchemaVersion(project.schemaVersion) else {
             throw ProfileMigrationError.unsupportedSchema(project.schemaVersion)
         }
         if project.targetProfileID != currentProfile.id {
@@ -40,17 +42,24 @@ public struct ProfileMigrationGate: Sendable {
                 found: "schema \(project.schemaVersion)"
             )
         }
+        let report = AddOnProjectValidator.validate(project, profile: currentProfile)
+        guard report.errors.isEmpty else {
+            throw ProfileMigrationError.migrationFailed(report.errors.map(\.message).joined(separator: " "))
+        }
     }
 
     public func migratedProject(_ project: AddOnProject) throws -> AddOnProject {
+        guard Self.isKnownSchemaVersion(project.schemaVersion) else {
+            throw ProfileMigrationError.unsupportedSchema(project.schemaVersion)
+        }
         var migrated = project
         if migrated.schemaVersion != AddOnProject.currentSchemaVersion {
             migrated = try migrated.migratedToCurrentSchema()
         }
         if migrated.targetProfileID != currentProfile.id {
-            let report = AddOnProjectValidator.validate(migrated, profile: currentProfile)
-            let compatible = report.errors.allSatisfy { $0.code != "incompatible_profile" } == false
-            _ = compatible
+            guard Self.supportedLegacyProfileIDs.contains(migrated.targetProfileID) else {
+                throw ProfileMigrationError.incompatibleProfile(expected: currentProfile.id, found: migrated.targetProfileID)
+            }
             migrated = AddOnProject(
                 schemaVersion: migrated.schemaVersion,
                 id: migrated.id,
@@ -75,5 +84,9 @@ public struct ProfileMigrationGate: Sendable {
         } catch {
             return try migratedProject(project)
         }
+    }
+
+    private static func isKnownSchemaVersion(_ version: Int) -> Bool {
+        version == 1 || version == 2 || version == AddOnProject.currentSchemaVersion
     }
 }

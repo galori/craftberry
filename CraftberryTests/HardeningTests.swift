@@ -243,10 +243,68 @@ final class HardeningTests: XCTestCase {
     func testMigrationGateMigratesProfileID() throws {
         let gate = ProfileMigrationGate()
         let project = try AddOnProject.sword(displayName: "Test Sword", originalPrompt: "prompt", identity: testIdentity())
-        let oldProfile = AddOnProject(schemaVersion: project.schemaVersion, id: project.id, namespace: project.namespace, displayName: project.displayName, shortDescription: project.shortDescription, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: "bedrock-stable-1.0.0", originalPrompt: project.originalPrompt, content: project.content)
+        let oldProfile = AddOnProject(schemaVersion: project.schemaVersion, id: project.id, namespace: project.namespace, displayName: project.displayName, shortDescription: project.shortDescription, packUUIDs: project.packUUIDs, buildVersion: project.buildVersion, targetProfileID: "bedrock-stable-1.21.80", originalPrompt: project.originalPrompt, content: project.content)
         let migrated = try gate.migratedProject(oldProfile)
         XCTAssertEqual(migrated.targetProfileID, BedrockContentProfile.current.id)
+        XCTAssertEqual(migrated.id, oldProfile.id)
+        XCTAssertEqual(migrated.packUUIDs, oldProfile.packUUIDs)
+        XCTAssertEqual(migrated.content, oldProfile.content)
         XCTAssertNoThrow(try gate.validate(migrated))
+    }
+
+    func testMigrationGateRejectsUnknownProfileRatherThanRetargetingIt() throws {
+        let gate = ProfileMigrationGate()
+        let project = try AddOnProject.sword(displayName: "Test Sword", originalPrompt: "prompt", identity: testIdentity())
+        let unknown = AddOnProject(
+            schemaVersion: project.schemaVersion,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: "bedrock-stable-unrecognized",
+            originalPrompt: project.originalPrompt,
+            content: project.content
+        )
+
+        XCTAssertThrowsError(try gate.migratedProject(unknown)) { error in
+            guard case ProfileMigrationError.incompatibleProfile = error else {
+                return XCTFail("Unexpected migration error: \(error)")
+            }
+        }
+    }
+
+    func testMigrationGateRejectsUnknownSchemaAndInvalidMigratedContent() throws {
+        let gate = ProfileMigrationGate()
+        let project = try AddOnProject.sword(displayName: "Test Sword", originalPrompt: "prompt", identity: testIdentity())
+        let unknownSchema = AddOnProject(
+            schemaVersion: 0,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: project.targetProfileID,
+            originalPrompt: project.originalPrompt,
+            content: project.content
+        )
+        XCTAssertThrowsError(try gate.migratedProject(unknownSchema))
+
+        let invalidLegacyProject = AddOnProject(
+            schemaVersion: 1,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: "bedrock-stable-1.21.80",
+            originalPrompt: project.originalPrompt,
+            content: project.content + [.item(try XCTUnwrap(project.items.first))]
+        )
+        XCTAssertThrowsError(try gate.migratedProject(invalidLegacyProject))
     }
 
     func testMigrationGateRejectsFutureSchema() {

@@ -159,11 +159,11 @@ public final class AddOnRevisionService: @unchecked Sendable {
     }
 
     public func loadProject(from sidecarURL: URL) throws -> AddOnProject {
-        try AddOnProjectStore.load(from: sidecarURL)
+        try ProfileMigrationGate(currentProfile: profile).validatedOrMigrated(AddOnProjectStore.load(from: sidecarURL))
     }
 
     public func loadProject(for projectID: UUID, in outputDirectory: URL) throws -> AddOnProject {
-        try AddOnProjectStore.load(for: projectID, in: outputDirectory)
+        try ProfileMigrationGate(currentProfile: profile).validatedOrMigrated(AddOnProjectStore.load(for: projectID, in: outputDirectory))
     }
 
     public func revise(
@@ -198,6 +198,7 @@ public final class AddOnRevisionService: @unchecked Sendable {
     ) async throws -> RevisionResult {
         let bumped = baseProject.buildVersion.nextPatch()
         let preservedContent = preservingImportedPixels(from: baseProject, in: draft)
+        let stableContent = preservingStableContentIdentities(from: baseProject.content, in: preservedContent)
         let revised = AddOnProject(
             id: baseProject.id,
             namespace: baseProject.namespace,
@@ -207,7 +208,7 @@ public final class AddOnRevisionService: @unchecked Sendable {
             buildVersion: bumped,
             targetProfileID: draft.targetProfileID,
             originalPrompt: newPrompt,
-            content: preservedContent
+            content: stableContent
         )
 
         let report = AddOnProjectValidator.validate(revised, profile: profile)
@@ -257,5 +258,89 @@ public final class AddOnRevisionService: @unchecked Sendable {
                 customPixels: customPixels
             ))
         }
+    }
+
+    private func preservingStableContentIdentities(
+        from base: [AddOnContentNode],
+        in draft: [AddOnContentNode]
+    ) -> [AddOnContentNode] {
+        var identityMap: [String: String] = [:]
+        var ambiguousIDs: Set<String> = []
+
+        for _ in 0...max(base.count, draft.count) {
+            let baseBySignature = Dictionary(grouping: base) { Self.contentSignature($0, remapping: [:]) }
+            let draftBySignature = Dictionary(grouping: draft) { Self.contentSignature($0, remapping: identityMap) }
+            let previousCount = identityMap.count
+
+            for (signature, baseMatches) in baseBySignature where baseMatches.count == 1 {
+                guard let draftMatches = draftBySignature[signature], draftMatches.count == 1 else { continue }
+                let draftID = draftMatches[0].contentID.rawValue
+                let baseID = baseMatches[0].contentID.rawValue
+                guard draftID != baseID, !ambiguousIDs.contains(draftID) else { continue }
+                if let existing = identityMap[draftID], existing != baseID {
+                    identityMap.removeValue(forKey: draftID)
+                    ambiguousIDs.insert(draftID)
+                } else {
+                    identityMap[draftID] = baseID
+                }
+            }
+
+            if identityMap.count == previousCount { break }
+        }
+
+        return draft.map { Self.remapContentNode($0, using: identityMap) ?? $0 }
+    }
+
+    private static func contentSignature(_ node: AddOnContentNode, remapping: [String: String]) -> String? {
+        guard var document = jsonDocument(for: node),
+              var payload = document["value"] as? [String: Any] else { return nil }
+        payload.removeValue(forKey: "id")
+        document["value"] = remapJSONValues(payload, using: remapping)
+        guard let data = try? JSONSerialization.data(withJSONObject: document, options: [.sortedKeys]),
+              let signature = String(data: data, encoding: .utf8) else { return nil }
+        return signature
+    }
+
+    private static func remapContentNode(_ node: AddOnContentNode, using identityMap: [String: String]) -> AddOnContentNode? {
+        guard var document = jsonDocument(for: node),
+              var payload = document["value"] as? [String: Any],
+              let originalID = payload["id"] as? String else { return nil }
+        guard let remappedPayload = remapJSONValues(payload, using: identityMap) as? [String: Any] else { return nil }
+        payload = remappedPayload
+        if let stableID = identityMap[originalID] {
+            payload["id"] = stableID
+        }
+        document["value"] = payload
+        guard let data = try? JSONSerialization.data(withJSONObject: document, options: [.sortedKeys]) else { return nil }
+        return try? JSONDecoder().decode(AddOnContentNode.self, from: data)
+    }
+
+    private static func jsonDocument(for node: AddOnContentNode) -> [String: Any]? {
+        guard let data = try? JSONEncoder().encode(node) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    private static func remapJSONValues(_ value: Any, using identityMap: [String: String]) -> Any {
+        if value is String { return value }
+        if let array = value as? [Any] {
+            return array.map { remapJSONValues($0, using: identityMap) }
+        }
+        if let object = value as? [String: Any] {
+            let contentIDKeys: Set<String> = [
+                "id", "visualResourceID", "layerResourceID", "entityID", "terrainResourceID",
+                "lootDropID", "spawnEggResourceID", "textureResourceID", "blockID"
+            ]
+            let isGeneratedReference = object["kind"] as? String == "generated"
+            return object.reduce(into: [String: Any]()) { remapped, entry in
+                let (key, child) = entry
+                if contentIDKeys.contains(key) || (key == "value" && isGeneratedReference),
+                   let identifier = child as? String {
+                    remapped[key] = identityMap[identifier] ?? identifier
+                } else {
+                    remapped[key] = remapJSONValues(child, using: identityMap)
+                }
+            }
+        }
+        return value
     }
 }

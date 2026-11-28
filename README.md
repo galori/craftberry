@@ -27,6 +27,9 @@ xcodebuild -scheme Craftberry -destination 'platform=iOS Simulator,name=iPhone 1
 xcodebuild -scheme Craftberry -destination 'generic/platform=iOS' build
 ```
 
+Saved sidecar schema/profile compatibility and migration behavior are documented
+in [`docs/SAVED_PROJECT_MIGRATION.md`](docs/SAVED_PROJECT_MIGRATION.md).
+
 ## Bedrock compatibility learnings
 
 Bedrock can silently omit a custom item from the Creative inventory when its

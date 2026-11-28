@@ -110,9 +110,9 @@ final class CreationViewModelTests: XCTestCase {
 
     func testOpenProjectFromSidecarTransitionsToReady() throws {
         let project = try makeProject()
-        let sidecarURL = FileManager.default.temporaryDirectory
-            .appending(path: "\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: sidecarURL) }
+        let scratchDirectory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: scratchDirectory) }
+        let sidecarURL = scratchDirectory.appending(path: "legacy-project.json")
         try AddOnProjectStore.save(project, to: sidecarURL)
         let viewModel = CreationViewModel(apiKey: "")
 
@@ -122,6 +122,41 @@ final class CreationViewModelTests: XCTestCase {
             return XCTFail("Expected ready state after opening a sidecar, got \(viewModel.state)")
         }
         XCTAssertEqual(loadedProject, project)
+        XCTAssertNil(viewModel.projectFileError)
+    }
+
+    func testOpenProjectMigratesKnownLegacySidecarInMemoryAndPreservesIdentity() throws {
+        let project = try makeProject()
+        let legacy = AddOnProject(
+            schemaVersion: 1,
+            id: project.id,
+            namespace: project.namespace,
+            displayName: project.displayName,
+            shortDescription: project.shortDescription,
+            packUUIDs: project.packUUIDs,
+            buildVersion: project.buildVersion,
+            targetProfileID: "bedrock-stable-1.21.80",
+            originalPrompt: project.originalPrompt,
+            content: project.content
+        )
+        let scratchDirectory = try projectScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: scratchDirectory) }
+        let sidecarURL = scratchDirectory.appending(path: "legacy-project.json")
+        try AddOnProjectStore.save(legacy, to: sidecarURL)
+        let originalData = try Data(contentsOf: sidecarURL)
+        let viewModel = CreationViewModel(apiKey: "")
+
+        viewModel.openProject(from: sidecarURL)
+
+        guard case .ready(let migrated) = viewModel.state else {
+            return XCTFail("Known legacy sidecars should open after validated migration, got \(viewModel.state)")
+        }
+        XCTAssertEqual(migrated.schemaVersion, AddOnProject.currentSchemaVersion)
+        XCTAssertEqual(migrated.targetProfileID, BedrockContentProfile.current.id)
+        XCTAssertEqual(migrated.id, legacy.id)
+        XCTAssertEqual(migrated.packUUIDs, legacy.packUUIDs)
+        XCTAssertEqual(migrated.content, legacy.content)
+        XCTAssertEqual(try Data(contentsOf: sidecarURL), originalData, "Opening a sidecar must not rewrite the recoverable original.")
         XCTAssertNil(viewModel.projectFileError)
     }
 
@@ -142,6 +177,7 @@ final class CreationViewModelTests: XCTestCase {
             .appending(path: "\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: sidecarURL) }
         try AddOnProjectStore.save(incompatible, to: sidecarURL)
+        let originalData = try Data(contentsOf: sidecarURL)
         let viewModel = CreationViewModel(apiKey: "")
 
         viewModel.openProject(from: sidecarURL)
@@ -150,6 +186,7 @@ final class CreationViewModelTests: XCTestCase {
             return XCTFail("Invalid sidecar must not replace the current screen state.")
         }
         XCTAssertTrue(viewModel.projectFileError?.contains("migrate") == true)
+        XCTAssertEqual(try Data(contentsOf: sidecarURL), originalData, "A rejected sidecar must remain recoverable.")
     }
 
     func testOpenProjectReportsMalformedSidecar() throws {
@@ -272,6 +309,17 @@ final class CreationViewModelTests: XCTestCase {
                 )
             )
         )
+    }
+
+    private func projectScratchDirectory() throws -> URL {
+        let worktreeRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let scratchRoot = worktreeRoot.appending(path: ".scratch", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: scratchRoot, withIntermediateDirectories: true)
+        let directory = scratchRoot.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
     }
 }
 
