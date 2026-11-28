@@ -168,11 +168,11 @@ enum ExamplePromptLibrary {
     ]
 
     private static let cropSets: [ExamplePrompt] = [
-        ExamplePrompt(emoji: "🌱", text: "A diamond crop set: Azure seeds plus crop and produce"),
-        ExamplePrompt(emoji: "🌾", text: "An emerald crop set named Verdant with seeds and crop"),
-        ExamplePrompt(emoji: "🔥", text: "A blaze rod crop set named Ember with seeds and crop"),
-        ExamplePrompt(emoji: "❄️", text: "A quartz crop set named Frostbite seeds and harvest"),
-        ExamplePrompt(emoji: "🧪", text: "A redstone crop set named Pulse with seeds, crop, and produce")
+        ExamplePrompt(emoji: "🌱", text: "A diamond crop set: Azure seeds that grow through eight stages"),
+        ExamplePrompt(emoji: "🌾", text: "An emerald crop set named Verdant with growing seeds and harvest"),
+        ExamplePrompt(emoji: "🔥", text: "A blaze rod crop set named Ember with growing seeds and produce"),
+        ExamplePrompt(emoji: "❄️", text: "A quartz crop set named Frostbite that grows and harvests"),
+        ExamplePrompt(emoji: "🧪", text: "A redstone crop set named Pulse with seeds, growth, and produce")
     ]
 
     private static let entitySets: [ExamplePrompt] = [

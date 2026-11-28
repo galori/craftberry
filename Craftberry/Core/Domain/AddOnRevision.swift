@@ -198,12 +198,25 @@ public final class AddOnRevisionService: @unchecked Sendable {
     ) async throws -> RevisionResult {
         let bumped = baseProject.buildVersion.nextPatch()
         let preservedContent = preservingImportedPixels(from: baseProject, in: draft)
+        let needsCropScript = draft.blocks.contains { $0.growthStages != nil }
+        let scriptModuleUUID = needsCropScript
+            ? baseProject.packUUIDs.behaviorScriptModule
+                ?? draft.packUUIDs.behaviorScriptModule
+                ?? baseProject.packUUIDs.addingDeterministicBehaviorScriptModule().behaviorScriptModule
+            : baseProject.packUUIDs.behaviorScriptModule
+        let revisedPackUUIDs = PackUUIDs(
+            behaviorHeader: baseProject.packUUIDs.behaviorHeader,
+            behaviorModule: baseProject.packUUIDs.behaviorModule,
+            resourceHeader: baseProject.packUUIDs.resourceHeader,
+            resourceModule: baseProject.packUUIDs.resourceModule,
+            behaviorScriptModule: scriptModuleUUID
+        )
         let revised = AddOnProject(
             id: baseProject.id,
             namespace: baseProject.namespace,
             displayName: draft.displayName,
             shortDescription: draft.shortDescription,
-            packUUIDs: baseProject.packUUIDs,
+            packUUIDs: revisedPackUUIDs,
             buildVersion: bumped,
             targetProfileID: draft.targetProfileID,
             originalPrompt: newPrompt,
@@ -254,7 +267,9 @@ public final class AddOnRevisionService: @unchecked Sendable {
                 id: visual.id,
                 kind: visual.kind,
                 color: visual.color,
-                customPixels: customPixels
+                customPixels: customPixels,
+                growthStage: visual.growthStage,
+                growthStageCount: visual.growthStageCount
             ))
         }
     }

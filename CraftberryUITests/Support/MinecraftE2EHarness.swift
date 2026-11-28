@@ -149,6 +149,9 @@ final class MinecraftE2EHarness {
         for step in slices.activation.phased(as: .config) {
             run(step, using: console)
         }
+        // Pack content errors pop the Content Log dialog over the HUD at world load; the first
+        // staging chat command cannot open chat until it is closed (crop e5b5865, biome 10dbae4).
+        executor.dismissContentLogIfPresent(in: minecraft)
         for step in slices.staging.phased(as: .config) {
             run(step, using: console)
         }
@@ -210,7 +213,11 @@ final class MinecraftE2EHarness {
         testCase.attachScreenshot("Minecraft confirmed the preconfigured world import")
     }
 
-    func runPreconfiguredWorld(_ scenario: MinecraftE2EScenario, gameMode: MinecraftWorldGameMode) throws {
+    func runPreconfiguredWorld(
+        _ scenario: MinecraftE2EScenario,
+        gameMode: MinecraftWorldGameMode,
+        freshPackIdentity: Bool = true
+    ) throws {
         let configuration = try loadConfiguration()
         guard configuration.enabled else {
             throw XCTSkip("This is a physical-device acceptance test. Calibrate and enable MinecraftDeviceE2EConfig.json before running it on the dedicated iPhone.")
@@ -219,9 +226,9 @@ final class MinecraftE2EHarness {
         let craftberry = XCUIApplication()
         craftberry.launchArguments = [
             "--ui-testing",
-            scenario.launchArgument,
-            "--ui-testing-fresh-pack-identity"
-        ] + scenario.additionalLaunchArguments
+            scenario.launchArgument
+        ] + (freshPackIdentity ? ["--ui-testing-fresh-pack-identity"] : [])
+            + scenario.additionalLaunchArguments
         craftberry.launch()
         XCTAssertTrue(testCase.waitForAppElement("craftberry.state.editing", in: craftberry, timeout: 8))
 
@@ -287,6 +294,10 @@ final class MinecraftE2EHarness {
         minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).tap()
         Thread.sleep(forTimeInterval: 45)
         testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
+        // Pack content errors pop the Content Log dialog over the HUD at world load; the first
+        // staging chat command cannot open chat until it is closed (crop e5b5865, biome 10dbae4,
+        // crop ace5b0b all failed here with the world rendered behind the dialog).
+        executor.dismissContentLogIfPresent(in: minecraft)
 
         MinecraftDebuggerConsole.current = console
         testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }

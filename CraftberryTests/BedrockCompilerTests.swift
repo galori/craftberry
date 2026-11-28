@@ -895,28 +895,293 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertNotNil((terrain["texture_data"] as? [String: Any])?["azure_a1b2c3_ore"])
     }
 
-    func testCompilerEmitsMaterialCropSetWithStatesAndPermutations() throws {
+    func testCompilerEmitsPlantableGrowingCropWithStageSpecificHarvestAndScript() throws {
         let project = try AddOnProject.materialCropSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "crop", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: directory) }
         let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
         let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
         let behavior = try pack(named: "azure_a1b2c3_seed_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_seed_resources.mcpack", in: outer)
+        let seed = try json(named: "items/azure_a1b2c3_seed.json", in: behavior)
+        let seedBody = try XCTUnwrap(seed["minecraft:item"] as? [String: Any])
+        let seedComponents = try XCTUnwrap(seedBody["components"] as? [String: Any])
+        let placer = try XCTUnwrap(seedComponents["minecraft:block_placer"] as? [String: Any])
+        XCTAssertEqual(placer["block"] as? String, "craftberry:azure_a1b2c3_crop")
+        let useOn = try XCTUnwrap(placer["use_on"] as? [[String: Any]])
+        XCTAssertEqual(useOn.first?["name"] as? String, "minecraft:farmland")
+
         let block = try json(named: "blocks/azure_a1b2c3_crop.json", in: behavior)
         let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
         let desc = try XCTUnwrap(blockBody["description"] as? [String: Any])
         let states = try XCTUnwrap(desc["states"] as? [String: Any])
-        let growth = try XCTUnwrap(states["craftberry:growth"] as? [String: Any])
+        let growthStateKey = "craftberry:growth_azure_a1b2c3_crop"
+        let componentID = "craftberry:crop_grow_azure_a1b2c3_crop"
+        let cropTextureKey = "cropstage_azure_a1b2c3_crop_0"
+        let growth = try XCTUnwrap(states[growthStateKey] as? [String: Any])
         let values = try XCTUnwrap(growth["values"] as? [String: Any])
         XCTAssertEqual(values["min"] as? Int, 0)
         XCTAssertEqual(values["max"] as? Int, 7)
         let perms = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
         XCTAssertEqual(perms.count, 8)
-        XCTAssertTrue(perms.allSatisfy { ($0["condition"] as? String)?.contains("craftberry:growth") == true })
-        let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop.json", in: behavior)
+        let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
+        let placement = try XCTUnwrap(components["minecraft:placement_filter"] as? [String: Any])
+        let conditions = try XCTUnwrap(placement["conditions"] as? [[String: Any]])
+        XCTAssertEqual(conditions.first?["allowed_faces"] as? [String], ["up"])
+        XCTAssertEqual(conditions.first?["block_filter"] as? [String], ["minecraft:farmland"])
+        XCTAssertEqual(components["minecraft:geometry"] as? String, "minecraft:geometry.cross")
+        XCTAssertEqual(components["minecraft:collision_box"] as? Bool, false)
+        // Pinned Mojang block schema 1.21.110 (921fafb0) defines minecraft:tags as an array of strings.
+        XCTAssertEqual(components["minecraft:tags"] as? [String], ["minecraft:crop"])
+        XCTAssertEqual(components["minecraft:loot"] as? String, "loot_tables/crops/azure_a1b2c3_crop/seeds.json")
+        // Custom components use the Version 2 API (1.21.100+): each component ID is a direct key with {}, not in a minecraft:custom_components array.
+        XCTAssertNil(components["minecraft:custom_components"])
+        XCTAssertNotNil(components[componentID] as? [String: Any])
+        for (stage, permutation) in perms.enumerated() {
+            XCTAssertEqual(permutation["condition"] as? String, "q.block_state('\(growthStateKey)') == \(stage)")
+            let permutationComponents = try XCTUnwrap(permutation["components"] as? [String: Any])
+            let materialInstances = try XCTUnwrap(permutationComponents["minecraft:material_instances"] as? [String: Any])
+            let allFaces = try XCTUnwrap(materialInstances["*"] as? [String: Any])
+            XCTAssertEqual(allFaces["texture"] as? String, "cropstage_azure_a1b2c3_crop_\(stage)")
+            XCTAssertEqual(allFaces["render_method"] as? String, "alpha_test")
+            let expectedLoot = stage == 7 ? "loot_tables/crops/azure_a1b2c3_crop/harvest.json" : nil
+            XCTAssertEqual(permutationComponents["minecraft:loot"] as? String, expectedLoot)
+        }
+
+        let unripeLoot = try json(named: "loot_tables/crops/azure_a1b2c3_crop/seeds.json", in: behavior)
+        let unripePools = try XCTUnwrap(unripeLoot["pools"] as? [[String: Any]])
+        let unripeEntry = try XCTUnwrap((unripePools.first?["entries"] as? [[String: Any]])?.first)
+        XCTAssertEqual(unripeEntry["name"] as? String, "craftberry:azure_a1b2c3_seed")
+        let loot = try json(named: "loot_tables/crops/azure_a1b2c3_crop/harvest.json", in: behavior)
         let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
-        let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)
-        XCTAssertEqual(entry["name"] as? String, "craftberry:azure_a1b2c3_produce")
+        let harvestItems = pools.compactMap { ($0["entries"] as? [[String: Any]])?.first?["name"] as? String }
+        XCTAssertEqual(harvestItems, ["craftberry:azure_a1b2c3_produce", "craftberry:azure_a1b2c3_seed"])
+
+        let manifest = try json(named: "manifest.json", in: behavior)
+        let modules = try XCTUnwrap(manifest["modules"] as? [[String: Any]])
+        let scriptModule = try XCTUnwrap(modules.first(where: { $0["type"] as? String == "script" }))
+        XCTAssertEqual(scriptModule["language"] as? String, "javascript")
+        XCTAssertEqual(scriptModule["entry"] as? String, "scripts/craftberry.js")
+        let dependencies = try XCTUnwrap(manifest["dependencies"] as? [[String: Any]])
+        XCTAssertTrue(dependencies.contains { $0["module_name"] as? String == "@minecraft/server" && $0["version"] as? String == "2.0.0" })
+        let scriptEntry = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/craftberry.js" }))
+        let script = try XCTUnwrap(String(data: scriptEntry.data, encoding: .utf8))
+        XCTAssertTrue(script.contains("onRandomTick"))
+        XCTAssertTrue(script.contains("const stageCount = 8;"))
+        XCTAssertFalse(script.contains("component.params"))
+        XCTAssertTrue(script.contains("stage + 1"))
+        XCTAssertTrue(script.contains("stage >= stageCount - 1"))
+        XCTAssertTrue(script.contains(componentID))
+        XCTAssertTrue(script.contains(growthStateKey))
+
+        let stageTextures = (0..<8).compactMap { stage in
+            resources.first { $0.path == "textures/blocks/azure_a1b2c3_crop_stage_\(stage).png" }?.data
+        }
+        XCTAssertEqual(stageTextures.count, 8)
+        XCTAssertEqual(Set(stageTextures.map { $0.base64EncodedString() }).count, 8)
+        let terrain = try json(named: "textures/terrain_texture.json", in: resources)
+        let terrainData = try XCTUnwrap(terrain["texture_data"] as? [String: Any])
+        for stage in 0..<8 {
+            XCTAssertNotNil(terrainData["cropstage_azure_a1b2c3_crop_\(stage)"])
+        }
+        XCTAssertEqual((terrainData[cropTextureKey] as? [String: Any])?["textures"] as? String, "textures/blocks/azure_a1b2c3_crop_stage_0")
+        XCTAssertFalse(resources.contains { $0.path.hasPrefix("models/blocks/") })
+    }
+
+    func testCropTextureAliasesAndLootTablesDoNotCollideWithBlockAliasesOrLoot() throws {
+        let cropProject = try AddOnProject.materialCropSet(materialName: "Azure", sourceItem: "minecraft:diamond", originalPrompt: "crop", identity: makeIdentity())
+        let crop = try XCTUnwrap(cropProject.blocks.first)
+        let stageZeroID = try XCTUnwrap(crop.growthStageResourceIDs?.first)
+        let ordinaryTerrainID = ContentID("ordinary_terrain")
+        let ordinaryBlock = BlockDefinition(
+            id: ContentID("\(crop.id.rawValue)_seeds"),
+            displayName: "Ordinary block",
+            destroyTime: 1,
+            mapColor: "#5CDBD5",
+            terrainResourceID: ordinaryTerrainID
+        )
+        let ordinaryItem = ItemDefinition(
+            id: ordinaryBlock.id,
+            displayName: ordinaryBlock.displayName,
+            menuCategory: .items,
+            menuGroup: nil,
+            traits: ItemTraits(),
+            visualResourceID: ordinaryBlock.id
+        )
+        let visualAliasBlock = BlockDefinition(
+            id: stageZeroID,
+            displayName: "Stage alias block",
+            destroyTime: 1,
+            mapColor: "#5CDBD5",
+            terrainResourceID: ordinaryTerrainID
+        )
+        let visualAliasItem = ItemDefinition(
+            id: stageZeroID,
+            displayName: "Stage alias block",
+            menuCategory: .items,
+            menuGroup: nil,
+            traits: ItemTraits(),
+            visualResourceID: stageZeroID
+        )
+        let terrain = VisualResource(id: ordinaryTerrainID, kind: .blockTerrain, color: .blue)
+        let project = AddOnProject(
+            id: cropProject.id,
+            namespace: cropProject.namespace,
+            displayName: cropProject.displayName,
+            packUUIDs: cropProject.packUUIDs,
+            buildVersion: cropProject.buildVersion,
+            targetProfileID: cropProject.targetProfileID,
+            originalPrompt: cropProject.originalPrompt,
+            content: cropProject.content + [
+                .item(ordinaryItem), .block(ordinaryBlock), .item(visualAliasItem), .block(visualAliasBlock),
+                .visualResource(terrain),
+                .visualResource(VisualResource(id: ordinaryBlock.id, kind: .blockPixelArt, color: .blue))
+            ]
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "azure_a1b2c3_seed_behavior.mcpack", in: outer)
+        let resources = try pack(named: "azure_a1b2c3_seed_resources.mcpack", in: outer)
+        let cropDocument = try json(named: "blocks/azure_a1b2c3_crop.json", in: behavior)
+        let cropBody = try XCTUnwrap(cropDocument["minecraft:block"] as? [String: Any])
+        let cropComponents = try XCTUnwrap(cropBody["components"] as? [String: Any])
+        XCTAssertEqual(cropComponents["minecraft:loot"] as? String, "loot_tables/crops/azure_a1b2c3_crop/seeds.json")
+        let ordinaryLootPath = "loot_tables/blocks/azure_a1b2c3_crop_seeds.json"
+        XCTAssertTrue(behavior.contains { $0.path == ordinaryLootPath })
+        XCTAssertTrue(behavior.contains { $0.path == "loot_tables/crops/azure_a1b2c3_crop/seeds.json" })
+        XCTAssertNotEqual(ordinaryLootPath, cropComponents["minecraft:loot"] as? String)
+
+        let permutations = try XCTUnwrap(cropBody["permutations"] as? [[String: Any]])
+        let firstPermutation = try XCTUnwrap(permutations.first?["components"] as? [String: Any])
+        let instances = try XCTUnwrap(firstPermutation["minecraft:material_instances"] as? [String: Any])
+        let allFaces = try XCTUnwrap(instances["*"] as? [String: Any])
+        XCTAssertEqual(allFaces["texture"] as? String, "cropstage_azure_a1b2c3_crop_0")
+
+        let terrainMap = try json(named: "textures/terrain_texture.json", in: resources)
+        let textureData = try XCTUnwrap(terrainMap["texture_data"] as? [String: Any])
+        XCTAssertEqual((textureData[stageZeroID.rawValue] as? [String: Any])?["textures"] as? String, "textures/blocks/ordinary_terrain")
+        XCTAssertEqual((textureData["cropstage_azure_a1b2c3_crop_0"] as? [String: Any])?["textures"] as? String, "textures/blocks/\(stageZeroID.rawValue)")
+        XCTAssertEqual((textureData[crop.id.rawValue] as? [String: Any])?["textures"] as? String, "textures/blocks/\(stageZeroID.rawValue)")
+    }
+
+    func testNonCropBlocksAlwaysUseBaseTerrainEvenWithMalformedStageResourceLists() throws {
+        let source = try AddOnProject.materialOreSet(materialName: "Azure", sourceItem: "minecraft:diamond", originalPrompt: "ore", identity: makeIdentity())
+        let block = try XCTUnwrap(source.blocks.first)
+        let decoyID = ContentID("decoy_terrain")
+        let decoy = VisualResource(id: decoyID, kind: .blockTerrain, color: .red)
+
+        for stageIDs in [[], [decoyID]] {
+            var content = source.content.map { node -> AddOnContentNode in
+                guard case .block(let value) = node, value.id == block.id else { return node }
+                return .block(BlockDefinition(
+                    id: value.id,
+                    displayName: value.displayName,
+                    destroyTime: value.destroyTime,
+                    mapColor: value.mapColor,
+                    terrainResourceID: value.terrainResourceID,
+                    lootDropID: value.lootDropID,
+                    growthStages: nil,
+                    seedItemID: nil,
+                    growthStageResourceIDs: stageIDs
+                ))
+            }
+            if !stageIDs.isEmpty { content.append(.visualResource(decoy)) }
+            let project = AddOnProject(
+                id: source.id,
+                namespace: source.namespace,
+                displayName: source.displayName,
+                packUUIDs: source.packUUIDs,
+                buildVersion: source.buildVersion,
+                targetProfileID: source.targetProfileID,
+                originalPrompt: source.originalPrompt,
+                content: content
+            )
+            let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+            let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+            let resources = try pack(named: "azure_a1b2c3_ingot_resources.mcpack", in: outer)
+            XCTAssertTrue(resources.contains { $0.path == "textures/blocks/\(block.terrainResourceID.rawValue).png" })
+            XCTAssertFalse(resources.contains { $0.path == "textures/blocks/\(decoyID.rawValue).png" })
+            let terrainMap = try json(named: "textures/terrain_texture.json", in: resources)
+            let textureData = try XCTUnwrap(terrainMap["texture_data"] as? [String: Any])
+            XCTAssertEqual((textureData[block.id.rawValue] as? [String: Any])?["textures"] as? String, "textures/blocks/\(block.terrainResourceID.rawValue)")
+        }
+    }
+
+    func testCropRuntimeIdentifiersAreIsolatedAndUseBuiltInCrossGeometry() throws {
+        let first = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            originalPrompt: "first crop",
+            identity: makeIdentity()
+        )
+        let second = try AddOnProject.materialCropSet(
+            materialName: "Azure",
+            originalPrompt: "second crop",
+            identity: AddOnProjectIdentity(
+                projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000002")!,
+                namespace: "craftberry",
+                contentSuffix: "d4e5f6",
+                packUUIDs: PackUUIDs(
+                    behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000011")!,
+                    behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000012")!,
+                    resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000013")!,
+                    resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000014")!,
+                    behaviorScriptModule: UUID(uuidString: "20000000-0000-4000-8000-000000000015")!
+                )
+            )
+        )
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: UUID().uuidString,
+            directoryHint: .isDirectory
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let compiler = BedrockAddOnCompiler()
+        let firstResult = try compiler.compile(project: first, profile: .current, outputDirectory: directory)
+        let secondResult = try compiler.compile(project: second, profile: .current, outputDirectory: directory)
+
+        let runtimeIdentifiers = try [first, second].map { project -> (String, String) in
+            let block = try XCTUnwrap(project.blocks.first)
+            let stateKey = "\(project.namespace):growth_\(block.id.rawValue)"
+            let componentID = "\(project.namespace):crop_grow_\(block.id.rawValue)"
+            return (stateKey, componentID)
+        }
+        XCTAssertEqual(Set(runtimeIdentifiers.map(\.0)).count, 2)
+        XCTAssertEqual(Set(runtimeIdentifiers.map(\.1)).count, 2)
+
+        let compiledProjects = [
+            (first, firstResult, runtimeIdentifiers[0]),
+            (second, secondResult, runtimeIdentifiers[1])
+        ]
+        for (project, result, identifiers) in compiledProjects {
+            let blockID = try XCTUnwrap(project.blocks.first?.id.rawValue)
+            let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+            let behavior = try pack(named: "\(project.items[0].id.rawValue)_behavior.mcpack", in: outer)
+            let resources = try pack(named: "\(project.items[0].id.rawValue)_resources.mcpack", in: outer)
+            let block = try json(named: "blocks/\(blockID).json", in: behavior)
+            let blockBody = try XCTUnwrap(block["minecraft:block"] as? [String: Any])
+            let description = try XCTUnwrap(blockBody["description"] as? [String: Any])
+            let states = try XCTUnwrap(description["states"] as? [String: Any])
+            XCTAssertNotNil(states[identifiers.0])
+            let components = try XCTUnwrap(blockBody["components"] as? [String: Any])
+            XCTAssertNil(components["minecraft:custom_components"])
+            XCTAssertNotNil(components[identifiers.1] as? [String: Any])
+            // Mojang's pinned 1.21.110 block schema accepts this built-in cross geometry,
+            // avoiding generated crop geometry names and paths that could collide.
+            XCTAssertEqual(components["minecraft:geometry"] as? String, "minecraft:geometry.cross")
+            let permutations = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
+            XCTAssertTrue(permutations.allSatisfy { ($0["condition"] as? String)?.contains(identifiers.0) == true })
+
+            let scriptEntry = try XCTUnwrap(behavior.first(where: { $0.path == "scripts/craftberry.js" }))
+            let script = try XCTUnwrap(String(data: scriptEntry.data, encoding: .utf8))
+            XCTAssertTrue(script.contains(identifiers.1))
+            XCTAssertTrue(script.contains("const stageCount = 8;"))
+            XCTAssertTrue(script.contains(identifiers.0))
+
+            XCTAssertFalse(resources.contains { $0.path.hasPrefix("models/blocks/") })
+        }
     }
 
     func testCompilerEmitsMaterialEntitySetWithSpawnAndLoot() throws {
@@ -1204,7 +1469,18 @@ final class BedrockCompilerTests: XCTestCase {
     }
 
     private func makeIdentity() -> AddOnProjectIdentity {
-        AddOnProjectIdentity(projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!, namespace: "craftberry", contentSuffix: "a1b2c3", packUUIDs: PackUUIDs(behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!, behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!, resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!, resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!))
+        AddOnProjectIdentity(
+            projectID: UUID(uuidString: "10000000-0000-4000-8000-000000000001")!,
+            namespace: "craftberry",
+            contentSuffix: "a1b2c3",
+            packUUIDs: PackUUIDs(
+                behaviorHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000001")!,
+                behaviorModule: UUID(uuidString: "20000000-0000-4000-8000-000000000002")!,
+                resourceHeader: UUID(uuidString: "20000000-0000-4000-8000-000000000003")!,
+                resourceModule: UUID(uuidString: "20000000-0000-4000-8000-000000000004")!,
+                behaviorScriptModule: UUID(uuidString: "20000000-0000-4000-8000-000000000005")!
+            )
+        )
     }
 
     private func pack(named name: String, in archive: [ZipArchiveEntry]) throws -> [ZipArchiveEntry] {

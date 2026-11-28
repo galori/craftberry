@@ -50,6 +50,11 @@ final class MinecraftStepExecutor {
         static let chatButton = CGVector(dx: 0.5, dy: 0.0325)
         static let commandInput = CGVector(dx: 0.495, dy: 0.935)
         static let submit = CGVector(dx: 0.9275, dy: 0.434)
+        // Close (X) control of Minecraft's Content Log History dialog, top-right of the screen.
+        // Calibrated from device screenshots where the dialog covered the HUD (crop e5b5865,
+        // biome 10dbae4, crop ace5b0b): the X sits at buffer (1102, 2385) of 1170x2532, which maps
+        // to landscape (0.94, 0.06) under the same rotation the chat button uses.
+        static let contentLogCloseButton = CGVector(dx: 0.94, dy: 0.06)
         static let maximumChatOpenAttempts = 3
         static let maximumInputFocusAttempts = 2
     }
@@ -288,6 +293,7 @@ final class MinecraftStepExecutor {
     }
 
     private func openChatCommandsScreen(in minecraft: XCUIApplication) -> Bool {
+        dismissContentLogIfPresent(in: minecraft)
         for attempt in 1...ChatCommandLayout.maximumChatOpenAttempts {
             tap(minecraft, ChatCommandLayout.chatButton)
             wait(2)
@@ -297,8 +303,24 @@ final class MinecraftStepExecutor {
             }
             if attempt < ChatCommandLayout.maximumChatOpenAttempts {
                 wait(1)
+                // A command that logs a content error can pop the dialog mid-run, so re-check
+                // after every missed open rather than only once before the first attempt.
+                dismissContentLogIfPresent(in: minecraft)
             }
         }
         return false
+    }
+
+    /// Dismisses Minecraft's Content Log History dialog when a pack logs content errors at world
+    /// load. The dialog covers the whole HUD (including the chat button), so the first chat
+    /// command after loading a world with pack errors fails all open attempts unless it is closed.
+    /// Seen covering the HUD at world-load on crop (e5b5865), biome (10dbae4) and crop (ace5b0b)
+    /// with the world fully rendered behind it — not a loading or keyboard-focus problem.
+    func dismissContentLogIfPresent(in minecraft: XCUIApplication) {
+        guard recognizedText("Content Log", 2) else { return }
+        onIntermediateScreenshot("Content Log dialog covering the HUD - dismissing it")
+        tap(minecraft, ChatCommandLayout.contentLogCloseButton)
+        wait(1)
+        onIntermediateScreenshot("HUD after dismissing the Content Log dialog")
     }
 }

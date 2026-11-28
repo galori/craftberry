@@ -23,6 +23,22 @@ final class PixelArtTextureRendererTests: XCTestCase {
         XCTAssertEqual(PNGInspector.dimensions(of: data), PNGDimensions(width: 128, height: 128))
     }
 
+    func testCropTerrainClampsExtremeStageValuesWithoutOverflow() throws {
+        let low = VisualResource(id: ContentID("low"), kind: .cropTerrain, color: .green, growthStage: Int.min, growthStageCount: Int.min)
+        let firstStage = VisualResource(id: ContentID("first"), kind: .cropTerrain, color: .green, growthStage: 0, growthStageCount: 1)
+        let high = VisualResource(id: ContentID("high"), kind: .cropTerrain, color: .green, growthStage: Int.max, growthStageCount: Int.max)
+        let matureStage = VisualResource(id: ContentID("mature"), kind: .cropTerrain, color: .green, growthStage: 7, growthStageCount: 8)
+
+        let lowData = PixelArtTextureRenderer.render(low)
+        let firstData = PixelArtTextureRenderer.render(firstStage)
+        let highData = PixelArtTextureRenderer.render(high)
+        let matureData = PixelArtTextureRenderer.render(matureStage)
+
+        XCTAssertEqual(lowData, firstData)
+        XCTAssertEqual(highData, matureData)
+        XCTAssertEqual(PNGInspector.dimensions(of: lowData), PNGDimensions(width: 16, height: 16))
+    }
+
     /// Every generated visual resource kind must render valid, correctly sized PNG bytes.
     /// Armor-layer kinds are worn-body textures at Bedrock's fixed 64x32 sheet size, as is the
     /// entity body texture (pig-geometry UV sheet); blockTerrain is a 16x16 terrain tile;

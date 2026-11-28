@@ -162,6 +162,35 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         profile: BedrockContentProfile
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
+        let hasCrops = project.blocks.contains(where: { $0.growthStages != nil })
+        let cropTextureAliases = cropStageTextureAliases(for: project)
+        var modules = [ManifestDocument.Module(
+            type: "data",
+            uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
+            version: version
+        )]
+        var dependencies = [ManifestDocument.Dependency(
+            uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
+            version: version
+        )]
+        if hasCrops {
+            let scriptUUID = try require(
+                project.packUUIDs.behaviorScriptModule,
+                profile: profile,
+                code: "missing_crop_script_module_uuid",
+                path: "packUUIDs.behaviorScriptModule",
+                message: "Growing crops require a dedicated behavior script module identifier."
+            )
+            modules.append(ManifestDocument.Module(
+                type: "script",
+                uuid: scriptUUID.uuidString.lowercased(),
+                version: version,
+                description: "Craftberry crop growth behavior",
+                language: "javascript",
+                entry: "scripts/craftberry.js"
+            ))
+            dependencies.append(ManifestDocument.Dependency(moduleName: "@minecraft/server", version: "2.0.0"))
+        }
         let manifest = ManifestDocument(
             formatVersion: profile.manifestFormatVersion,
             header: ManifestDocument.Header(
@@ -171,15 +200,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 version: version,
                 minimumEngineVersion: profile.minimumEngineVersion.components
             ),
-            modules: [ManifestDocument.Module(
-                type: "data",
-                uuid: project.packUUIDs.behaviorModule.uuidString.lowercased(),
-                version: version
-            )],
-            dependencies: [ManifestDocument.Dependency(
-                uuid: project.packUUIDs.resourceHeader.uuidString.lowercased(),
-                version: version
-            )]
+            modules: modules,
+            dependencies: dependencies
         )
         let primaryVisual = try primaryVisualResource(project: project, profile: profile)
         var entries = [
@@ -187,20 +209,30 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         ]
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
-            // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
-            // behavior_pack blocks use description.states with range {min,max} and permutations on query.block_state.
-            // See resource_pack/blocks.json and metadata/json_schemas/server/block/1.21.110/States.json at 921fafb0.
-            let growthStateKey = "craftberry:growth"
+            let isCrop = block.growthStages != nil
+            let stageTextureAliases = cropTextureAliases[block.id] ?? []
+            let cropIdentifiers = block.growthStages.map { _ in
+                CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
+            }
+            // Crop blocks use growth states 0..(stages-1): behavior_pack blocks use description.states
+            // with range {min,max} and permutations on q.block_state. The official Custom Crops tutorial
+            // (wiki.bedrock.dev/blocks/custom-crops) and the Block Permutations reference use the `q.`
+            // prefix in permutation conditions; `query.block_state` fails to parse there, which drops the
+            // whole block from the registry (Content Log: "Block couldn't be found in the registry") and
+            // leaves a Content Log dialog open that blocks chat-open on device.
             let states: [String: BlockDocument.Description.StateValue]? = {
-                guard let stages = block.growthStages else { return nil }
-                return [growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
+                guard let stages = block.growthStages, let cropIdentifiers else { return nil }
+                return [cropIdentifiers.growthStateKey: .init(values: .init(min: 0, max: stages - 1))]
             }()
             let permutations: [BlockDocument.Block.Permutation]? = {
-                guard let stages = block.growthStages else { return nil }
-                // Emit one permutation per growth stage to prove states wiring; keep components minimal.
+                guard let stages = block.growthStages, let cropIdentifiers else { return nil }
                 return (0..<stages).map { stage in
-                    // Filter to that exact growth value; vanilla wheat uses similar query.block_state checks.
-                    .init(condition: "query.block_state('\(growthStateKey)') == \(stage)", components: nil)
+                    let materialInstances = ["*": BlockDocument.MaterialInstance(texture: stageTextureAliases[stage], renderMethod: "alpha_test")]
+                    let loot = stage == stages - 1 ? cropLootPath(blockID: block.id, table: .harvest) : nil
+                    return .init(
+                        condition: "q.block_state('\(cropIdentifiers.growthStateKey)') == \(stage)",
+                        components: .init(loot: loot, materialInstances: materialInstances)
+                    )
                 }
             }()
             let document = BlockDocument(
@@ -214,22 +246,47 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                     components: BlockDocument.Components(
                         destructibleByMining: BlockDocument.Components.DestructibleByMining(secondsToDestroy: block.destroyTime),
                         mapColor: BlockDocument.MapColor(color: block.mapColor),
-                        lightDampening: 15,
-                        loot: "loot_tables/blocks/\(block.id.rawValue).json"
+                        lightDampening: isCrop ? 0 : 15,
+                        loot: isCrop ? cropLootPath(blockID: block.id, table: .seeds) : "loot_tables/blocks/\(block.id.rawValue).json",
+                        geometry: isCrop ? "minecraft:geometry.cross" : nil,
+                        materialInstances: isCrop ? ["*": BlockDocument.MaterialInstance(texture: stageTextureAliases[0], renderMethod: "alpha_test")] : nil,
+                        collisionBox: isCrop ? false : nil,
+                        placementFilter: isCrop ? .init(conditions: [.init(allowedFaces: ["up"], blockFilter: ["minecraft:farmland"])]) : nil,
+                        tags: isCrop ? ["minecraft:crop"] : nil,
+                        cropComponentIDs: cropIdentifiers.map { [$0.componentID] }
                     ),
                     permutations: permutations
                 )
             )
             entries.append(ZipArchiveEntry(path: "blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(document)))
-            // Ore loot drops the ingot; crop loot drops produce; storage self-drops. No worldgen features emitted:
+            // Ore loot drops the ingot; immature crop drops its seed and mature crop drops produce plus seed; storage self-drops. No worldgen features emitted:
             // feature placement (features/ + feature_rules/) would require scatter/ore placement configs not yet
             // stable against the pinned 921fafb0 samples without Blockception vendoring, so this slice stays block+loot only.
             let lootName: String = {
                 if let dropID = block.lootDropID { return self.identifier(for: dropID, namespace: project.namespace) }
                 return identifier
             }()
-            let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)])])
-            entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
+            if let seedItemID = block.seedItemID, block.growthStages != nil {
+                let seedIdentifier = self.identifier(for: seedItemID, namespace: project.namespace)
+                let seedLoot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: seedIdentifier, weight: 1)])])
+                let harvestLoot = LootTableDocument(pools: [
+                    LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)]),
+                    LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: seedIdentifier, weight: 1)])
+                ])
+                entries.append(ZipArchiveEntry(path: cropLootPath(blockID: block.id, table: .seeds), data: try BedrockDocumentEncoder.encode(seedLoot)))
+                entries.append(ZipArchiveEntry(path: cropLootPath(blockID: block.id, table: .harvest), data: try BedrockDocumentEncoder.encode(harvestLoot)))
+            } else {
+                let loot = LootTableDocument(pools: [LootTableDocument.Pool(rolls: 1, entries: [LootTableDocument.Entry(type: "item", name: lootName, weight: 1)])])
+                entries.append(ZipArchiveEntry(path: "loot_tables/blocks/\(block.id.rawValue).json", data: try BedrockDocumentEncoder.encode(loot)))
+            }
+        }
+        if project.blocks.contains(where: { $0.growthStages != nil }) {
+            entries.append(
+                ZipArchiveEntry(
+                    path: "scripts/craftberry.js",
+                    data: Data(Self.cropGrowthScript(project: project).utf8)
+                )
+            )
         }
         for entity in project.entities.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: entity.id, namespace: project.namespace)
@@ -500,6 +557,19 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                             )
                             return ItemDocument.EntityPlacer(entity: self.identifier(for: entity.id, namespace: project.namespace))
                         },
+                        blockPlacer: try item.traits.blockPlacer.map { placer in
+                            let block = try require(
+                                project.blocks.first(where: { $0.id == placer.blockID }),
+                                profile: profile,
+                                code: "missing_placer_block",
+                                path: "content.items.\(item.id.rawValue).traits.blockPlacer.blockID",
+                                message: "Item references missing block \(placer.blockID.rawValue) for its block placer."
+                            )
+                            return ItemDocument.BlockPlacer(
+                                block: self.identifier(for: block.id, namespace: project.namespace),
+                                useOn: placer.useOn.map { ItemDocument.BlockPlacer.UseOnDescriptor(name: $0) }
+                            )
+                        },
                         // Food items require a non-zero use_duration; values pinned to vanilla apple.
                         useAnimation: item.traits.food == nil ? nil : ItemDocument.UseAnimation(value: "eat"),
                         useModifiers: item.traits.food == nil ? nil : ItemDocument.UseModifiers(
@@ -720,6 +790,7 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
     ) throws -> [ZipArchiveEntry] {
         let version = project.buildVersion.components
         let resourcePackDisplayName = "\(project.displayName) Resources"
+        let cropTextureAliases = cropStageTextureAliases(for: project)
         let manifest = ManifestDocument(
             formatVersion: profile.manifestFormatVersion,
             header: ManifestDocument.Header(
@@ -829,10 +900,12 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         }
         // Block terrain tiles (16×16) — distinct from the 32×32 block-item sprites emitted above.
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
-            if let terrain = project.visualResources.first(where: { $0.id == block.terrainResourceID }) {
+            let stageResources = terrainResourceIDs(for: block)
+            for terrainID in stageResources {
+                guard let terrain = project.visualResources.first(where: { $0.id == terrainID }) else { continue }
                 entries.append(
                     ZipArchiveEntry(
-                        path: "textures/blocks/\(block.id.rawValue).png",
+                        path: "textures/blocks/\(terrainID.rawValue).png",
                         data: PixelArtTextureRenderer.render(terrain)
                     )
                 )
@@ -841,7 +914,16 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         if !project.blocks.isEmpty {
             var terrainData: [String: TerrainTextureDocument.Texture] = [:]
             for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
-                terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(block.id.rawValue)")
+                let stageResources = terrainResourceIDs(for: block)
+                if block.growthStages != nil {
+                    let aliases = cropTextureAliases[block.id] ?? []
+                    for (stage, terrainID) in stageResources.enumerated() {
+                        terrainData[aliases[stage]] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(terrainID.rawValue)")
+                    }
+                    terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(stageResources[0].rawValue)")
+                } else {
+                    terrainData[block.id.rawValue] = TerrainTextureDocument.Texture(textures: "textures/blocks/\(block.terrainResourceID.rawValue)")
+                }
             }
             let terrainTexture = TerrainTextureDocument(
                 resourcePackName: resourcePackDisplayName,
@@ -1076,6 +1158,86 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         case .generated(let id): .item(identifier(for: id, namespace: namespace))
         case .tag(let identifier): .tag(identifier)
         }
+    }
+
+    private struct CropRuntimeIdentifiers {
+        let growthStateKey: String
+        let componentID: String
+
+        init(namespace: String, blockID: ContentID) {
+            let blockPath = blockID.rawValue
+            growthStateKey = "\(namespace):growth_\(blockPath)"
+            componentID = "\(namespace):crop_grow_\(blockPath)"
+        }
+    }
+
+    private enum CropLootTable: String {
+        case seeds
+        case harvest
+    }
+
+    private func cropLootPath(blockID: ContentID, table: CropLootTable) -> String {
+        "loot_tables/crops/\(blockID.rawValue)/\(table.rawValue).json"
+    }
+
+    private func terrainResourceIDs(for block: BlockDefinition) -> [ContentID] {
+        guard block.growthStages != nil else { return [block.terrainResourceID] }
+        return block.growthStageResourceIDs ?? [block.terrainResourceID]
+    }
+
+    private func cropStageTextureAliases(for project: AddOnProject) -> [ContentID: [String]] {
+        let blockAliases = Set(project.blocks.map { $0.id.rawValue })
+        var allocatedAliases = blockAliases
+        var result: [ContentID: [String]] = [:]
+        for block in project.blocks.filter({ $0.growthStages != nil }).sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            guard let stageCount = block.growthStages else { continue }
+            let aliases = (0..<stageCount).map { stage -> String in
+                let base = "cropstage_\(block.id.rawValue)_\(stage)"
+                var candidate = base
+                var suffix = 1
+                while allocatedAliases.contains(candidate) {
+                    candidate = "\(base)_\(suffix)"
+                    suffix += 1
+                }
+                allocatedAliases.insert(candidate)
+                return candidate
+            }
+            result[block.id] = aliases
+        }
+        return result
+    }
+
+    private static func cropGrowthScript(project: AddOnProject) -> String {
+        let registrations = project.blocks
+            .filter { $0.growthStages != nil }
+            .map { block -> String in
+                let identifiers = CropRuntimeIdentifiers(namespace: project.namespace, blockID: block.id)
+                let stageCount = block.growthStages ?? 1
+                return """
+                  initEvent.blockComponentRegistry.registerCustomComponent("\(identifiers.componentID)", {
+                    onRandomTick(event) {
+                      const stage = event.block.permutation.getState("\(identifiers.growthStateKey)");
+                      const stageCount = \(stageCount);
+                      if (typeof stage !== "number" || stage >= stageCount - 1) {
+                        return;
+                      }
+                      const nextPermutation = event.block.permutation.withState(
+                        "\(identifiers.growthStateKey)",
+                        stage + 1
+                      );
+                      event.block.setPermutation(nextPermutation);
+                    },
+                  });
+                """
+            }
+            .joined(separator: "\n")
+        return """
+        import { system } from "@minecraft/server";
+
+        system.beforeEvents.startup.subscribe((initEvent) => {
+        \(registrations)
+        });
+        """
     }
 }
 
