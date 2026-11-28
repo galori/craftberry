@@ -794,7 +794,19 @@ struct ClientEntityDocument: Encodable {
     let formatVersion: String
     let clientEntity: ClientEntity
     struct ClientEntity: Encodable { let description: Description }
-    struct Description: Encodable { let identifier: String; let materials: [String: String]; let textures: [String: String]; let geometry: [String: String]; let renderControllers: [String]; let spawnEgg: SpawnEgg; enum CodingKeys: String, CodingKey { case identifier; case materials; case textures; case geometry; case renderControllers = "render_controllers"; case spawnEgg = "spawn_egg" } }
+    struct Description: Encodable {
+        let identifier: String; let materials: [String: String]; let textures: [String: String]; let geometry: [String: String]; let renderControllers: [String]; let spawnEgg: SpawnEgg
+        var animations: [String: String]?
+        var scripts: Scripts?
+        var particleEffects: [String: String]?
+        var soundEffects: [String: String]?
+        enum CodingKeys: String, CodingKey {
+            case identifier; case materials; case textures; case geometry; case animations; case scripts
+            case renderControllers = "render_controllers"; case spawnEgg = "spawn_egg"
+            case particleEffects = "particle_effects"; case soundEffects = "sound_effects"
+        }
+    }
+    struct Scripts: Encodable { let animate: [String] }
     struct SpawnEgg: Encodable { let texture: String }
     enum CodingKeys: String, CodingKey { case formatVersion = "format_version"; case clientEntity = "minecraft:client_entity" }
 }
@@ -945,4 +957,84 @@ enum BedrockDocumentEncoder {
         data.append(10)
         return data
     }
+}
+
+/// Resource-pack animation that fires one particle effect and one sound at spawn (`animations/*.animation.json`).
+struct EffectAnimationDocument: Encodable {
+    let formatVersion: String
+    let animations: [String: Animation]
+
+    struct Animation: Encodable {
+        let loop: Bool
+        let animationLength: Double
+        let particleEffects: [String: Keyframe]
+        let soundEffects: [String: Keyframe]
+        enum CodingKeys: String, CodingKey {
+            case loop
+            case animationLength = "animation_length"
+            case particleEffects = "particle_effects"
+            case soundEffects = "sound_effects"
+        }
+    }
+
+    struct Keyframe: Encodable { let effect: String }
+    enum CodingKeys: String, CodingKey { case formatVersion = "format_version"; case animations }
+}
+
+/// Custom particle emitter (`particles/*.json`), shaped like `lava_particle.json` in Mojang/bedrock-samples.
+struct ParticleDocument: Encodable {
+    let formatVersion: String
+    let particleEffect: ParticleEffect
+
+    struct ParticleEffect: Encodable {
+        let description: Description
+        let components: Components
+    }
+
+    struct Description: Encodable {
+        let identifier: String
+        let basicRenderParameters: RenderParameters
+        enum CodingKeys: String, CodingKey { case identifier; case basicRenderParameters = "basic_render_parameters" }
+    }
+
+    struct RenderParameters: Encodable { let material: String; let texture: String }
+
+    struct Components: Encodable {
+        let emitterRateInstant: NumParticles
+        let emitterLifetimeOnce: EmptyComponent
+        let emitterShapePoint: Direction
+        let initialSpeed: String
+        let lifetime: Lifetime
+        let motionDynamic: Motion
+        let billboard: Billboard
+        let lighting: EmptyComponent
+        enum CodingKeys: String, CodingKey {
+            case emitterRateInstant = "minecraft:emitter_rate_instant"
+            case emitterLifetimeOnce = "minecraft:emitter_lifetime_once"
+            case emitterShapePoint = "minecraft:emitter_shape_point"
+            case initialSpeed = "minecraft:particle_initial_speed"
+            case lifetime = "minecraft:particle_lifetime_expression"
+            case motionDynamic = "minecraft:particle_motion_dynamic"
+            case billboard = "minecraft:particle_appearance_billboard"
+            case lighting = "minecraft:particle_appearance_lighting"
+        }
+    }
+
+    struct EmptyComponent: Encodable {}
+    struct NumParticles: Encodable { let numParticles: Int; enum CodingKeys: String, CodingKey { case numParticles = "num_particles" } }
+    struct Direction: Encodable { let direction: [String] }
+    struct Lifetime: Encodable { let maxLifetime: String; enum CodingKeys: String, CodingKey { case maxLifetime = "max_lifetime" } }
+    struct Motion: Encodable { let linearAcceleration: [Double]; enum CodingKeys: String, CodingKey { case linearAcceleration = "linear_acceleration" } }
+    struct Billboard: Encodable {
+        let size: [String]
+        let facingCameraMode: String
+        let uv: UV
+        enum CodingKeys: String, CodingKey { case size; case facingCameraMode = "facing_camera_mode"; case uv }
+    }
+    struct UV: Encodable {
+        let textureWidth: Int; let textureHeight: Int; let uv: [Int]; let uvSize: [Int]
+        enum CodingKeys: String, CodingKey { case textureWidth = "texture_width"; case textureHeight = "texture_height"; case uv; case uvSize = "uv_size" }
+    }
+
+    enum CodingKeys: String, CodingKey { case formatVersion = "format_version"; case particleEffect = "particle_effect" }
 }

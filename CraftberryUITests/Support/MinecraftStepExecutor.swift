@@ -64,6 +64,7 @@ final class MinecraftStepExecutor {
     private let recognizedText: (String, TimeInterval) -> Bool
     private let recognizedTextCenter: (String, TimeInterval) -> CGPoint?
     private let chatScreenDetector: (TimeInterval) -> Bool
+    private var pixelBaselines: [String: Int] = [:]
 
     init(
         commandKeyboard: MinecraftCommandKeyboard = MinecraftCommandKeyboard(),
@@ -215,6 +216,25 @@ final class MinecraftStepExecutor {
             guard pixels.matches(expectation) else {
                 onIntermediateScreenshot("\(step.name) - pixel assert failed state")
                 return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (matched=\(count)).")
+            }
+            return .success(step)
+        case .recordPixelBaseline(let id, let expectation):
+            guard let count = pixels.count(expectation) else {
+                return .failure(step, reason: "Could not capture a screenshot for pixel baseline '\(id)' before \(step.name).")
+            }
+            pixelBaselines[id] = count
+            print("[MinecraftE2E] \(step.name): pixel baseline '\(id)' saw matched=\(count) for \(expectation)")
+            return .success(step)
+        case .assertPixelIncrease(let id, let expectation, let minimumIncrease):
+            guard let baseline = pixelBaselines[id] else {
+                return .failure(step, reason: "No pixel baseline '\(id)' was recorded before \(step.name).")
+            }
+            let count = pixels.count(expectation) ?? -1
+            let delta = count - baseline
+            print("[MinecraftE2E] \(step.name): pixel delta saw matched=\(count) baseline=\(baseline) delta=\(delta) for \(expectation)")
+            guard count >= 0, delta >= minimumIncrease else {
+                onIntermediateScreenshot("\(step.name) - pixel delta failed state")
+                return .failure(step, reason: "The expected pixel increase was not visible after \(step.name) (matched=\(count) baseline=\(baseline) delta=\(delta) need +\(minimumIncrease)).")
             }
             return .success(step)
         case .tapUntilPixels(let x, let y, let fallbackX, let fallbackY, let expectation):

@@ -25,7 +25,7 @@ Commands:
   list    Show connected physical iPhones.
   run     Build, install, and launch Craftberry on the selected iPhone.
   test    Run the deterministic UI smoke test on the selected iPhone.
-  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|fuel|brewing|ore|crop|entity|boss|enchant|structure|music-record] [--fresh-world|--delete-world]
+  minecraft-e2e [redstone|emerald|share|weapon|armor|consumable|block|smithing|furnace|fuel|brewing|ore|crop|entity|boss|effect|enchant|structure|music-record] [--fresh-world|--delete-world]
           Run a focused Craftberry-to-Minecraft scenario, defaulting to
           redstone. Redstone checks the .mcaddon import and activation path.
           Other scenarios import a prepared .mcworld with packs active and
@@ -37,6 +37,8 @@ Commands:
           in the stable profile.
           The boss scenario verifies a health-triggered phase, a Survival attack,
           and the boss's deterministic item reward.
+          The effect scenario checks the particle burst by pixel sampling
+          when the creature spawns; its sound is played but not observed.
   minecraft-e2e-all [--fresh-world]
           Run all sixteen stable acceptance scenarios sequentially. The regular .mcaddon
           import check runs once; the other checks use prepared .mcworlds.
@@ -344,6 +346,11 @@ minecraft_e2e_on_device() {
             result_name="MinecraftRedstoneBossEncounterE2EUITests"
             prepared_world_name="Redstone (Creative)"
             ;;
+        effect)
+            test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneEffectCreatureShowsParticlesOnSpawn"
+            result_name="MinecraftRedstoneEffectCreatureE2EUITests"
+            prepared_world_name="Redstone (Creative)"
+            ;;
         enchant)
             test_selector="CraftberryUITests/MinecraftDeviceE2EUITests/testCraftberryRedstoneSwordCanBeEnchanted"
             result_name="MinecraftRedstoneEnchantableSwordE2EUITests"
@@ -360,7 +367,7 @@ minecraft_e2e_on_device() {
             prepared_world_name="First Light (Creative)"
             ;;
         *)
-            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, fuel, brewing, ore, crop, entity, boss, enchant, structure, or music-record)." >&2
+            echo "error: unknown minecraft-e2e scenario '$scenario' (expected redstone, emerald, share, weapon, armor, consumable, block, smithing, furnace, fuel, brewing, ore, crop, entity, boss, effect, enchant, structure, or music-record)." >&2
             exit 1
             ;;
     esac

@@ -23,6 +23,8 @@ struct MinecraftStep: Equatable {
         case assertText(String)
         case assertPixels(MinecraftPixelExpectation)
         case tapUntilPixels(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, expectation: MinecraftPixelExpectation)
+        case recordPixelBaseline(id: String, expectation: MinecraftPixelExpectation)
+        case assertPixelIncrease(id: String, expectation: MinecraftPixelExpectation, minimumIncrease: Int)
         case calibrationRequired(String)
     }
 
