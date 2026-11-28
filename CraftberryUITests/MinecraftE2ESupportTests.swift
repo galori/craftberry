@@ -108,11 +108,19 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-effect-set")
         let steps = scenario.postCraftingSteps
         let names = steps.map(\.name)
-        let before = try XCTUnwrap(names.firstIndex { $0.contains("no red sparks before") })
+        let before = try XCTUnwrap(names.firstIndex { $0.contains("baseline red before") })
         let spawn = try XCTUnwrap(names.firstIndex { $0.contains("Use the spawn egg") })
         let after = try XCTUnwrap(names.firstIndex { $0.contains("particle burst is visible") })
         XCTAssertLessThan(before, spawn)
         XCTAssertEqual(after, spawn + 1, "The burst is short-lived, so the pixel check must run right after the egg is used.")
+        XCTAssertTrue(steps.contains {
+            if case .recordPixelBaseline(let id, _) = $0.action { return id == "effect-burst" }
+            return false
+        })
+        XCTAssertTrue(steps.contains {
+            if case .assertPixelIncrease(let id, _, let delta) = $0.action { return id == "effect-burst" && delta == 150 }
+            return false
+        })
         let commands = steps.compactMap { step -> String? in
             guard case .chatCommand(let command) = step.action else { return nil }
             return command
