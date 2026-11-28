@@ -34,7 +34,7 @@ swift run GenerationServer
 ## Staging and release setup still required
 
 - Register the app's App ID in the Apple Developer account and enable App Attest. Set `APP_ATTEST_APP_ID` to the exact registered App ID (`prefix.bundle-id`); the prefix is not always the Team ID.
-- Provision the iOS app with App Attest. Debug builds use the `development` entitlement; Release uses `production`. A real device, a valid signing profile, and Apple service access are needed to test enrollment end to end.
+- Provision the iOS app with App Attest. Release builds use the `production` entitlement. Debug builds do not use App Attest and carry no entitlement, so they sign without the capability. A real device, a valid signing profile, and Apple service access are needed to test enrollment end to end.
 - Configure `CRAFTBERRY_BACKEND_BASE_URL` in the app's release build settings to the actual HTTPS service origin. No deployed URL is configured in this repository.
 - Run the service on a managed macOS host with a persistent encrypted volume and backups for the SQLite file. Place it behind a trusted TLS reverse proxy, configure request-size and connection limits, and rate-limit unauthenticated challenge requests. Do not expose the listener's plain HTTP port directly to the Internet.
 - The executable sets a restrictive process umask before creating the SQLite database. Keep its parent directory private as well, and include the WAL/SHM files in the same protected volume and backup policy.
