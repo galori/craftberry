@@ -912,7 +912,9 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertEqual(values["max"] as? Int, 7)
         let perms = try XCTUnwrap(blockBody["permutations"] as? [[String: Any]])
         XCTAssertEqual(perms.count, 8)
-        XCTAssertTrue(perms.allSatisfy { ($0["condition"] as? String)?.contains("craftberry:growth") == true })
+        for (stage, permutation) in perms.enumerated() {
+            XCTAssertEqual(permutation["condition"] as? String, "q.block_state('craftberry:growth') == \(stage)")
+        }
         let loot = try json(named: "loot_tables/blocks/azure_a1b2c3_crop.json", in: behavior)
         let pools = try XCTUnwrap(loot["pools"] as? [[String: Any]])
         let entry = try XCTUnwrap((pools.first?["entries"] as? [[String: Any]])?.first)

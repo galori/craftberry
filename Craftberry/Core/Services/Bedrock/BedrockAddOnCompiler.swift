@@ -187,9 +187,11 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
         ]
         for block in project.blocks.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             let identifier = identifier(for: block.id, namespace: project.namespace)
-            // Crop blocks use growth states 0..(stages-1) validated against bedrock-samples 1.26.30.5 (921fafb0):
-            // behavior_pack blocks use description.states with range {min,max} and permutations on query.block_state.
-            // See resource_pack/blocks.json and metadata/json_schemas/server/block/1.21.110/States.json at 921fafb0.
+            // Crop blocks use growth states 0..(stages-1): behavior_pack blocks use description.states
+            // with range {min,max} and permutations on q.block_state. The official Custom Crops tutorial
+            // (wiki.bedrock.dev/blocks/custom-crops) and the Block Permutations reference use the `q.`
+            // prefix in permutation conditions; `query.block_state` fails to parse there, which drops the
+            // whole block from the registry (Content Log: "Block couldn't be found in the registry").
             let growthStateKey = "craftberry:growth"
             let states: [String: BlockDocument.Description.StateValue]? = {
                 guard let stages = block.growthStages else { return nil }
@@ -199,8 +201,8 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
                 guard let stages = block.growthStages else { return nil }
                 // Emit one permutation per growth stage to prove states wiring; keep components minimal.
                 return (0..<stages).map { stage in
-                    // Filter to that exact growth value; vanilla wheat uses similar query.block_state checks.
-                    .init(condition: "query.block_state('\(growthStateKey)') == \(stage)", components: nil)
+                    // Filter to that exact growth value; vanilla wheat uses similar q.block_state checks.
+                    .init(condition: "q.block_state('\(growthStateKey)') == \(stage)", components: nil)
                 }
             }()
             let document = BlockDocument(
