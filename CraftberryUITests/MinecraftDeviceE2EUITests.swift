@@ -692,11 +692,13 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Replace the spawn-egg slot with a bone for guaranteed taming", action: .chatCommand("/replaceitem entity @s slot.hotbar 0 bone 1")),
             MinecraftStep(name: "Select the bone", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
             MinecraftStep(name: "Confirm the selected item is a bone", action: .assertText("Bone")),
+            MinecraftStep(name: "Return to the calibrated tame position", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Bring the companion back to the calibrated tame spot", action: .chatCommand("/tp @e[family=tameable_companion] 98 81 95")),
             MinecraftStep(name: "Tame the spawned companion with bone", action: .tap(x: 0.5075, y: 0.265)),
             MinecraftStep(name: "Wait for bone taming and follow behavior to activate", action: .wait(seconds: 2)),
             MinecraftStep(name: "Move the owner beyond the follow start distance", action: .chatCommand("/tp @s 112 80 95 270 0")),
-            MinecraftStep(name: "Allow the tamed companion time to follow", action: .wait(seconds: 15)),
-            MinecraftStep(name: "Query for the companion near its distant owner", action: .chatCommand("/execute if entity @e[family=tameable_companion,r=4] run time query daytime")),
+            MinecraftStep(name: "Allow the tamed companion time to follow", action: .wait(seconds: 20)),
+            MinecraftStep(name: "Query for the companion near its distant owner", action: .chatCommand("/execute if entity @e[family=tameable_companion,r=6] run time query daytime")),
             MinecraftStep(name: "Confirm the companion followed its owner", action: .assertText("Daytime is"))
         ]
     )
