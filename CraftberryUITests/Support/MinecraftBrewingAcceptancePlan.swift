@@ -151,7 +151,9 @@ extension MinecraftE2EScenario {
                         .init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
                     ],
                     beforePickupVerification: nil,
-                    afterPickupVerification: .text(MinecraftBrewingAcceptanceFixture.ingotName),
+                    // The hotbar tooltip lives ~300ms and long custom names wrap/truncate in OCR (run 46111531515
+                    // showed the item in the hotbar but never read the full name), so match a short prefix.
+                    afterPickupVerification: .text("Craftberry"),
                     outputDestination: MinecraftCalibratedLayout().hotbarSlot(1),
                     shouldResetTableAfterPickup: false
                 )
