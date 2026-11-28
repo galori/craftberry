@@ -307,7 +307,7 @@ final class MinecraftE2ESupportTests: XCTestCase {
         let base = try XCTUnwrap(layout.baseSlot)
         let template = try XCTUnwrap(layout.templateSlot)
         let result = try XCTUnwrap(layout.resultSlot)
-        XCTAssertTrue(addition.y < base.y && base.y < template.y)
+        XCTAssertTrue(template.y < base.y && base.y < addition.y)
         XCTAssertEqual(result.y, base.y, accuracy: 0.001)
         assertTap(named: "Place the redstone ingot in the smithing material slot", in: steps, x: addition.x, y: addition.y)
     }

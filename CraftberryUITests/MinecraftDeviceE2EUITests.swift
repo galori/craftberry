@@ -764,17 +764,21 @@ struct MinecraftSmithingLayout {
     let trimResultHUDSlot: MinecraftCoordinate
     let trimTemplateHotbarSlot: MinecraftCoordinate
 
-    /// Panel cells measured off the failed device run 46100557227 screenshot (1170x2532 portrait
-    /// capture of the landscape UI): landscape x = capture y / height, landscape y = 1 - capture x / width.
-    /// Cross-checked against the close button (0.9215, 0.080 vs calibrated 0.9232, 0.0709) and the hotbar pitch.
-    /// The cells stack top to bottom as addition, base, template; the ghost ingot icon marks the addition cell.
+    /// Panel cells measured off the failed device runs 46100557227 and 46110335108
+    /// (1170x2532 portrait capture of the landscape UI): landscape x = capture y / height,
+    /// landscape y = 1 - capture x / width. Run 46110335108 proves the swap: the base tap
+    /// at y 0.4026 landed (diamond sword visible in the middle slot) while the template tap
+    /// at y 0.539 and the ingot tap at y 0.265 both left their slots empty and the result
+    /// slot empty. Left-to-right in the capture is addition, base, template (ghost template
+    /// outline on the rightmost slot), so in landscape coords the template is at y 0.265
+    /// and the addition/material at y 0.539.
     static var measured: MinecraftSmithingLayout {
         let calibrated = MinecraftCalibratedLayout()
         return MinecraftSmithingLayout(
             smithingTableBlock: calibrated.reopenCraftingTable,
-            templateSlot: MinecraftCoordinate(x: 0.5745, y: 0.539),
+            templateSlot: MinecraftCoordinate(x: 0.5745, y: 0.265),
             baseSlot: MinecraftCoordinate(x: 0.5745, y: 0.4026),
-            additionSlot: MinecraftCoordinate(x: 0.5745, y: 0.265),
+            additionSlot: MinecraftCoordinate(x: 0.5745, y: 0.539),
             resultSlot: MinecraftCoordinate(x: 0.6998, y: 0.4026),
             closeButton: calibrated.closeCraftingTable,
             ingotHotbarSlot: calibrated.hotbarSlot(1),
