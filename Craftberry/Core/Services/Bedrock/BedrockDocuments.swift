@@ -23,11 +23,44 @@ struct ManifestDocument: Encodable {
         let type: String
         let uuid: String
         let version: [Int]
+        var language: String?
+        var entry: String?
     }
 
+    /// A pack dependency (uuid + array version) or a native script-module dependency
+    /// (module_name + string version, e.g. "@minecraft/server" "2.8.0").
     struct Dependency: Encodable {
-        let uuid: String
-        let version: [Int]
+        var uuid: String?
+        var version: Version
+        var moduleName: String?
+
+        enum Version: Encodable {
+            case pack([Int])
+            case module(String)
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.singleValueContainer()
+                switch self {
+                case .pack(let components): try container.encode(components)
+                case .module(let version): try container.encode(version)
+                }
+            }
+        }
+
+        init(uuid: String, version: [Int]) {
+            self.uuid = uuid
+            self.version = .pack(version)
+        }
+
+        init(moduleName: String, version: String) {
+            self.moduleName = moduleName
+            self.version = .module(version)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case uuid, version
+            case moduleName = "module_name"
+        }
     }
 
     enum CodingKeys: String, CodingKey {

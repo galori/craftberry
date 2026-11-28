@@ -121,6 +121,7 @@ private struct UITestingLLMClient: LLMClient {
         let usesRedstoneOreSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-ore-set")
         let usesRedstoneCropSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-crop-set")
         let usesRedstoneBossSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-boss-set")
+        let usesRedstoneMechanicSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-mechanic-set")
         let usesRedstoneHostileEntitySet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-hostile-entity-set")
         let usesRedstoneEnchantableSwordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-redstone-enchantable-sword-set")
         let usesMusicRecordSet = ProcessInfo.processInfo.arguments.contains("--ui-testing-music-record-set")
@@ -143,6 +144,20 @@ private struct UITestingLLMClient: LLMClient {
                 color: .cyan,
                 style: .dreamy,
                 shortDescription: "A dreamy cyan music record called First Light.",
+                originalPrompt: prompt,
+                identity: identity
+            )
+        } else if usesRedstoneMechanicSet {
+            project = try AddOnProject.materialMechanicSet(
+                materialName: "Redstone",
+                color: .red,
+                sourceItem: "minecraft:redstone",
+                sourceCount: 4,
+                condition: .none,
+                effect: .speed,
+                durationSeconds: 60,
+                amplifier: 1,
+                shortDescription: "A redstone charm that gives a sixty-second speed boost when used.",
                 originalPrompt: prompt,
                 identity: identity
             )

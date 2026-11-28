@@ -652,6 +652,71 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertEqual(healthSchema["maximum"] as? Int, 40)
     }
 
+    func testClientAssemblesMechanicSetFromStructuredIntentAndPinsTheSchemaEnums() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A speed charm.","materialMechanicSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"condition":"none","effect":"speed","durationSeconds":10,"amplifier":1}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            return (
+                try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)),
+                responseData
+            )
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        let generation = try await client.generateProject(from: "A speed charm for 10 seconds")
+
+        let project = try XCTUnwrap(generation.project)
+        XCTAssertEqual(project.mechanics.first?.action, MechanicAction(effect: .speed, durationSeconds: 10, amplifier: 1))
+        XCTAssertEqual(project.mechanics.first?.condition, MechanicCondition.none)
+
+        let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let requestDocument = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let format = try XCTUnwrap((requestDocument["text"] as? [String: Any])?["format"] as? [String: Any])
+        let schema = try XCTUnwrap(format["schema"] as? [String: Any])
+        XCTAssertTrue((schema["required"] as? [String] ?? []).contains("materialMechanicSet"))
+        let intent = try XCTUnwrap((schema["properties"] as? [String: Any])?["materialMechanicSet"] as? [String: Any])
+        let objectSchema = try XCTUnwrap((intent["anyOf"] as? [[String: Any]])?.first { $0["type"] as? String == "object" })
+        let properties = try XCTUnwrap(objectSchema["properties"] as? [String: Any])
+        XCTAssertEqual((properties["effect"] as? [String: Any])?["enum"] as? [String], MechanicEffect.allCases.map(\.rawValue))
+        XCTAssertEqual((properties["condition"] as? [String: Any])?["enum"] as? [String], ["none", "sneaking"])
+        XCTAssertEqual((properties["durationSeconds"] as? [String: Any])?["minimum"] as? Int, 5)
+        XCTAssertEqual((properties["durationSeconds"] as? [String: Any])?["maximum"] as? Int, 60)
+        XCTAssertEqual((properties["amplifier"] as? [String: Any])?["maximum"] as? Int, 4)
+    }
+
+    func testClientRejectsMechanicIntentWithOutOfRangeDuration() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A speed charm.","materialMechanicSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"condition":"none","effect":"speed","durationSeconds":600,"amplifier":1}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (
+                try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)),
+                responseData
+            )
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        do {
+            _ = try await client.generateProject(from: "A speed charm for ten minutes")
+            XCTFail("An out-of-range mechanic duration must not build.")
+        } catch {
+            XCTAssertTrue(error is LLMClientError)
+        }
+    }
+
     func testClientAssemblesMaterialWeaponSetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A compact custom pack overview.","sword":null,"materialSwordSet":null,"materialToolSet":null,"materialWeaponSet":{"materialName":"Azure","color":"blue","sourceItem":"diamond","sourceCount":4,"attackBonus":10,"durability":500}}

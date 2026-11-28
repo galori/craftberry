@@ -1337,6 +1337,14 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialBossEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 40, shortDescription: "An emerald boss that changes phase below half health and drops a verdant ingot.", originalPrompt: originalPrompt, identity: identity)
         case "A diamond boss encounter that grows stronger below half health":
             project = try AddOnProject.materialBossEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 40, shortDescription: "A diamond boss that gains size, speed, and attack damage below half health.", originalPrompt: originalPrompt, identity: identity)
+        case "A redstone speed charm named Pulse that lasts 10 seconds":
+            project = try AddOnProject.materialMechanicSet(materialName: "Pulse", color: .red, sourceItem: "minecraft:redstone", sourceCount: 4, condition: .none, effect: .speed, durationSeconds: 10, amplifier: 1, shortDescription: "A redstone charm that gives a short burst of speed when used.", originalPrompt: originalPrompt, identity: identity)
+        case "An emerald jump charm named Verdant, active while sneaking":
+            project = try AddOnProject.materialMechanicSet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, condition: .sneaking, effect: .jumpBoost, durationSeconds: 15, amplifier: 2, shortDescription: "An emerald charm that boosts jumping while the player sneaks.", originalPrompt: originalPrompt, identity: identity)
+        case "A blaze rod fire resistance charm named Ember for 30 seconds":
+            project = try AddOnProject.materialMechanicSet(materialName: "Ember", color: .orange, sourceItem: "minecraft:blaze_rod", sourceCount: 4, condition: .none, effect: .fireResistance, durationSeconds: 30, amplifier: 0, shortDescription: "A blaze rod charm that protects from fire for 30 seconds.", originalPrompt: originalPrompt, identity: identity)
+        case "A diamond night vision charm named Azure for 20 seconds":
+            project = try AddOnProject.materialMechanicSet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, condition: .none, effect: .nightVision, durationSeconds: 20, amplifier: 0, shortDescription: "A diamond charm that grants night vision for 20 seconds.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1462,6 +1470,10 @@ enum ExamplePromptResponseCache {
             "A redstone boss named Pulse with 40 health and a faster second phase",
             "An emerald two-phase boss named Verdant that drops its ingot",
             "A diamond boss encounter that grows stronger below half health",
+            "A redstone speed charm named Pulse that lasts 10 seconds",
+            "An emerald jump charm named Verdant, active while sneaking",
+            "A blaze rod fire resistance charm named Ember for 30 seconds",
+            "A diamond night vision charm named Azure for 20 seconds",
             "A diamond hut structure from 4 diamonds, with Azure Block hut",
             "An emerald hut named Verdant with 3x3 shelter structure",
             "A blaze rod structure hut named Ember with block shelter",

@@ -258,6 +258,50 @@ final class AddOnProjectTests: XCTestCase {
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
     }
 
+    func testMaterialMechanicSetBuildsTypedMechanicBoundToItsCharm() throws {
+        let project = try AddOnProject.materialMechanicSet(materialName: "Azure", condition: .sneaking, effect: .regeneration, durationSeconds: 20, amplifier: 3, originalPrompt: "charm", identity: testIdentity())
+        let mechanic = try XCTUnwrap(project.mechanics.first)
+        XCTAssertEqual(project.mechanics.count, 1)
+        XCTAssertEqual(mechanic.event, .useItem)
+        XCTAssertEqual(mechanic.condition, .sneaking)
+        XCTAssertEqual(mechanic.action, MechanicAction(effect: .regeneration, durationSeconds: 20, amplifier: 3))
+        XCTAssertTrue(project.items.contains { $0.id == mechanic.itemID && $0.traits.maximumStackSize == 1 })
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+        let decoded = try JSONDecoder().decode(AddOnProject.self, from: JSONEncoder().encode(project))
+        XCTAssertEqual(decoded, project)
+    }
+
+    func testMaterialMechanicSetRejectsOutOfRangeEffectBounds() {
+        for seconds in [4, 61] {
+            XCTAssertThrowsError(try AddOnProject.materialMechanicSet(durationSeconds: seconds, originalPrompt: "charm")) {
+                XCTAssertEqual($0 as? AddOnProjectError, .invalidMechanicDuration)
+            }
+        }
+        for amplifier in [-1, 5] {
+            XCTAssertThrowsError(try AddOnProject.materialMechanicSet(amplifier: amplifier, originalPrompt: "charm")) {
+                XCTAssertEqual($0 as? AddOnProjectError, .invalidMechanicAmplifier)
+            }
+        }
+    }
+
+    func testValidatorRejectsMechanicsThatBreakTheBounds() throws {
+        let base = try AddOnProject.materialMechanicSet(originalPrompt: "charm", identity: testIdentity())
+        let good = try XCTUnwrap(base.mechanics.first)
+        func project(replacing mechanics: [MechanicDefinition]) -> AddOnProject {
+            AddOnProject(id: base.id, namespace: base.namespace, displayName: base.displayName, packUUIDs: base.packUUIDs, buildVersion: base.buildVersion, targetProfileID: base.targetProfileID, originalPrompt: base.originalPrompt, content: base.content.filter { if case .mechanic = $0 { false } else { true } } + mechanics.map(AddOnContentNode.mechanic))
+        }
+        func codes(_ project: AddOnProject) -> Set<String> { Set(AddOnProjectValidator.validate(project, profile: .current).errors.map(\.code)) }
+
+        let missingItem = MechanicDefinition(id: good.id, itemID: ContentID("nope"), action: good.action)
+        XCTAssertTrue(codes(project(replacing: [missingItem])).contains("missing_mechanic_item"))
+        let tooLong = MechanicDefinition(id: good.id, itemID: good.itemID, action: MechanicAction(effect: .speed, durationSeconds: 61, amplifier: 0))
+        XCTAssertTrue(codes(project(replacing: [tooLong])).contains("invalid_mechanic_duration"))
+        let tooStrong = MechanicDefinition(id: good.id, itemID: good.itemID, action: MechanicAction(effect: .speed, durationSeconds: 10, amplifier: 5))
+        XCTAssertTrue(codes(project(replacing: [tooStrong])).contains("invalid_mechanic_amplifier"))
+        let second = MechanicDefinition(id: ContentID("second"), itemID: good.itemID, action: good.action)
+        XCTAssertTrue(codes(project(replacing: [good, second])).contains("too_many_mechanics"))
+    }
+
     func testMaterialBossEntitySetRejectsHealthOutsideSupportedPhaseRange() {
         XCTAssertThrowsError(try AddOnProject.materialBossEntitySet(health: 19, originalPrompt: "boss")) {
             XCTAssertEqual($0 as? AddOnProjectError, .invalidBossHealth)
