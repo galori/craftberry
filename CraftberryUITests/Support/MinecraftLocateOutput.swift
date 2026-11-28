@@ -7,7 +7,9 @@ enum MinecraftLocateOutput {
         guard let marker = recognizedText.range(of: "is at", options: .caseInsensitive) else { return nil }
         let tail = recognizedText[marker.upperBound...]
         // Only the first parenthesis group holds the position; the second is the distance.
-        let group = tail.prefix { $0 != ")" }
+        // A missing closing paren means OCR dropped it: reject instead of reading the distance as z.
+        guard let close = tail.firstIndex(of: ")") else { return nil }
+        let group = tail[..<close]
         let numbers = group.split { !($0.isNumber || $0 == "-") }.compactMap { Int($0) }
         // Bedrock prints "~" for y; some versions print a number, so accept both shapes.
         switch numbers.count {

@@ -771,6 +771,7 @@ public enum AddOnProjectValidator {
             + project.recipes.map { ("content.recipes.\($0.id.rawValue).id", $0.id) }
             + project.shapelessRecipes.map { ("content.recipes.\($0.id.rawValue).id", $0.id) }
             + project.visualResources.map { ("content.visualResources.\($0.id.rawValue).id", $0.id) }
+            + project.biomes.map { ("content.biomes.\($0.id.rawValue).id", $0.id) }
         for value in values where !isValidIdentifierSegment(value.id.rawValue) {
             issues.append(
                 CompilationIssue(

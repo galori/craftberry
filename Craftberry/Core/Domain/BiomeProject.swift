@@ -10,7 +10,7 @@ public enum BiomeSurface: String, Codable, Equatable, Sendable, CaseIterable {
     public var blockIdentifier: String {
         switch self {
         case .redSand: "minecraft:red_sand"
-        case .snow: "minecraft:snow_block"
+        case .snow: "minecraft:snow"
         case .mycelium: "minecraft:mycelium"
         }
     }

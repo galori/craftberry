@@ -127,6 +127,8 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(withY?.x, 10)
         XCTAssertEqual(withY?.z, -20)
         XCTAssertNil(MinecraftLocateOutput.coordinates(in: "Could not find a biome of type x within reasonable distance"))
+        // A reply missing the coordinate group's closing paren must not use the distance as z.
+        XCTAssertNil(MinecraftLocateOutput.coordinates(in: "The nearest craftberry:x is at (-1234, ~, 567 (1300 blocks away)"))
     }
 
     func testRedSandPixelRuleMatchesRedSandButNotDirtOrGrass() {

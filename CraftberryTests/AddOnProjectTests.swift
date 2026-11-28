@@ -944,6 +944,8 @@ final class AddOnProjectTests: XCTestCase {
         let project = try AddOnProject.biomeSet(biomeName: " Crimson Dunes ", surface: .snow, originalPrompt: "biome", identity: .generate(suffixGenerator: { "a1b2c3" }))
         XCTAssertEqual(project.biomes.map(\.id.rawValue), ["crimson_dunes_a1b2c3_biome"])
         XCTAssertEqual(project.biomes.first?.surface, .snow)
+        // Bedrock's full snow block is minecraft:snow (minecraft:snow_block is the Java name).
+        XCTAssertEqual(BiomeSurface.snow.blockIdentifier, "minecraft:snow")
         XCTAssertEqual(project.displayName, "Crimson Dunes")
         XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
         let decoded = try JSONDecoder().decode(AddOnProject.self, from: JSONEncoder().encode(project))
