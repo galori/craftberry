@@ -149,6 +149,9 @@ final class MinecraftE2EHarness {
         for step in slices.activation.phased(as: .config) {
             run(step, using: console)
         }
+        // Pack content errors pop the Content Log dialog over the HUD at world load; the first
+        // staging chat command cannot open chat until it is closed (crop e5b5865, biome 10dbae4).
+        executor.dismissContentLogIfPresent(in: minecraft)
         for step in slices.staging.phased(as: .config) {
             run(step, using: console)
         }
@@ -291,6 +294,10 @@ final class MinecraftE2EHarness {
         minecraft.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).tap()
         Thread.sleep(forTimeInterval: 45)
         testCase.attachScreenshot("Preconfigured world loaded in \(gameMode.rawValue) mode")
+        // Pack content errors pop the Content Log dialog over the HUD at world load; the first
+        // staging chat command cannot open chat until it is closed (crop e5b5865, biome 10dbae4,
+        // crop ace5b0b all failed here with the world rendered behind the dialog).
+        executor.dismissContentLogIfPresent(in: minecraft)
 
         MinecraftDebuggerConsole.current = console
         testCase.addTeardownBlock { MinecraftDebuggerConsole.current = nil }
