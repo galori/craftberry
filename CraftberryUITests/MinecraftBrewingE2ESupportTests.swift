@@ -53,8 +53,8 @@ final class MinecraftBrewingE2ESupportTests: XCTestCase {
         XCTAssertTrue(stops.contains { $0.localizedCaseInsensitiveContains("bottle slot") })
         XCTAssertTrue(stops.contains { $0.localizedCaseInsensitiveContains("output slot") })
         XCTAssertTrue(stops.contains { $0.localizedCaseInsensitiveContains("hotbar slot") })
-        XCTAssertTrue(steps.contains { $0.name == "Confirm the brewing stand screen is open" && $0.action == .assertText("Brewing Stand") })
-        XCTAssertTrue(steps.contains { $0.name == "Confirm the container-recipe stand screen is open" && $0.action == .assertText("Brewing Stand") })
+        XCTAssertTrue(steps.contains { $0.name == "Confirm the brewing stand screen is open" && $0.action == .assertText("Brewing Stand|Brewing") })
+        XCTAssertTrue(steps.contains { $0.name == "Confirm the container-recipe stand screen is open" && $0.action == .assertText("Brewing Stand|Brewing") })
     }
 
     func testBrewingScenarioCalibratesStandWorldTap() {

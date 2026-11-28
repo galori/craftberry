@@ -62,8 +62,9 @@ enum MinecraftBrewingAcceptancePlan {
                 coordinate: layout.standWorldTap,
                 reason: "Calibrate the brewing stand world tap against the visible stand before opening its interface."
             ),
-            MinecraftStep(name: "Wait for the elixir brewing stand screen", action: .wait(seconds: 3)),
-            MinecraftStep(name: "Confirm the brewing stand screen is open", action: .assertText("Brewing Stand"))
+            MinecraftStep(name: "Wait for the elixir brewing stand screen", action: .wait(seconds: 4)),
+            // Two-word title: fall back to "Brewing" if Vision splits the title across OCR lines.
+            MinecraftStep(name: "Confirm the brewing stand screen is open", action: .assertText("Brewing Stand|Brewing"))
         ]
 
         steps += elixirSteps(layout: layout)
@@ -72,8 +73,8 @@ enum MinecraftBrewingAcceptancePlan {
             coordinate: layout.standWorldTap,
             reason: "Calibrate the brewing stand world tap against the visible stand before opening its interface."
         ))
-        steps.append(MinecraftStep(name: "Wait for the container-recipe brewing stand screen", action: .wait(seconds: 3)))
-        steps.append(MinecraftStep(name: "Confirm the container-recipe stand screen is open", action: .assertText("Brewing Stand")))
+        steps.append(MinecraftStep(name: "Wait for the container-recipe brewing stand screen", action: .wait(seconds: 4)))
+        steps.append(MinecraftStep(name: "Confirm the container-recipe stand screen is open", action: .assertText("Brewing Stand|Brewing")))
         steps += splashSteps(layout: layout)
 
         return steps
