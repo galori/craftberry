@@ -27,6 +27,7 @@ public extension AddOnContentNode {
         case .brewingContainerRecipe(let recipe): recipe.id
         case .visualResource(let resource): resource.id
         case .structure(let structure): structure.id
+        case .biome(let biome): biome.id
         }
     }
 }
@@ -68,6 +69,7 @@ public struct ChangeSummary: Equatable, Sendable {
         case .brewingContainerRecipe(let v): return "brewingContainerRecipe:\(v.id.rawValue)"
         case .visualResource(let v): return "visualResource:\(v.id.rawValue)"
         case .structure(let v): return "structure:\(v.id.rawValue)"
+        case .biome(let v): return "biome:\(v.id.rawValue)"
         }
     }
 

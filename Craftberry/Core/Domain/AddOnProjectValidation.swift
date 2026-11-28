@@ -221,6 +221,12 @@ public enum AddOnProjectValidator {
                 issues.append(CompilationIssue(severity: .error, code: "invalid_structure_display_name", path: "\(structurePath).displayName", message: "Structure display names cannot be empty."))
             }
         }
+        if project.biomes.count > 1 {
+            issues.append(CompilationIssue(severity: .error, code: "too_many_biomes", path: "content.biomes", message: "This profile supports at most one biome per add-on."))
+        }
+        for biome in project.biomes where biome.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append(CompilationIssue(severity: .error, code: "invalid_biome_display_name", path: "content.biomes.\(biome.id.rawValue).displayName", message: "Biome display names cannot be empty."))
+        }
         for item in project.items {
             let itemPath = "content.items.\(item.id.rawValue)"
             if item.displayName.contains("\n") || item.displayName.contains("\r") {

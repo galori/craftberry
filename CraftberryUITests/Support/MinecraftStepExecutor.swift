@@ -240,6 +240,14 @@ final class MinecraftStepExecutor {
                 return .failure(step, reason: "The expected pixel cluster was not visible after \(step.name) (matched=\(finalCount)).")
             }
             return .success(step)
+        case .teleportToLocatedBiome:
+            // The locate result is on the HUD from the previous steps. Parse it from OCR rather
+            // than guessing coordinates, then teleport high above it facing straight down.
+            guard let target = MinecraftLocateOutput.coordinates(in: ocr.recognizedText()) else {
+                onIntermediateScreenshot("\(step.name) - locate output not readable")
+                return .failure(step, reason: "OCR could not read the coordinates from the /locate biome result for \(step.name).")
+            }
+            return sendChatCommand("/tp @s \(target.x) 150 \(target.z) 0 90", in: minecraft, step: step)
         case .calibrationRequired(let reason):
             return .failure(step, reason: reason)
         }

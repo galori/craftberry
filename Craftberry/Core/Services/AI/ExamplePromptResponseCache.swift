@@ -1337,6 +1337,14 @@ enum ExamplePromptResponseCache {
             project = try AddOnProject.materialBossEntitySet(materialName: "Verdant", color: .green, sourceItem: "minecraft:emerald", sourceCount: 4, health: 40, shortDescription: "An emerald boss that changes phase below half health and drops a verdant ingot.", originalPrompt: originalPrompt, identity: identity)
         case "A diamond boss encounter that grows stronger below half health":
             project = try AddOnProject.materialBossEntitySet(materialName: "Azure", color: .blue, sourceItem: "minecraft:diamond", sourceCount: 4, health: 40, shortDescription: "A diamond boss that gains size, speed, and attack damage below half health.", originalPrompt: originalPrompt, identity: identity)
+        case "A biome named Crimson Dunes with a red sand surface":
+            project = try AddOnProject.biomeSet(biomeName: "Crimson Dunes", surface: .redSand, shortDescription: "A red sand biome named Crimson Dunes.", originalPrompt: originalPrompt, identity: identity)
+        case "A snowy biome named Frostveil with a snow block surface":
+            project = try AddOnProject.biomeSet(biomeName: "Frostveil", surface: .snow, shortDescription: "A snow-covered biome named Frostveil.", originalPrompt: originalPrompt, identity: identity)
+        case "A mycelium biome named Spore Hollow with a purple floor":
+            project = try AddOnProject.biomeSet(biomeName: "Spore Hollow", surface: .mycelium, shortDescription: "A mycelium biome named Spore Hollow.", originalPrompt: originalPrompt, identity: identity)
+        case "A red sand biome named Ember Flats in plains and forests":
+            project = try AddOnProject.biomeSet(biomeName: "Ember Flats", surface: .redSand, shortDescription: "A red sand biome named Ember Flats.", originalPrompt: originalPrompt, identity: identity)
         default:
             return nil
         }
@@ -1472,6 +1480,10 @@ enum ExamplePromptResponseCache {
             "A gold hut structure named Gilded with 3x3 hut",
             "An amethyst hut structure named Geode with shelter",
             "A netherite hut structure named Warden with 3x3 hut",
+            "A biome named Crimson Dunes with a red sand surface",
+            "A snowy biome named Frostveil with a snow block surface",
+            "A mycelium biome named Spore Hollow with a purple floor",
+            "A red sand biome named Ember Flats in plains and forests",
         ]
     }
 }

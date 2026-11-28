@@ -708,6 +708,38 @@ public final class BedrockAddOnCompiler: AddOnCompiling, Sendable {
             )
             entries.append(ZipArchiveEntry(path: "feature_rules/\(structure.id.rawValue)_rule.json", data: try BedrockDocumentEncoder.encode(ruleDocument)))
         }
+        for biome in project.biomes.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+            // shortcut: fixed replacement of plains/forest (target names carry no namespace per the
+            // replace_biomes reference), climate and height; only the surface varies. Widen when a
+            // second biome trait ships.
+            let document = BiomeDocument(
+                formatVersion: "1.26.30",
+                biome: .init(
+                    description: .init(identifier: identifier(for: biome.id, namespace: project.namespace)),
+                    components: .init(
+                        climate: .init(downfall: 0.4, snowAccumulation: [0.0, 0.125], temperature: 0.8),
+                        overworldHeight: .init(noiseType: "lowlands"),
+                        replaceBiomes: .init(replacements: [.init(
+                            dimension: "minecraft:overworld",
+                            targets: ["plains", "forest"],
+                            amount: 0.5,
+                            noiseFrequencyScale: 25
+                        )]),
+                        surfaceBuilder: .init(builder: .init(
+                            type: "minecraft:overworld",
+                            seaFloorDepth: 7,
+                            seaFloorMaterial: "minecraft:gravel",
+                            foundationMaterial: "minecraft:stone",
+                            midMaterial: biome.surface.blockIdentifier,
+                            topMaterial: biome.surface.blockIdentifier,
+                            seaMaterial: "minecraft:water"
+                        )),
+                        tags: .init(tags: ["animal", "monster", "overworld"])
+                    )
+                )
+            )
+            entries.append(ZipArchiveEntry(path: "biomes/\(biome.id.rawValue).biome.json", data: try BedrockDocumentEncoder.encode(document)))
+        }
         entries.append(
             ZipArchiveEntry(path: "pack_icon.png", data: PixelArtTextureRenderer.render(primaryVisual, pixelScale: 4))
         )

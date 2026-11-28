@@ -1134,6 +1134,56 @@ final class BedrockCompilerTests: XCTestCase {
         XCTAssertTrue(localization.contains("entity.craftberry:azure_a1b2c3_creature.name=Azure Boss"))
     }
 
+    func testCompilerEmitsNamespacedBiomeMatchingPinnedSampleShape() throws {
+        let project = try AddOnProject.biomeSet(biomeName: "Crimson Dunes", surface: .redSand, originalPrompt: "biome", identity: makeIdentity())
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+        let outer = try ZipArchiveReader.readEntries(at: result.artifact.url)
+        let behavior = try pack(named: "crimson_dunes_a1b2c3_biome_token_behavior.mcpack", in: outer)
+        // One biome per file, file name equals the identifier path (biome overview reference).
+        let document = try json(named: "biomes/crimson_dunes_a1b2c3_biome.biome.json", in: behavior)
+        // Pinned to bedrock-samples 921fafb0 behavior_pack/biomes/plains.biome.json shapes
+        // plus the replace_biomes reference (stable without an experiment since 1.21.110).
+        XCTAssertEqual(document["format_version"] as? String, "1.26.30")
+        let biome = try XCTUnwrap(document["minecraft:biome"] as? [String: Any])
+        XCTAssertEqual((biome["description"] as? [String: Any])?["identifier"] as? String, "craftberry:crimson_dunes_a1b2c3_biome")
+        let components = try XCTUnwrap(biome["components"] as? [String: Any])
+        XCTAssertEqual(Set(components.keys), ["minecraft:climate", "minecraft:overworld_height", "minecraft:replace_biomes", "minecraft:surface_builder", "minecraft:tags"])
+        let replacements = try XCTUnwrap((components["minecraft:replace_biomes"] as? [String: Any])?["replacements"] as? [[String: Any]])
+        XCTAssertEqual(replacements.count, 1)
+        XCTAssertEqual(replacements[0]["dimension"] as? String, "minecraft:overworld")
+        XCTAssertEqual(replacements[0]["targets"] as? [String], ["plains", "forest"])
+        XCTAssertEqual(replacements[0]["amount"] as? Double, 0.5)
+        XCTAssertEqual(replacements[0]["noise_frequency_scale"] as? Double, 25)
+        let builder = try XCTUnwrap((components["minecraft:surface_builder"] as? [String: Any])?["builder"] as? [String: Any])
+        XCTAssertEqual(builder["type"] as? String, "minecraft:overworld")
+        XCTAssertEqual(builder["top_material"] as? String, "minecraft:red_sand")
+        XCTAssertEqual(builder["mid_material"] as? String, "minecraft:red_sand")
+        XCTAssertEqual(builder["foundation_material"] as? String, "minecraft:stone")
+        XCTAssertEqual(builder["sea_material"] as? String, "minecraft:water")
+        XCTAssertEqual(builder["sea_floor_material"] as? String, "minecraft:gravel")
+        XCTAssertEqual(builder["sea_floor_depth"] as? Int, 7)
+        let climate = try XCTUnwrap(components["minecraft:climate"] as? [String: Any])
+        XCTAssertEqual(climate["snow_accumulation"] as? [Double], [0.0, 0.125])
+        XCTAssertEqual((components["minecraft:tags"] as? [String: Any])?["tags"] as? [String], ["animal", "monster", "overworld"])
+        XCTAssertEqual((components["minecraft:overworld_height"] as? [String: Any])?["noise_type"] as? String, "lowlands")
+    }
+
+    func testBiomeSurfaceChoosesTheEmittedBlock() throws {
+        for surface in BiomeSurface.allCases {
+            let project = try AddOnProject.biomeSet(biomeName: "Test", surface: surface, originalPrompt: "biome", identity: makeIdentity())
+            let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let result = try BedrockAddOnCompiler().compile(project: project, profile: .current, outputDirectory: directory)
+            let behavior = try pack(named: "test_a1b2c3_biome_token_behavior.mcpack", in: try ZipArchiveReader.readEntries(at: result.artifact.url))
+            let document = try json(named: "biomes/test_a1b2c3_biome.biome.json", in: behavior)
+            let components = try XCTUnwrap((document["minecraft:biome"] as? [String: Any])?["components"] as? [String: Any])
+            let builder = try XCTUnwrap((components["minecraft:surface_builder"] as? [String: Any])?["builder"] as? [String: Any])
+            XCTAssertEqual(builder["top_material"] as? String, surface.blockIdentifier)
+        }
+    }
+
     func testCompilerEmitsMaterialStructureSetWithHutAndFeature() throws {
         let project = try AddOnProject.materialStructureSet(materialName: "Azure", sourceItem: "minecraft:diamond", sourceCount: 4, originalPrompt: "hut", identity: makeIdentity())
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

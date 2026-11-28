@@ -558,6 +558,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case item(ItemDefinition)
     case block(BlockDefinition)
     case structure(StructureDefinition)
+    case biome(BiomeDefinition)
     case entity(EntityDefinition)
     case spawnRule(SpawnDefinition)
     case entityLoot(LootDefinition)
@@ -571,7 +572,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, block, structure, entity, spawnRule, entityLoot, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, structure, biome, entity, spawnRule, entityLoot, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -579,6 +580,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .item: self = .item(try values.decode(ItemDefinition.self, forKey: .value))
         case .block: self = .block(try values.decode(BlockDefinition.self, forKey: .value))
         case .structure: self = .structure(try values.decode(StructureDefinition.self, forKey: .value))
+        case .biome: self = .biome(try values.decode(BiomeDefinition.self, forKey: .value))
         case .entity: self = .entity(try values.decode(EntityDefinition.self, forKey: .value))
         case .spawnRule: self = .spawnRule(try values.decode(SpawnDefinition.self, forKey: .value))
         case .entityLoot: self = .entityLoot(try values.decode(LootDefinition.self, forKey: .value))
@@ -605,6 +607,9 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .structure(let structure):
             try values.encode(Kind.structure, forKey: .type)
             try values.encode(structure, forKey: .value)
+        case .biome(let biome):
+            try values.encode(Kind.biome, forKey: .type)
+            try values.encode(biome, forKey: .value)
         case .entity(let entity):
             try values.encode(Kind.entity, forKey: .type)
             try values.encode(entity, forKey: .value)
@@ -756,6 +761,10 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     }
     public var structures: [StructureDefinition] {
         content.compactMap { if case .structure(let structure) = $0 { structure } else { nil } }
+    }
+
+    public var biomes: [BiomeDefinition] {
+        content.compactMap { if case .biome(let biome) = $0 { biome } else { nil } }
     }
 
     public var entities: [EntityDefinition] {

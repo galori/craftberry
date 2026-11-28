@@ -939,4 +939,23 @@ final class AddOnProjectTests: XCTestCase {
             }
         )
     }
+
+    func testBiomeSetBuildsOneBiomeAndRoundTrips() throws {
+        let project = try AddOnProject.biomeSet(biomeName: " Crimson Dunes ", surface: .snow, originalPrompt: "biome", identity: .generate(suffixGenerator: { "a1b2c3" }))
+        XCTAssertEqual(project.biomes.map(\.id.rawValue), ["crimson_dunes_a1b2c3_biome"])
+        XCTAssertEqual(project.biomes.first?.surface, .snow)
+        XCTAssertEqual(project.displayName, "Crimson Dunes")
+        XCTAssertTrue(AddOnProjectValidator.validate(project, profile: .current).isSuccessful)
+        let decoded = try JSONDecoder().decode(AddOnProject.self, from: JSONEncoder().encode(project))
+        XCTAssertEqual(decoded, project)
+        XCTAssertThrowsError(try AddOnProject.biomeSet(biomeName: "  ", originalPrompt: "x"))
+        XCTAssertThrowsError(try AddOnProject.biomeSet(biomeName: String(repeating: "a", count: 25), originalPrompt: "x"))
+    }
+
+    func testValidationRejectsTwoBiomes() throws {
+        let one = try AddOnProject.biomeSet(biomeName: "One", originalPrompt: "x")
+        let two = try AddOnProject.biomeSet(biomeName: "Two", originalPrompt: "x")
+        let combined = AddOnProject(id: one.id, namespace: one.namespace, displayName: one.displayName, packUUIDs: one.packUUIDs, buildVersion: one.buildVersion, targetProfileID: one.targetProfileID, originalPrompt: "x", content: one.content + two.biomes.map(AddOnContentNode.biome))
+        XCTAssertTrue(AddOnProjectValidator.validate(combined, profile: .current).errors.contains { $0.code == "too_many_biomes" })
+    }
 }

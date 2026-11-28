@@ -103,6 +103,39 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(countReward, confirmReward)
     }
 
+    func testBiomeAcceptanceScenarioLocatesThenVisitsThenChecksSurface() throws {
+        let scenario = MinecraftE2EScenario.customBiome
+        let names = scenario.postCraftingSteps.map(\.name)
+        let locate = try XCTUnwrap(names.firstIndex { $0.contains("Locate the generated biome") })
+        let identity = try XCTUnwrap(names.firstIndex { $0.contains("located biome identity") })
+        let teleport = try XCTUnwrap(names.firstIndex { $0.contains("Teleport above the located biome") })
+        let surface = try XCTUnwrap(names.firstIndex { $0.contains("red sand surface") })
+        XCTAssertLessThan(locate, identity)
+        XCTAssertLessThan(identity, teleport)
+        XCTAssertLessThan(teleport, surface)
+        XCTAssertEqual(scenario.craftingPlan.recipes.count, 0)
+        guard case .chatCommand(let command) = scenario.postCraftingSteps[locate].action else { return XCTFail("Expected a locate command") }
+        XCTAssertEqual(command, "/locate biome craftberry:crimson_dunes_fueltest_biome")
+        XCTAssertEqual(command, command.lowercased())
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .teleportToLocatedBiome })
+    }
+
+    func testLocateOutputParsesBedrockCoordinates() {
+        XCTAssertEqual(MinecraftLocateOutput.coordinates(in: "The nearest craftberry:x is at (-1234, ~, 567) (1300 blocks away)")?.x, -1234)
+        XCTAssertEqual(MinecraftLocateOutput.coordinates(in: "The nearest craftberry:x is at (-1234, ~, 567) (1300 blocks away)")?.z, 567)
+        let withY = MinecraftLocateOutput.coordinates(in: "The nearest x is at (10, 64, -20) (30 blocks away)")
+        XCTAssertEqual(withY?.x, 10)
+        XCTAssertEqual(withY?.z, -20)
+        XCTAssertNil(MinecraftLocateOutput.coordinates(in: "Could not find a biome of type x within reasonable distance"))
+    }
+
+    func testRedSandPixelRuleMatchesRedSandButNotDirtOrGrass() {
+        XCTAssertTrue(MinecraftPixelInspector.isRedSand(red: 190, green: 102, blue: 32))
+        XCTAssertTrue(MinecraftPixelInspector.isRedSand(red: 133, green: 71, blue: 22))
+        XCTAssertFalse(MinecraftPixelInspector.isRedSand(red: 134, green: 96, blue: 67))
+        XCTAssertFalse(MinecraftPixelInspector.isRedSand(red: 95, green: 159, blue: 53))
+    }
+
     func testEnchantTableOpenRetriesAcrossTheTableBody() {
         let steps = MinecraftE2EScenario.redstoneEnchantableSwordSet.postCraftingSteps
         // A single tap point misses the table's narrow upper body on some runs, so the

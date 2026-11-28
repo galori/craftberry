@@ -608,6 +608,63 @@ final class OpenAIResponsesClientTests: XCTestCase {
         XCTAssertNil(generation.project)
     }
 
+    func testClientAssemblesBiomeSetFromStructuredIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A red sand biome.","biomeSet":{"biomeName":"Crimson Dunes","surface":"redSand"}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        let recorder = RequestRecorder()
+        URLProtocolStub.store.setHandler { request in
+            _ = recorder.record(request)
+            return (
+                try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)),
+                responseData
+            )
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        let generation = try await client.generateProject(from: "A red sand biome named Crimson Dunes")
+
+        let project = try XCTUnwrap(generation.project)
+        XCTAssertEqual(project.biomes.map(\.id.rawValue), ["crimson_dunes_a1b2c3_biome"])
+        XCTAssertEqual(project.biomes.first?.surface, .redSand)
+
+        let requestBody = try XCTUnwrap(recorder.body(at: 0))
+        let requestDocument = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+        let format = try XCTUnwrap((requestDocument["text"] as? [String: Any])?["format"] as? [String: Any])
+        let schema = try XCTUnwrap(format["schema"] as? [String: Any])
+        XCTAssertTrue(try XCTUnwrap(schema["required"] as? [String]).contains("biomeSet"))
+        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
+        let variants = try XCTUnwrap((properties["biomeSet"] as? [String: Any])?["anyOf"] as? [[String: Any]])
+        let objectSchema = try XCTUnwrap(variants.first { $0["type"] as? String == "object" })
+        let surface = try XCTUnwrap((objectSchema["properties"] as? [String: Any])?["surface"] as? [String: Any])
+        XCTAssertEqual(surface["enum"] as? [String], ["redSand", "snow", "mycelium"])
+    }
+
+    func testClientRejectsBiomeCombinedWithAnotherIntent() async throws {
+        let structuredText = """
+        {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"Mixed.","biomeSet":{"biomeName":"Crimson Dunes","surface":"redSand"},"materialBossEntitySet":{"materialName":"Azure","color":"red","sourceItem":"diamond","sourceCount":4,"health":40}}
+        """
+        let responseData = try JSONSerialization.data(withJSONObject: ["output": [["content": [["type": "output_text", "text": structuredText]]]]])
+        URLProtocolStub.store.setHandler { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil)), responseData)
+        }
+        defer { URLProtocolStub.store.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let stableIdentity = identity()
+        let client = OpenAIResponsesClient(apiKey: "test-key", session: URLSession(configuration: configuration), identityGenerator: { stableIdentity })
+
+        do {
+            _ = try await client.generateProject(from: "mixed")
+            XCTFail("A biome combined with another intent must be rejected")
+        } catch {}
+    }
+
     func testClientAssemblesBossEntitySetFromStructuredIntent() async throws {
         let structuredText = """
         {"schemaVersion":1,"outcome":"ready","message":"Ready to build.","shortDescription":"A phased boss encounter.","materialBossEntitySet":{"materialName":"Azure","color":"red","sourceItem":"diamond","sourceCount":4,"health":40}}

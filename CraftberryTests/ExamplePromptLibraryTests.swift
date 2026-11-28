@@ -22,8 +22,9 @@ final class ExamplePromptLibraryTests: XCTestCase {
     func testEveryPromptNamesASupportedVanillaMaterial() {
         for prompt in ExamplePromptLibrary.all {
             let text = prompt.text.lowercased()
+            // Biome prompts name a surface block, not an ingot material.
             XCTAssertTrue(
-                Self.materialKeywords.contains { text.contains($0) },
+                text.contains("biome") || Self.materialKeywords.contains { text.contains($0) },
                 "\(prompt.text) does not name a material the profile supports"
             )
         }
@@ -49,6 +50,7 @@ final class ExamplePromptLibraryTests: XCTestCase {
         let blockSets = corpus.filter { $0.contains("block set") }
         let hostileEntitySets = corpus.filter { $0.contains("hostile") && ($0.contains("entity set") || $0.contains("mob set") || $0.contains("creature set")) }
         let bossEntitySets = corpus.filter { $0.contains("boss") && ($0.contains("phase") || $0.contains("encounter")) }
+        let biomeSets = corpus.filter { $0.contains("biome") }
         let ingotSets = corpus.filter { $0.contains("ingot") }
         XCTAssertGreaterThanOrEqual(toolSets.count, 4)
         XCTAssertGreaterThanOrEqual(weaponSets.count, 4)
@@ -57,6 +59,7 @@ final class ExamplePromptLibraryTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(blockSets.count, 4)
         XCTAssertGreaterThanOrEqual(hostileEntitySets.count, 4)
         XCTAssertGreaterThanOrEqual(bossEntitySets.count, 3)
+        XCTAssertGreaterThanOrEqual(biomeSets.count, 3)
         XCTAssertGreaterThanOrEqual(ingotSets.count, 4)
     }
 
