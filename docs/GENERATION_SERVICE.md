@@ -46,3 +46,25 @@ If a provider call succeeds but SQLite cannot persist its validated intent, the 
 The service verifies the enrollment receipt's CMS signature and certificate chain to the bundled Apple Root CA G3, then checks its App ID, attested certificate, challenge hash, `ATTEST` type, and five-minute creation-time window before storing it with the key. It does not submit receipts to Apple's fraud-risk API or consume the returned device risk metric. Obtaining a fraud metric also requires an APNs-style JWT signing key with DeviceCheck enabled, plus separate development and production receipt handling; no account credentials are present here. Apple's server-validation guide describes the receipt checks and later assertions, while the fraud-risk guide documents the authenticated `attestationData` call. See [Apple's server validation guide](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server), [app integrity guide](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity), and [fraud-risk guide](https://developer.apple.com/documentation/devicecheck/assessing-fraud-risk).
 
 The runnable host is intentionally macOS-only today. Certificate-chain trust uses Apple's `Security` framework; the request assertion uses CryptoKit. A Linux host adapter is feasible, but it needs a separately packaged service core and maintained portable cryptography: Swift Crypto provides a substantial CryptoKit-compatible API for Linux, and OpenSSL provides explicit X.509 chain-verification APIs. This is an implementation assessment, not a tested adapter; it would need valid and invalid chain fixtures, no-network trust evaluation against the pinned Apple root, and parity tests for assertion signatures before use. Do not replace the current validation with shelling out to a system `openssl` binary or with an unverified trust callback. See [Apple Swift Crypto](https://github.com/apple/swift-crypto) and [OpenSSL certificate verification](https://docs.openssl.org/3.5/man3/X509_verify_cert/).
+
+## Cloudflare Worker deployment
+
+`server/` holds a TypeScript port of the same service for Cloudflare Workers. The HTTP contract (routes, headers, status codes, error codes, quota defaults of 5 per minute, 10 per hour and 30 per day) is unchanged, so the iOS client needs no change beyond `CRAFTBERRY_BACKEND_BASE_URL`. `GET /health` returns `{"ok":true,"configured":<bool>}` for monitoring.
+
+- State lives in one SQLite-backed Durable Object (`GenerationStore`). Each store method runs without awaits, so reservations, counter updates and challenge consumption are atomic, as `BEGIN IMMEDIATE` plus the process lock were for the Swift store. An in-flight generation older than two minutes is treated as abandoned and may be retried (it spends a new quota event).
+- The unauthenticated challenge endpoint is rate-limited to 30 requests per minute per client address (only a short hash of the address is stored) and answers `429 quota_exceeded`. `/v1/session/enroll` is limited to 10 attempts per minute per client address, and a failed attestation burns its challenge. Request bodies are size-limited while streaming, so a missing `Content-Length` does not bypass the limit.
+- `cloudflare.config.ts` defines two modes. `staging` deploys `craftberry-generation-staging` with the `development` App Attest environment. `production` deploys `craftberry-generation-production` with `production`. Each Worker has its own Durable Object namespace and its own secrets.
+- `OPENAI_API_KEY` is not declared in `cloudflare.config.ts`, so a deploy never writes or overwrites it (`cf deploy` also keeps existing secrets). If `APP_ATTEST_ALLOWED_BUNDLE_VERSIONS` is empty the Worker answers `503 service_not_configured`, like the Swift server refusing to start.
+- Until `OPENAI_API_KEY` is set, authenticated generation returns `503 service_not_configured` and spends no quota. Set it once per environment. Read the key without echo so it never enters shell history or the repo:
+
+```sh
+read -rs OPENAI_KEY
+cf workers secrets update OPENAI_API_KEY --worker craftberry-generation-staging --text "$OPENAI_KEY"
+cf workers secrets update OPENAI_API_KEY --worker craftberry-generation-production --text "$OPENAI_KEY"
+unset OPENAI_KEY
+```
+
+- `server/scripts/smoke.sh <base-url>` checks health, challenge issue and that unattested generation is rejected.
+- `.github/workflows/server.yml` builds, type-checks, tests and dry-runs both modes on pull requests, deploys staging on push to `main`, and deploys production only by manual dispatch from `main` (the dispatch default is `staging`). It needs repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- The Worker does not run the full Swift project validator on the model output. It checks the intent envelope and relies on the strict JSON schema sent to OpenAI (generated from the Swift client). The iOS client still assembles and validates the intent locally.
+- Receipt-to-fraud-risk handling and the other limits listed above are unchanged.
