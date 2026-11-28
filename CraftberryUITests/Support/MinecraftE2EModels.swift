@@ -10,6 +10,7 @@ struct MinecraftStep: Equatable {
     enum Action: Equatable {
         case wait(seconds: TimeInterval)
         case tap(x: CGFloat, y: CGFloat)
+        case pressAndHold(x: CGFloat, y: CGFloat, seconds: TimeInterval)
         case tapIfText(x: CGFloat, y: CGFloat, text: String)
         case tapTextRow(x: CGFloat, text: String)
         case tapUntilText(x: CGFloat, y: CGFloat, fallbackX: CGFloat, fallbackY: CGFloat, text: String)
@@ -120,6 +121,10 @@ struct MinecraftE2EScenario {
     let craftingPlan: MinecraftCraftingPlan
     var postCraftingSteps: [MinecraftStep] = []
     var cleansUpInWorld: Bool = true
+
+    func preconfiguredWorldName(for gameMode: MinecraftWorldGameMode) -> String {
+        gameMode.worldTitle(projectName: projectName)
+    }
 }
 
 enum MinecraftWorldGameMode: String {
@@ -191,4 +196,6 @@ enum MinecraftPixelExpectation: Equatable {
     case redSandCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
     case itemContrastCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
     case itemContrastAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
+    case brownCluster(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, minimumCount: Int)
+    case brownAbsent(xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>, maximumCount: Int)
 }

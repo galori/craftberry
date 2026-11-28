@@ -142,7 +142,8 @@ struct MinecraftPixelInspector {
                 yRange: yRange,
                 cyan: isCyan(expectation),
                 itemContrast: isItemContrast(expectation),
-                redSand: isRedSand(expectation)
+                redSand: isRedSand(expectation),
+                brown: isBrown(expectation)
             )
         }
         return count(expectation, in: image)
@@ -151,6 +152,7 @@ struct MinecraftPixelInspector {
     func count(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Int {
         let (xRange, yRange) = region(for: expectation)
         let cyan = isCyan(expectation)
+        let brown = isBrown(expectation)
         return orientations.compactMap { orientation in
             orientedImage(image, orientation: orientation).map {
                 pixelCount(
@@ -159,7 +161,8 @@ struct MinecraftPixelInspector {
                     yRange: yRange,
                     cyan: cyan,
                     itemContrast: isItemContrast(expectation),
-                    redSand: isRedSand(expectation)
+                    redSand: isRedSand(expectation),
+                    brown: brown
                 )
             }
         }.max() ?? 0
@@ -184,15 +187,24 @@ struct MinecraftPixelInspector {
         }
     }
 
+    private func isBrown(_ expectation: MinecraftPixelExpectation) -> Bool {
+        switch expectation {
+        case .brownCluster, .brownAbsent:
+            true
+        default:
+            false
+        }
+    }
+
     func matches(_ expectation: MinecraftPixelExpectation, in image: CGImage) -> Bool {
         decide(count: count(expectation, in: image), for: expectation)
     }
 
     private func decide(count: Int, for expectation: MinecraftPixelExpectation) -> Bool {
         switch expectation {
-        case .redstonePickaxeOutput, .redCluster, .cyanCluster, .redSandCluster, .itemContrastCluster:
+        case .redstonePickaxeOutput, .redCluster, .cyanCluster, .redSandCluster, .itemContrastCluster, .brownCluster:
             return count >= minimumCount(for: expectation)
-        case .redAbsent, .itemContrastAbsent:
+        case .redAbsent, .itemContrastAbsent, .brownAbsent:
             return count <= maximumCount(for: expectation)
         }
     }
@@ -224,6 +236,10 @@ struct MinecraftPixelInspector {
             return (xRange, yRange)
         case .itemContrastAbsent(let xRange, let yRange, _):
             return (xRange, yRange)
+        case .brownCluster(let xRange, let yRange, _):
+            return (xRange, yRange)
+        case .brownAbsent(let xRange, let yRange, _):
+            return (xRange, yRange)
         }
     }
 
@@ -239,7 +255,9 @@ struct MinecraftPixelInspector {
             return minimumCount
         case .itemContrastCluster(_, _, let minimumCount):
             return minimumCount
-        case .redAbsent, .itemContrastAbsent:
+        case .brownCluster(_, _, let minimumCount):
+            return minimumCount
+        case .redAbsent, .itemContrastAbsent, .brownAbsent:
             return 0
         }
     }
@@ -256,7 +274,9 @@ struct MinecraftPixelInspector {
             return Int.max
         case .itemContrastCluster:
             return Int.max
-        case .redAbsent(_, _, let maximumCount), .itemContrastAbsent(_, _, let maximumCount):
+        case .brownCluster:
+            return Int.max
+        case .redAbsent(_, _, let maximumCount), .itemContrastAbsent(_, _, let maximumCount), .brownAbsent(_, _, let maximumCount):
             return maximumCount
         }
     }
@@ -273,7 +293,7 @@ struct MinecraftPixelInspector {
     }
 
     private func redPixelCount(in image: CGImage, xRange: ClosedRange<CGFloat>, yRange: ClosedRange<CGFloat>) -> Int {
-        pixelCount(in: image, xRange: xRange, yRange: yRange, cyan: false, itemContrast: false)
+        pixelCount(in: image, xRange: xRange, yRange: yRange, cyan: false, itemContrast: false, brown: false)
     }
 
     private func pixelCount(
@@ -282,7 +302,8 @@ struct MinecraftPixelInspector {
         yRange: ClosedRange<CGFloat>,
         cyan: Bool,
         itemContrast: Bool,
-        redSand: Bool = false
+        redSand: Bool = false,
+        brown: Bool
     ) -> Int {
         let width = image.width
         let height = image.height
@@ -313,6 +334,10 @@ struct MinecraftPixelInspector {
                     let brightest = max(red, green, blue)
                     let darkest = min(red, green, blue)
                     if brightest > 205 || darkest < 72 { matchedPixels += 1 }
+                } else if brown {
+                    // Hunger drumstick fill has substantial green; pure-red
+                    // health hearts must not be counted as hunger pixels.
+                    if red > 110, green * 3 > red, green < red, blue * 2 < red { matchedPixels += 1 }
                 } else if cyan {
                     if blue > 140, blue > red * 2, green > red * 2 { matchedPixels += 1 }
                 } else if red > 140, red > green * 2, red > blue * 2 {

@@ -60,6 +60,7 @@ final class MinecraftStepExecutor {
     private let onIntermediateScreenshot: (String) -> Void
     private let wait: (TimeInterval) -> Void
     private let tap: (XCUIApplication, CGVector) -> Void
+    private let press: (XCUIApplication, CGVector, TimeInterval) -> Void
     private let recognizedText: (String, TimeInterval) -> Bool
     private let recognizedTextCenter: (String, TimeInterval) -> CGPoint?
     private let chatScreenDetector: (TimeInterval) -> Bool
@@ -73,6 +74,7 @@ final class MinecraftStepExecutor {
         tap: @escaping (XCUIApplication, CGVector) -> Void = { app, offset in
             app.coordinate(withNormalizedOffset: offset).tap()
         },
+        press: ((XCUIApplication, CGVector, TimeInterval) -> Void)? = nil,
         recognizedText: ((String, TimeInterval) -> Bool)? = nil,
         recognizedTextCenter: ((String, TimeInterval) -> CGPoint?)? = nil,
         chatScreenDetector: ((TimeInterval) -> Bool)? = nil
@@ -83,6 +85,9 @@ final class MinecraftStepExecutor {
         self.onIntermediateScreenshot = onIntermediateScreenshot
         self.wait = wait
         self.tap = tap
+        self.press = press ?? { app, offset, seconds in
+            app.coordinate(withNormalizedOffset: offset).press(forDuration: seconds)
+        }
         let resolvedTextDetector = recognizedText ?? { expected, timeout in
             ocr.waitForRecognizedText(expected, timeout: timeout)
         }
@@ -107,6 +112,9 @@ final class MinecraftStepExecutor {
             return .success(step)
         case .tap(let x, let y):
             minecraft.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap()
+            return .success(step)
+        case .pressAndHold(let x, let y, let seconds):
+            press(minecraft, CGVector(dx: x, dy: y), seconds)
             return .success(step)
         case .tapIfText(let x, let y, let rawExpected):
             let expected = resolve(rawExpected)
