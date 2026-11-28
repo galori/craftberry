@@ -504,6 +504,7 @@ extension MinecraftE2EScenario {
 
     static let redstoneOreSet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-ore-set",
+        additionalLaunchArguments: ["--ui-testing-stable-fuel-identifier"],
         prompt: "Generate a redstone ore set crafted from redstone",
         projectName: "Redstone",
         expectedCraftedItemName: "Redstone Ore",
@@ -514,7 +515,7 @@ extension MinecraftE2EScenario {
                 .init(outputName: "Redstone Ingot", ingredients: [.init(searchText: "redstone", resultColumn: 4, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])], beforePickupVerification: nil, afterPickupVerification: .text("Redstone"), outputDestination: firstCraftSlot, shouldResetTableAfterPickup: true),
                 .init(outputName: "Redstone Ore", ingredients: [.init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .topRight, .middleLeft, .middleCenter, .middleRight, .bottomLeft, .bottomCenter, .bottomRight])], beforePickupVerification: nil, afterPickupVerification: .text("Ore"), outputDestination: slotAfterIngredientsReturn, shouldResetTableAfterPickup: false)
             ], finalHotbarTap: nil),
-        postCraftingSteps: placeAndMineSteps(blockID: "craftberry:redstone_uitest_ore", dropID: "craftberry:redstone_uitest_ingot", dropLabel: "Redstone Ingot")
+        postCraftingSteps: placeAndMineSteps(blockID: "craftberry:redstone_fueltest_ore", dropID: "craftberry:redstone_fueltest_ingot", dropLabel: "Redstone Ingot")
     )
 
     static let redstoneCropSet = MinecraftE2EScenario(
@@ -679,6 +680,7 @@ extension MinecraftE2EScenario {
 
     static let redstoneBlockSet = MinecraftE2EScenario(
         launchArgument: "--ui-testing-redstone-block-set",
+        additionalLaunchArguments: ["--ui-testing-stable-fuel-identifier"],
         prompt: "Generate a redstone block set crafted from redstone",
         projectName: "Redstone",
         expectedCraftedItemName: "Redstone Block",
@@ -709,7 +711,7 @@ extension MinecraftE2EScenario {
             ],
             finalHotbarTap: nil
         ),
-        postCraftingSteps: placeAndMineSteps(blockID: "craftberry:redstone_uitest_block", dropID: "craftberry:redstone_uitest_block", dropLabel: "Redstone Block")
+        postCraftingSteps: placeAndMineSteps(blockID: "craftberry:redstone_fueltest_block", dropID: "craftberry:redstone_fueltest_block", dropLabel: "Redstone Block")
     )
 
     static let musicRecord = MinecraftE2EScenario(
