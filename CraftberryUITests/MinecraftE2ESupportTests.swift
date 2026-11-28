@@ -158,6 +158,61 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Enchanting succeeded") })
     }
 
+    func testConsumableScenarioEatsFoodInSurvivalAfterCrafting() throws {
+        let scenario = MinecraftE2EScenario.redstoneConsumableSet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-consumable-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Food")
+        XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Ingot", "Redstone Food"])
+        // The fixture food has canAlwaysEat false, so the player must be
+        // hungry: drain first, prove the bar empty, eat, prove it restored.
+        // Hunger restoration is the eating proof — the engine only restores
+        // drumsticks when Survival consumption actually happens.
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/gamemode survival @s") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains {
+            if case .chatCommand(let command) = $0.action { return command.hasPrefix("/effect @s hunger") }
+            return false
+        })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .chatCommand("/effect @s clear") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains {
+            if case .pressAndHold = $0.action { return true }
+            return false
+        })
+        XCTAssertTrue(scenario.postCraftingSteps.contains {
+            if case .assertPixels(.brownAbsent) = $0.action { return true }
+            return false
+        })
+        XCTAssertTrue(scenario.postCraftingSteps.contains {
+            if case .assertPixels(.brownCluster) = $0.action { return true }
+            return false
+        })
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertTrue(commands.contains("/difficulty normal"), "Peaceful locks hunger full, which would make eating impossible.")
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Eating setup commands must stay on the calibrated lowercase keyboard plane.")
+        let names = scenario.postCraftingSteps.map(\.name)
+        let enterSurvival = try XCTUnwrap(names.firstIndex { $0.contains("Enter Survival") })
+        let drain = try XCTUnwrap(names.firstIndex { $0.contains("Drain hunger") })
+        let confirmEmpty = try XCTUnwrap(names.firstIndex { $0.contains("hunger bar is empty") })
+        let selectFood = try XCTUnwrap(names.firstIndex { $0.contains("Select the crafted Redstone Food") })
+        let eat = try XCTUnwrap(names.firstIndex { $0.contains("Eat the held Redstone Food") })
+        let confirmRestored = try XCTUnwrap(names.firstIndex { $0.contains("hunger restored") })
+        XCTAssertLessThan(enterSurvival, drain)
+        XCTAssertLessThan(drain, confirmEmpty)
+        XCTAssertLessThan(confirmEmpty, selectFood)
+        XCTAssertLessThan(selectFood, eat)
+        XCTAssertLessThan(eat, confirmRestored)
+    }
+
+    func testFoodRecipeRequiresVisibleOutputBeforePickup() throws {
+        let recipe = try XCTUnwrap(MinecraftE2EScenario.redstoneConsumableSet.craftingPlan.recipes.last)
+        guard case .pixels(.redCluster) = recipe.beforePickupVerification else {
+            return XCTFail("An empty ingredient search must fail before the runner taps the food output.")
+        }
+    }
+
     func testCalibrationRequiredStepFailsWithAnExplicitCalibrationReason() {
         let executor = MinecraftStepExecutor()
         let step = MinecraftPhasedStep(
@@ -259,6 +314,23 @@ final class MinecraftE2ESupportTests: XCTestCase {
         )
 
         XCTAssertEqual(1 - selected.midY, 0.8, accuracy: 0.001)
+    }
+
+    func testPreconfiguredWorldSelectionUsesTheFullGameModeQualifiedName() throws {
+        let scenario = MinecraftE2EScenario.redstoneConsumableSet
+        let creativeName = scenario.preconfiguredWorldName(for: .creative)
+        let candidates = [
+            (text: "Redstone (Creative)", boundingBox: CGRect(x: 0.1, y: 0.2, width: 0.8, height: 0.1)),
+            (text: "Redstone (Survival)", boundingBox: CGRect(x: 0.1, y: 0.7, width: 0.8, height: 0.1))
+        ]
+
+        XCTAssertEqual(creativeName, "Redstone (Creative)")
+        let selected = try XCTUnwrap(
+            MinecraftOCRInspector.bottommostBoundingBox(matching: creativeName, among: candidates)
+        )
+
+        XCTAssertEqual(selected, candidates[0].boundingBox)
+        XCTAssertNotEqual(creativeName, scenario.preconfiguredWorldName(for: .survival))
     }
 
     func testMalformedPayloadIsRejected() {
@@ -560,6 +632,22 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertFalse(console.isCurrentStepExecuted)
     }
 
+    func testExecutorPressAndHoldPressesForTheRequestedDuration() {
+        var presses: [(offset: CGVector, seconds: TimeInterval)] = []
+        let executor = MinecraftStepExecutor(
+            press: { _, offset, seconds in presses.append((offset, seconds)) }
+        )
+        let step = MinecraftPhasedStep(id: "behavior:1", name: "Eat the held food", action: .pressAndHold(x: 0.5, y: 0.4, seconds: 6))
+
+        let result = executor.execute(step, in: XCUIApplication(), resolve: { $0 })
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(presses.count, 1)
+        XCTAssertEqual(presses.first?.offset.dx ?? -1, 0.5, accuracy: 0.001)
+        XCTAssertEqual(presses.first?.offset.dy ?? -1, 0.4, accuracy: 0.001)
+        XCTAssertEqual(presses.first?.seconds ?? -1, 6, accuracy: 0.001)
+    }
+
     func testDebuggerConsoleAdHocWaitDoesNotAdvanceTheCurrentStep() {
         let console = makeDebuggerConsole()
         let step = MinecraftPhasedStep(id: "config:1", name: "Wait", action: .wait(seconds: 0))
@@ -568,6 +656,25 @@ final class MinecraftE2ESupportTests: XCTestCase {
         console.wait(0)
 
         XCTAssertFalse(console.isCurrentStepExecuted, "An arbitrary console command must not mark the planned step as executed.")
+        XCTAssertNotNil(console.runCurrentStep(), "The planned step must still be runnable after an ad hoc command.")
+    }
+
+    func testDebuggerConsolePressAndHoldRunsAdHocWithoutMarkingStepExecuted() {
+        var presses: [(offset: CGVector, seconds: TimeInterval)] = []
+        let console = MinecraftDebuggerConsole(
+            app: XCUIApplication(),
+            executor: MinecraftStepExecutor(press: { _, offset, seconds in presses.append((offset, seconds)) }),
+            resolve: { $0 },
+            onScreenshot: { "" }
+        )
+        let step = MinecraftPhasedStep(id: "behavior:1", name: "Eat", action: .wait(seconds: 0))
+        _ = console.beforeStep(step)
+
+        let result = console.pressAndHold(0.5, 0.4, 6)
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(presses.count, 1)
+        XCTAssertFalse(console.isCurrentStepExecuted, "An ad hoc press-and-hold must not mark the planned step as executed.")
         XCTAssertNotNil(console.runCurrentStep(), "The planned step must still be runnable after an ad hoc command.")
     }
 
@@ -736,6 +843,28 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertEqual(controller.cursor, startCursor)
     }
 
+    func testCalibrationPressAndHoldNeverAdvancesCursor() {
+        let steps = makeTestSteps(count: 3)
+        let controller = makeController(steps: steps)
+        let startCursor = controller.cursor
+
+        let hold = controller.handle(MinecraftCalibrationRequest(command: "press_and_hold", x: 0.5, y: 0.4, seconds: 6))
+        XCTAssertTrue(hold.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+
+        let kebab = controller.handle(MinecraftCalibrationRequest(command: "press-and-hold", x: 0.5, y: 0.4, seconds: 6))
+        XCTAssertTrue(kebab.success)
+        XCTAssertEqual(controller.cursor, startCursor)
+    }
+
+    func testCalibrationPressAndHoldRequiresCoordinatesAndDuration() {
+        let controller = makeController(steps: makeTestSteps(count: 1))
+
+        XCTAssertFalse(controller.handle(MinecraftCalibrationRequest(command: "press_and_hold", y: 0.4, seconds: 6)).success)
+        XCTAssertFalse(controller.handle(MinecraftCalibrationRequest(command: "press_and_hold", x: 0.5, seconds: 6)).success)
+        XCTAssertFalse(controller.handle(MinecraftCalibrationRequest(command: "press_and_hold", x: 0.5, y: 0.4)).success)
+    }
+
     func testCalibrationMarkCompleteAdvancesWithoutExecuting() {
         let steps = makeTestSteps(count: 3)
         // Even if this step would fail, mark_complete should succeed and advance
@@ -866,6 +995,30 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertTrue(inspector.matches(empty, in: emptySlot))
     }
 
+    func testBrownClusterPixelExpectationMatchesSyntheticImages() throws {
+        let inspector = MinecraftPixelInspector()
+        let expectation = MinecraftPixelExpectation.brownCluster(xRange: 0.2...0.3, yRange: 0.2...0.3, minimumCount: 4)
+
+        XCTAssertTrue(inspector.matches(expectation, in: try syntheticImage(brownCluster: true)))
+        XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(brownCluster: false)))
+    }
+
+    func testBrownAbsentExpectationInvertsSyntheticImages() throws {
+        let inspector = MinecraftPixelInspector()
+        let expectation = MinecraftPixelExpectation.brownAbsent(xRange: 0.2...0.3, yRange: 0.2...0.3, maximumCount: 2)
+
+        XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(brownCluster: true)))
+        XCTAssertTrue(inspector.matches(expectation, in: try syntheticImage(brownCluster: false)))
+    }
+
+    func testBrownClusterIgnoresPureRedClusters() throws {
+        // Health hearts are pure red; they must not read as hunger drumsticks.
+        let inspector = MinecraftPixelInspector()
+        let expectation = MinecraftPixelExpectation.brownCluster(xRange: 0.2...0.3, yRange: 0.2...0.3, minimumCount: 4)
+
+        XCTAssertFalse(inspector.matches(expectation, in: try syntheticImage(redCluster: true)))
+    }
+
     func testRedstonePickaxePixelExpectationMatchesOutputCluster() throws {
         let inspector = MinecraftPixelInspector()
         let image = try syntheticImage(
@@ -902,15 +1055,30 @@ final class MinecraftE2ESupportTests: XCTestCase {
         )
     }
 
-    private func syntheticImage(width: Int, height: Int, redRect: CGRect? = nil, brightRect: CGRect? = nil) throws -> CGImage {
+    private func syntheticImage(brownCluster: Bool) throws -> CGImage {
+        try syntheticImage(
+            width: 20,
+            height: 20,
+            redRect: brownCluster ? CGRect(x: 13, y: 4, width: 3, height: 3) : nil,
+            rectColor: (170, 95, 35)
+        )
+    }
+
+    private func syntheticImage(
+        width: Int,
+        height: Int,
+        redRect: CGRect? = nil,
+        brightRect: CGRect? = nil,
+        rectColor: (UInt8, UInt8, UInt8) = (255, 20, 20)
+    ) throws -> CGImage {
         var bytes = Array(repeating: UInt8(0), count: width * height * 4)
         for y in 0..<height {
             for x in 0..<width {
                 let offset = ((y * width) + x) * 4
                 if redRect?.contains(CGPoint(x: x, y: y)) == true {
-                    bytes[offset] = 255
-                    bytes[offset + 1] = 20
-                    bytes[offset + 2] = 20
+                    bytes[offset] = rectColor.0
+                    bytes[offset + 1] = rectColor.1
+                    bytes[offset + 2] = rectColor.2
                 } else if brightRect?.contains(CGPoint(x: x, y: y)) == true {
                     bytes[offset] = 240
                     bytes[offset + 1] = 240
