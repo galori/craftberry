@@ -35,8 +35,8 @@ export/import and cold-launch, then exposes a JSON controller on
 Commands:
   start <scenario> [--break-at <id-or-name>] [--foreground]
         Start a calibration session for one scenario. Scenario is one of:
-          emerald | redstone | weapon | armor | entity | enchant | world
-        (aliases: emerald, redstone, weapon, armor, hostile, enchant)
+          emerald | redstone | weapon | armor | entity | enchant | consumable | world
+        (aliases: emerald, redstone, weapon, armor, hostile, enchant, consumable)
         --break-at stops before the named step (id like config:12 or name).
         --foreground keeps this command alive until the session is stopped.
 
@@ -63,6 +63,7 @@ Commands:
 
   tap <x> <y>
   drag <x> <y> <endX> <endY>
+  press-and-hold <x> <y> <seconds>
   swipe-up
   keyboard-text <text>
   numeric-keyboard-text <text>
@@ -188,11 +189,14 @@ scenario_to_test_selector() {
         enchant|redstoneEnchantableSword|redstone-enchantable-sword)
             printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationRedstoneEnchantableSword'
             ;;
+        consumable|redstoneConsumableSet|redstone-consumable-set)
+            printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationRedstoneConsumableSet'
+            ;;
         world|creativeWorld|preconfiguredWorld|preconfigured-world)
             printf 'CraftberryUITests/MinecraftCalibrationUITests/testCalibrationPreconfiguredCreativeWorld'
             ;;
         *)
-            echo "error: unknown scenario '$scenario' (expected emerald, redstone, weapon, armor, entity, enchant, or world)." >&2
+            echo "error: unknown scenario '$scenario' (expected emerald, redstone, weapon, armor, entity, enchant, consumable, or world)." >&2
             exit 1
             ;;
     esac
@@ -558,6 +562,14 @@ cmd_swipe_up() {
     cmd_simple '{"command":"swipe_up"}' "swipe-up"
 }
 
+cmd_press_and_hold() {
+    if [[ $# -ne 3 ]]; then echo "error: press-and-hold requires <x> <y> <seconds>" >&2; exit 1; fi
+    local x="$1" y="$2" seconds="$3"
+    local req
+    req="$(python3 -c "import json, sys; print(json.dumps({'command':'press_and_hold','x':float(sys.argv[1]),'y':float(sys.argv[2]),'seconds':float(sys.argv[3])}))" "$x" "$y" "$seconds")"
+    cmd_simple "$req" "press-and-hold"
+}
+
 cmd_keyboard_text() {
     if [[ $# -lt 1 ]]; then echo "error: keyboard-text requires <text>" >&2; exit 1; fi
     local text="$*"
@@ -768,6 +780,10 @@ main() {
             ;;
         swipe-up|swipe_up)
             cmd_swipe_up
+            ;;
+        press-and-hold|press_and_hold)
+            shift
+            cmd_press_and_hold "$@"
             ;;
         keyboard-text|keyboard_text)
             shift

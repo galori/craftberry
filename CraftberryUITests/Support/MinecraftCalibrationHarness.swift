@@ -227,7 +227,7 @@ final class MinecraftCalibrationHarness {
             }
         }
 
-        let visibleWorldName = gameMode.worldTitle(projectName: scenario.projectName)
+        let visibleWorldName = scenario.preconfiguredWorldName(for: gameMode)
         let openImportedWorld = MinecraftPhasedStep(
             id: "config:open-imported-world",
             name: "Open the imported \(visibleWorldName) world from its OCR-matched row",
