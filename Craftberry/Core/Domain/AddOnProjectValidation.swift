@@ -221,6 +221,21 @@ public enum AddOnProjectValidator {
                 issues.append(CompilationIssue(severity: .error, code: "invalid_structure_display_name", path: "\(structurePath).displayName", message: "Structure display names cannot be empty."))
             }
         }
+        if project.mechanics.count > 1 {
+            issues.append(CompilationIssue(severity: .error, code: "too_many_mechanics", path: "content.mechanics", message: "This profile supports at most one scripted mechanic per add-on."))
+        }
+        for mechanic in project.mechanics {
+            let mechanicPath = "content.mechanics.\(mechanic.id.rawValue)"
+            if !itemIDs.contains(mechanic.itemID) {
+                issues.append(CompilationIssue(severity: .error, code: "missing_mechanic_item", path: "\(mechanicPath).itemID", message: "Mechanic references missing item \(mechanic.itemID.rawValue)."))
+            }
+            if !MechanicAction.durationSeconds.contains(mechanic.action.durationSeconds) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_duration", path: "\(mechanicPath).action.durationSeconds", message: "Mechanic effect duration must be between 5 and 60 seconds."))
+            }
+            if !MechanicAction.amplifiers.contains(mechanic.action.amplifier) {
+                issues.append(CompilationIssue(severity: .error, code: "invalid_mechanic_amplifier", path: "\(mechanicPath).action.amplifier", message: "Mechanic effect amplifier must be between 0 and 4."))
+            }
+        }
         for item in project.items {
             let itemPath = "content.items.\(item.id.rawValue)"
             if item.displayName.contains("\n") || item.displayName.contains("\r") {

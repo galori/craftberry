@@ -411,6 +411,7 @@ public enum VisualResourceKind: String, Codable, Sendable, CaseIterable, Hashabl
     case armorLayerTwo
     case foodPixelArt
     case fuelPixelArt
+    case charmPixelArt
     case blockPixelArt
     case blockTerrain
     case elixirPixelArt
@@ -540,6 +541,57 @@ public struct StructureDefinition: Codable, Equatable, Sendable {
     }
 }
 
+/// Typed, closed vocabulary for scripted mechanics. The model chooses values from these enums;
+/// Swift validates them and fills a reviewed Script API template. No model text reaches JavaScript.
+public enum MechanicEvent: String, Codable, Equatable, Sendable, CaseIterable {
+    case useItem
+}
+
+public enum MechanicCondition: String, Codable, Equatable, Sendable, CaseIterable {
+    case none
+    case sneaking
+}
+
+public enum MechanicEffect: String, Codable, Equatable, Sendable, CaseIterable {
+    case speed
+    case jumpBoost = "jump_boost"
+    case regeneration
+    case nightVision = "night_vision"
+    case haste
+    case fireResistance = "fire_resistance"
+}
+
+public struct MechanicAction: Codable, Equatable, Sendable {
+    public static let durationSeconds = 5...60
+    public static let amplifiers = 0...4
+
+    public let effect: MechanicEffect
+    public let durationSeconds: Int
+    public let amplifier: Int
+
+    public init(effect: MechanicEffect, durationSeconds: Int, amplifier: Int) {
+        self.effect = effect
+        self.durationSeconds = durationSeconds
+        self.amplifier = amplifier
+    }
+}
+
+public struct MechanicDefinition: Codable, Equatable, Sendable {
+    public let id: ContentID
+    public let itemID: ContentID
+    public let event: MechanicEvent
+    public let condition: MechanicCondition
+    public let action: MechanicAction
+
+    public init(id: ContentID, itemID: ContentID, event: MechanicEvent = .useItem, condition: MechanicCondition = .none, action: MechanicAction) {
+        self.id = id
+        self.itemID = itemID
+        self.event = event
+        self.condition = condition
+        self.action = action
+    }
+}
+
 public struct VisualResource: Codable, Equatable, Sendable {
     public let id: ContentID
     public let kind: VisualResourceKind
@@ -558,6 +610,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case item(ItemDefinition)
     case block(BlockDefinition)
     case structure(StructureDefinition)
+    case mechanic(MechanicDefinition)
     case entity(EntityDefinition)
     case spawnRule(SpawnDefinition)
     case entityLoot(LootDefinition)
@@ -571,7 +624,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
     case visualResource(VisualResource)
 
     private enum CodingKeys: String, CodingKey { case type, value }
-    private enum Kind: String, Codable { case item, block, structure, entity, spawnRule, entityLoot, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource }
+    private enum Kind: String, Codable { case item, block, structure, mechanic, entity, spawnRule, entityLoot, shapedRecipe, shapelessRecipe, furnaceRecipe, smithingTrimRecipe, smithingTransformRecipe, brewingMixRecipe, brewingContainerRecipe, visualResource }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -579,6 +632,7 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .item: self = .item(try values.decode(ItemDefinition.self, forKey: .value))
         case .block: self = .block(try values.decode(BlockDefinition.self, forKey: .value))
         case .structure: self = .structure(try values.decode(StructureDefinition.self, forKey: .value))
+        case .mechanic: self = .mechanic(try values.decode(MechanicDefinition.self, forKey: .value))
         case .entity: self = .entity(try values.decode(EntityDefinition.self, forKey: .value))
         case .spawnRule: self = .spawnRule(try values.decode(SpawnDefinition.self, forKey: .value))
         case .entityLoot: self = .entityLoot(try values.decode(LootDefinition.self, forKey: .value))
@@ -605,6 +659,9 @@ public enum AddOnContentNode: Codable, Equatable, Sendable {
         case .structure(let structure):
             try values.encode(Kind.structure, forKey: .type)
             try values.encode(structure, forKey: .value)
+        case .mechanic(let mechanic):
+            try values.encode(Kind.mechanic, forKey: .type)
+            try values.encode(mechanic, forKey: .value)
         case .entity(let entity):
             try values.encode(Kind.entity, forKey: .type)
             try values.encode(entity, forKey: .value)
@@ -756,6 +813,10 @@ public struct AddOnProject: Codable, Equatable, Sendable, Identifiable {
     }
     public var structures: [StructureDefinition] {
         content.compactMap { if case .structure(let structure) = $0 { structure } else { nil } }
+    }
+
+    public var mechanics: [MechanicDefinition] {
+        content.compactMap { if case .mechanic(let mechanic) = $0 { mechanic } else { nil } }
     }
 
     public var entities: [EntityDefinition] {
@@ -1677,6 +1738,73 @@ extension AddOnProject {
         )
     }
 
+    /// One named ingot plus a charm item whose use triggers one typed, bounded mechanic.
+    /// The mechanic compiles to a reviewed Script API template; no model text becomes JavaScript.
+    public static func materialMechanicSet(
+        materialName: String = "Azure",
+        color: PixelArtColor = .blue,
+        sourceItem: String = "minecraft:diamond",
+        sourceCount: Int = 4,
+        condition: MechanicCondition = .none,
+        effect: MechanicEffect = .speed,
+        durationSeconds: Int = 10,
+        amplifier: Int = 1,
+        shortDescription: String? = nil,
+        originalPrompt: String,
+        identity: AddOnProjectIdentity = .generate(),
+        profile: BedrockContentProfile = .current
+    ) throws -> AddOnProject {
+        let material = materialName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !material.isEmpty else { throw AddOnProjectError.emptyDisplayName }
+        guard material.count <= 24 else { throw AddOnProjectError.displayNameTooLong }
+        guard (1...9).contains(sourceCount) else { throw AddOnProjectError.invalidIngredientCount }
+        guard MechanicAction.durationSeconds.contains(durationSeconds) else { throw AddOnProjectError.invalidMechanicDuration }
+        guard MechanicAction.amplifiers.contains(amplifier) else { throw AddOnProjectError.invalidMechanicAmplifier }
+        guard profile.materialSourceIdentifiers.contains(sourceItem) else { throw AddOnProjectError.unsupportedVanillaItem(sourceItem) }
+
+        let stem = BedrockIdentifier.make(displayName: material, suffix: identity.contentSuffix).pathComponent
+        let ingotID = ContentID("\(stem)_ingot")
+        let charmID = ContentID("\(stem)_charm")
+        let ingot = ItemDefinition(id: ingotID, displayName: "\(material) Ingot", menuCategory: .items, menuGroup: nil, traits: ItemTraits(), visualResourceID: ingotID)
+        let charm = ItemDefinition(id: charmID, displayName: "\(material) Charm", menuCategory: .items, menuGroup: nil, traits: ItemTraits(maximumStackSize: 1), visualResourceID: charmID)
+        let ingotRecipe = ShapelessRecipeDefinition(
+            id: ContentID("\(stem)_ingot_recipe"),
+            tags: ["crafting_table"],
+            ingredients: Array(repeating: .vanilla(sourceItem), count: sourceCount),
+            result: RecipeResult(item: .generated(ingotID), count: 1),
+            unlock: [.vanilla(sourceItem)]
+        )
+        let charmRecipe = ShapedRecipeDefinition(
+            id: ContentID("\(stem)_charm_recipe"),
+            tags: ["crafting_table"],
+            pattern: ["II", "II"],
+            ingredients: ["I": .generated(ingotID)],
+            result: RecipeResult(item: .generated(charmID), count: 1),
+            unlock: [.generated(ingotID)]
+        )
+        let mechanic = MechanicDefinition(
+            id: ContentID("\(stem)_mechanic"),
+            itemID: charmID,
+            condition: condition,
+            action: MechanicAction(effect: effect, durationSeconds: durationSeconds, amplifier: amplifier)
+        )
+        let visuals = [
+            VisualResource(id: ingotID, kind: .ingotPixelArt, color: color),
+            VisualResource(id: charmID, kind: .charmPixelArt, color: color)
+        ]
+        return AddOnProject(
+            id: identity.projectID,
+            namespace: identity.namespace,
+            displayName: material,
+            shortDescription: shortDescription,
+            packUUIDs: identity.packUUIDs,
+            buildVersion: VersionTriplet(major: 1, minor: 0, patch: 0),
+            targetProfileID: profile.id,
+            originalPrompt: originalPrompt,
+            content: [.item(ingot), .item(charm), .shapelessRecipe(ingotRecipe), .shapedRecipe(charmRecipe), .mechanic(mechanic)] + visuals.map(AddOnContentNode.visualResource)
+        )
+    }
+
     public static func materialStructureSet(
         materialName: String = "Azure",
         color: PixelArtColor = .blue,
@@ -1733,6 +1861,8 @@ public enum AddOnProjectError: LocalizedError, Equatable {
     case invalidBlockMapColor
     case invalidEntityHealth
     case invalidBossHealth
+    case invalidMechanicDuration
+    case invalidMechanicAmplifier
     case unsupportedProjectSchema(Int)
     case unsupportedVanillaItem(String)
 
@@ -1751,6 +1881,8 @@ public enum AddOnProjectError: LocalizedError, Equatable {
         case .invalidBlockMapColor: "Block map color must be a supported vanilla palette hex."
         case .invalidEntityHealth: "Entity health must be between 4 and 40."
         case .invalidBossHealth: "Boss health must be between 20 and 40."
+        case .invalidMechanicDuration: "Mechanic effect duration must be between 5 and 60 seconds."
+        case .invalidMechanicAmplifier: "Mechanic effect amplifier must be between 0 and 4."
         case .unsupportedProjectSchema(let version): "Project schema version \(version) is newer than this app supports."
         case .unsupportedVanillaItem(let identifier):
             "The active Bedrock profile does not support \(identifier)."

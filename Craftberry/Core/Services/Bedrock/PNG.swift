@@ -160,6 +160,7 @@ public enum PixelArtTextureRenderer {
         case .armorLayerTwo: renderArmorLayer(color: resource.color, pixelScale: pixelScale)
         case .foodPixelArt: renderFood(color: resource.color, pixelScale: pixelScale)
         case .fuelPixelArt: renderFuel(color: resource.color, pixelScale: pixelScale)
+        case .charmPixelArt: renderCharm(color: resource.color, pixelScale: pixelScale)
         case .blockPixelArt: renderBlock(color: resource.color, pixelScale: pixelScale)
         case .blockTerrain: renderBlockTerrain(color: resource.color, pixelScale: pixelScale)
         case .elixirPixelArt: renderElixir(color: resource.color, pixelScale: pixelScale)
@@ -405,6 +406,32 @@ public enum PixelArtTextureRenderer {
         fill(11, 9, 10, 14, palette.main)
         fill(12, 10, 6, 6, palette.highlight)
         fill(12, 17, 8, 3, palette.shadow)
+        return PNGEncoder.encode(width: side, height: side, pixels: pixels)
+    }
+
+    private static func renderCharm(color: PixelArtColor, pixelScale: Int) -> Data {
+        let scale = max(1, pixelScale), side = 32 * scale
+        var pixels = Array(repeating: RGBA.transparent, count: side * side)
+        let palette = SwordPalette.colors(for: color)
+        func fill(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: RGBA) {
+            for row in max(0, y * scale)..<min(side, (y + height) * scale) {
+                for column in max(0, x * scale)..<min(side, (x + width) * scale) {
+                    pixels[row * side + column] = color
+                }
+            }
+        }
+        // Hanging cord, then a diamond-shaped pendant.
+        fill(15, 3, 2, 7, .outline)
+        fill(13, 10, 6, 2, .outline)
+        fill(11, 12, 10, 4, .outline)
+        fill(9, 16, 14, 4, .outline)
+        fill(11, 20, 10, 4, .outline)
+        fill(13, 24, 6, 2, .outline)
+        fill(14, 12, 4, 2, palette.highlight)
+        fill(12, 14, 8, 4, palette.main)
+        fill(11, 18, 10, 3, palette.main)
+        fill(13, 21, 6, 3, palette.shadow)
+        fill(13, 15, 3, 2, palette.highlight)
         return PNGEncoder.encode(width: side, height: side, pixels: pixels)
     }
 

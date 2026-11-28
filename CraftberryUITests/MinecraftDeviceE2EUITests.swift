@@ -131,6 +131,14 @@ final class MinecraftDeviceE2EUITests: XCTestCase {
         #endif
     }
 
+    func testCraftberryRedstoneCharmAppliesAndExpiresScriptedEffect() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
+        #else
+        try MinecraftE2EHarness(testCase: self).runPreconfiguredWorld(.redstoneMechanicSet, gameMode: .creative)
+        #endif
+    }
+
     func testCraftberryRedstoneSwordCanBeEnchanted() throws {
         #if targetEnvironment(simulator)
         throw XCTSkip("This is a physical-device Minecraft acceptance test; it requires Minecraft installed on the dedicated iPhone.")
@@ -602,6 +610,47 @@ extension MinecraftE2EScenario {
             MinecraftStep(name: "Count the generated redstone ingot", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot 0 0")),
             MinecraftStep(name: "Confirm exactly one generated redstone ingot", action: .assertText("has 1 items that match the criteria")),
             MinecraftStep(name: "Remove the verified reward from the test inventory", action: .chatCommand("/clear @s craftberry:redstone_uitest_ingot"))
+        ]
+    )
+
+    static let redstoneMechanicSet = MinecraftE2EScenario(
+        launchArgument: "--ui-testing-redstone-mechanic-set",
+        prompt: "Generate a redstone speed charm that lasts 5 seconds",
+        projectName: "Redstone",
+        expectedCraftedItemName: "Redstone Charm",
+        behaviorPackName: "Redstone Behavior",
+        resourcePackName: "Redstone Resources",
+        craftingPlan: MinecraftCraftingPlan(
+            recipes: [
+                .init(
+                    outputName: "Redstone Charm",
+                    ingredients: [
+                        .init(searchText: "redstone ingot", resultColumn: 1, destinations: [.topLeft, .topCenter, .middleLeft, .middleCenter])
+                    ],
+                    beforePickupVerification: nil,
+                    afterPickupVerification: .text("Charm"),
+                    outputDestination: firstCraftSlot,
+                    shouldResetTableAfterPickup: false
+                )
+            ],
+            finalHotbarTap: nil
+        ),
+        // Uncalibrated on a device: the effect probe reads the vanilla /effect clear reply
+        // ("Took all effects from" / "do not have any", bedrock-samples en_US.lang) and the
+        // use tap looks at open sky so the item is used in air, not on a block.
+        postCraftingSteps: [
+            MinecraftStep(name: "Look at open sky so the charm is used in air", action: .chatCommand("/tp @s 100 80 95 0 -60")),
+            MinecraftStep(name: "Remove any effect before the charm is used", action: .chatCommand("/effect @s clear")),
+            MinecraftStep(name: "Confirm no effect is active before use", action: .assertText("do not have any")),
+            MinecraftStep(name: "Select the crafted Redstone Charm", action: .tap(x: layout.hotbarSlot(1).x, y: layout.hotbarSlot(1).y)),
+            MinecraftStep(name: "Use the charm in the air", action: .tap(x: 0.5, y: 0.5)),
+            MinecraftStep(name: "Wait for the script to apply the effect", action: .wait(seconds: 1)),
+            MinecraftStep(name: "Probe for the charm effect", action: .chatCommand("/effect @s clear")),
+            MinecraftStep(name: "Confirm the charm applied an effect", action: .assertText("Took all effects")),
+            MinecraftStep(name: "Use the charm a second time", action: .tap(x: 0.5, y: 0.5)),
+            MinecraftStep(name: "Wait past the five-second effect duration", action: .wait(seconds: 8)),
+            MinecraftStep(name: "Probe for the expired effect", action: .chatCommand("/effect @s clear")),
+            MinecraftStep(name: "Confirm the effect expired", action: .assertText("do not have any"))
         ]
     )
 

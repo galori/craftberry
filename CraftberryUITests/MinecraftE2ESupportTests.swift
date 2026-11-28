@@ -103,6 +103,32 @@ final class MinecraftE2ESupportTests: XCTestCase {
         XCTAssertLessThan(countReward, confirmReward)
     }
 
+    func testMechanicAcceptanceScenarioUsesCharmAndObservesEffectAndExpiry() throws {
+        let scenario = MinecraftE2EScenario.redstoneMechanicSet
+
+        XCTAssertEqual(scenario.launchArgument, "--ui-testing-redstone-mechanic-set")
+        XCTAssertEqual(scenario.expectedCraftedItemName, "Redstone Charm")
+        XCTAssertEqual(scenario.craftingPlan.recipes.map(\.outputName), ["Redstone Charm"])
+        let commands = scenario.postCraftingSteps.compactMap { step -> String? in
+            guard case .chatCommand(let command) = step.action else { return nil }
+            return command
+        }
+        XCTAssertEqual(commands.filter { $0 == "/effect @s clear" }.count, 3)
+        XCTAssertTrue(commands.allSatisfy { $0 == $0.lowercased() }, "Mechanic scenario chat commands must stay on the calibrated lowercase keyboard plane.")
+        let names = scenario.postCraftingSteps.map(\.name)
+        let before = try XCTUnwrap(names.firstIndex { $0.contains("no effect is active before use") })
+        let use = try XCTUnwrap(names.firstIndex { $0.contains("Use the charm in the air") })
+        let applied = try XCTUnwrap(names.firstIndex { $0.contains("applied an effect") })
+        let wait = try XCTUnwrap(names.firstIndex { $0.contains("Wait past the five-second") })
+        let expired = try XCTUnwrap(names.firstIndex { $0.contains("effect expired") })
+        XCTAssertLessThan(before, use)
+        XCTAssertLessThan(use, applied)
+        XCTAssertLessThan(applied, wait)
+        XCTAssertLessThan(wait, expired)
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .assertText("Took all effects") })
+        XCTAssertTrue(scenario.postCraftingSteps.contains { $0.action == .wait(seconds: 8) })
+    }
+
     func testEnchantTableOpenRetriesAcrossTheTableBody() {
         let steps = MinecraftE2EScenario.redstoneEnchantableSwordSet.postCraftingSteps
         // A single tap point misses the table's narrow upper body on some runs, so the
