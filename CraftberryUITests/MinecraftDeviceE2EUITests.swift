@@ -519,26 +519,31 @@ extension MinecraftE2EScenario {
     )
 
 
-    /// Places the crafted block from hotbar slot 1, then breaks it with `setblock destroy`
+    /// Places the crafted block from hotbar slot 6, then breaks it with `setblock destroy`
     /// (the engine's drop-as-if-mined path) and checks what lands in the inventory.
     /// shortcut: breaking is a command, not a held-tap, because the harness has no hold step; upgrade when one exists.
+    /// shortcut: placement is a /setblock command, not a screen tap. Run 46112708292
+    /// proved the calibrated tap (0.5075, 0.265) misses: testforblock reported Air
+    /// at 98,81,95 while the typed command was byte-correct. "Block placed" is
+    /// Bedrock's observed setblock success text; an unknown id errors instead.
+    /// Upgrade to tap placement when a calibrated crosshair-tap step exists.
     private static func placeAndMineSteps(blockID: String, dropID: String, dropLabel: String) -> [MinecraftStep] {
         [
             MinecraftStep(name: "Set daytime for block placement", action: .chatCommand("/time set day")),
             MinecraftStep(name: "Prepare a clear block test platform", action: .chatCommand("/fill 97 79 94 101 79 96 stone")),
-            MinecraftStep(name: "Place a solid target block", action: .chatCommand("/setblock 98 80 95 stone")),
-            MinecraftStep(name: "Face the target from the calibrated point", action: .chatCommand("/tp @s 100 80 95 90 45")),
+            MinecraftStep(name: "Move to the calibrated placement point", action: .chatCommand("/tp @s 100 80 95 90 45")),
             MinecraftStep(name: "Select the crafted block item", action: .tap(x: layout.hudHotbarSlot(6).x, y: layout.hudHotbarSlot(6).y)),
-            MinecraftStep(name: "Place the crafted block on the target", action: .tap(x: 0.5075, y: 0.265)),
+            MinecraftStep(name: "Place the crafted block with setblock", action: .chatCommand("/setblock 98 81 95 \(blockID)")),
+            MinecraftStep(name: "Confirm the block was placed", action: .assertText("Block placed")),
             MinecraftStep(name: "Check the crafted block was placed", action: .chatCommand("/testforblock 98 81 95 \(blockID)")),
-            MinecraftStep(name: "Confirm the placed block matched", action: .assertText("Successfully")),
+            MinecraftStep(name: "Confirm the placed block matched", action: .assertText("matched|Successfully")),
             MinecraftStep(name: "Empty the inventory of the drop before mining", action: .chatCommand("/clear @s \(dropID)")),
             MinecraftStep(name: "Enter Survival for the pickup", action: .chatCommand("/gamemode survival @s")),
             MinecraftStep(name: "Mine the block so it drops its loot", action: .chatCommand("/setblock 98 81 95 air destroy")),
             MinecraftStep(name: "Walk onto the drop to pick it up", action: .chatCommand("/tp @s 98 81 95")),
             MinecraftStep(name: "Wait for the pickup", action: .wait(seconds: 2)),
             MinecraftStep(name: "Count the \(dropLabel) now in the inventory", action: .chatCommand("/clear @s \(dropID) 0 0")),
-            MinecraftStep(name: "Confirm the \(dropLabel) was dropped and collected", action: .assertText("has 1"))
+            MinecraftStep(name: "Confirm the \(dropLabel) was dropped and collected", action: .assertText("1 items that match the criteria"))
         ]
     }
 
