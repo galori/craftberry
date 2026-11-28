@@ -39,7 +39,9 @@ export default {
 				{ status: 503, headers: { "Cache-Control": "no-store" } },
 			);
 		}
-		const apiKey = env.OPENAI_API_KEY?.trim();
+		// "UNSET" is the placeholder the first deploy uses (cf requires the secret to exist); treat it as missing.
+		const rawKey = env.OPENAI_API_KEY?.trim();
+		const apiKey = rawKey === "UNSET" ? "" : rawKey;
 		const store = storeStub(env, STORE_NAME);
 		// Only a one-way digest of the client address is stored, to rate-limit challenge requests.
 		const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
