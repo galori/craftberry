@@ -140,7 +140,7 @@ function decodeString(value: Uint8Array | undefined): string {
   const n = readNode(value, 0);
   if (![0x0c, 0x13, 0x16].includes(n.tag) || n.end !== value.length) throw bad();
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(content(value, n));
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(content(value, n));
   } catch {
     throw bad();
   }

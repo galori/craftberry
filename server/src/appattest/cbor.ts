@@ -57,7 +57,7 @@ class Reader {
         return { t: 'bytes', v: this.readBytes(len) };
       case 3:
         try {
-          return { t: 'text', v: new TextDecoder('utf-8', { fatal: true }).decode(this.readBytes(len)) };
+          return { t: 'text', v: new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(this.readBytes(len)) };
         } catch {
           throw bad();
         }
