@@ -9,11 +9,12 @@
 		"check": "cf workers types && vp check",
 		"format": "vp fmt",
 		"test": "vp test",
-		"typecheck": "cf workers types && vp check --no-fmt --no-lint"
+		"typecheck": "cf workers types && tsc --noEmit -p tsconfig.json"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^2.0.0-rc.0",
 		"@cloudflare/vitest-plugin": "^1.8.3",
+		"@types/node": "^24.19.4",
 		"cf": "^1.0.0-rc.6",
 		"typescript": "^7.0.2",
 		"vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
